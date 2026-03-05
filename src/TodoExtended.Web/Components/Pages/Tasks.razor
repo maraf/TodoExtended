@@ -23,7 +23,7 @@ else
         <div class="col-md-4">
             <h4>Task Lists</h4>
             <div class="list-group">
-                @foreach (var list in _taskLists)
+                @foreach (var list in TaskLists)
                 {
                     <button class="list-group-item list-group-item-action @(list.Id == _selectedListId ? "active" : "")"
                             @onclick="() => SelectList(list.Id)">
@@ -42,7 +42,7 @@ else
                 }
                 else
                 {
-                    <h4>@_taskLists.FirstOrDefault(l => l.Id == _selectedListId)?.DisplayName</h4>
+                    <h4>@TaskLists.FirstOrDefault(l => l.Id == _selectedListId)?.DisplayName</h4>
 
                     @if (_tasks.Count == 0)
                     {
@@ -83,7 +83,9 @@ else
 }
 
 @code {
-    private IReadOnlyList<TodoTaskList> _taskLists = [];
+    [PersistentState]
+    public IReadOnlyList<TodoTaskList>? TaskLists { get; set; }
+
     private IReadOnlyList<TodoTask> _tasks = [];
     private string? _selectedListId;
     private bool _loading = true;
@@ -92,9 +94,15 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (TaskLists is not null)
+        {
+            _loading = false;
+            return;
+        }
+
         try
         {
-            _taskLists = await TodoService.GetTaskListsAsync();
+            TaskLists = await TodoService.GetTaskListsAsync();
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {

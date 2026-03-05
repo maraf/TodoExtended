@@ -17,14 +17,14 @@ else if (_error is not null)
 {
     <div class="alert alert-danger">@_error</div>
 }
-else if (_tasks.Count == 0)
+else if (TodayTasks is not { Count: > 0 })
 {
     <p class="text-muted">No tasks due today! 🎉</p>
 }
 else
 {
     <ul class="list-group">
-        @foreach (var task in _tasks)
+        @foreach (var task in TodayTasks)
         {
             <li class="list-group-item d-flex align-items-center">
                 <input type="checkbox" checked="@task.IsCompleted" disabled class="form-check-input me-3" />
@@ -44,15 +44,23 @@ else
 }
 
 @code {
-    private IReadOnlyList<TodoTaskWithList> _tasks = [];
+    [PersistentState]
+    public IReadOnlyList<TodoTaskWithList>? TodayTasks { get; set; }
+
     private bool _loading = true;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
     {
+        if (TodayTasks is not null)
+        {
+            _loading = false;
+            return;
+        }
+
         try
         {
-            _tasks = await TodoService.GetTodayTasksAsync();
+            TodayTasks = await TodoService.GetTodayTasksAsync();
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {

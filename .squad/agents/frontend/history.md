@@ -16,3 +16,6 @@
 - Backend's `TodoTaskWithList` record carries ListId and ListName for subtitle context in task display
 - Key file paths: `Components/Pages/Today.razor`, `Components/Layout/NavMenu.razor`, `Services/ITodoService.cs`
 - Today page route: `/today`, placed above "My Tasks" in nav for prominence
+- PersistentComponentState pattern used on Tasks.razor (key: "taskLists") and Today.razor (key: "todayTasks") to avoid double-fetch during prerender→interactive transition
+- Pattern: inject PersistentComponentState, TryTakeFromJson in OnInitializedAsync, RegisterOnPersisting callback, IDisposable for subscription cleanup
+- Only persist data fetched during initial load; on-demand data (e.g. tasks for a selected list) is not persisted
