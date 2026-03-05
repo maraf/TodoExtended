@@ -10,6 +10,7 @@ How to decide who handles what.
 | Architecture decisions | Architect | Project structure, patterns, tech choices |
 | C# backend / APIs | Backend | Services, EF Core, endpoints, data access, DI |
 | Blazor UI / components | Frontend | Pages, components, forms, layouts, navigation |
+| App lifecycle (run, stop, build, restart) | Hockney | Start/stop app, hot-reload, build diagnostics |
 | Code review | Architect | Review PRs, check quality, ensure design consistency |
 | Testing | Tester | Unit tests, component tests, integration tests |
 | Scope & priorities | Architect | What to build next, trade-offs, decisions |

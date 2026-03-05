@@ -16,6 +16,7 @@
 | Backend | Backend Developer (C#, EF Core) | [charter](agents/backend/charter.md) | ✅ Active |
 | Frontend | Frontend Developer (Blazor) | [charter](agents/frontend/charter.md) | ✅ Active |
 | Tester | QA Engineer (xUnit, bUnit) | [charter](agents/tester/charter.md) | ✅ Active |
+| Hockney | Runner / DevOps | [charter](agents/hockney/charter.md) | ✅ Active |
 | Scribe | Documentation & History | [charter](agents/scribe/charter.md) | ✅ Active |
 
 ## Project Context
