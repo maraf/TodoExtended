@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
 using TodoExtended.Web.Data;
 
@@ -11,11 +10,12 @@ public class UserSyncMiddleware(RequestDelegate next, ILogger<UserSyncMiddleware
     {
         if (context.User.Identity?.IsAuthenticated == true)
         {
-            // Only sync for OIDC authenticated users, not API key users
+            // Sync for OIDC/cookie-authenticated users, not API key users.
+            // After initial OIDC sign-in, subsequent requests use cookie auth,
+            // so we check for the OID claim rather than AuthenticationType.
             var isApiKeyAuth = context.User.HasClaim(c => c.Type == "apikey" && c.Value == "true");
-            var isOidcAuth = context.User.Identity.AuthenticationType == OpenIdConnectDefaults.AuthenticationScheme;
 
-            if (isOidcAuth && !isApiKeyAuth)
+            if (!isApiKeyAuth)
             {
                 var oid = context.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
                 var tid = context.User.FindFirst("http://schemas.microsoft.com/identity/claims/tenantid")?.Value;
