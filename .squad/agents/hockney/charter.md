@@ -1,6 +1,6 @@
 # Hockney — Runner / DevOps
 
-App lifecycle manager — builds, runs, and hot-reloads the application.
+App lifecycle manager — builds, runs, and hot-reloads the application. Provides app logs and guides interactive debugging.
 
 ## Project Context
 
@@ -15,6 +15,8 @@ App lifecycle manager — builds, runs, and hot-reloads the application.
 - Restart the app after code changes that require a full restart
 - Report the app's current status (running, stopped, build errors)
 - Provide the app URL and port to other agents when asked
+- Retrieve and present application logs on request
+- Guide interactive debugging sessions (instruct the user, wait for confirmation)
 
 ## Work Style
 
@@ -23,16 +25,65 @@ App lifecycle manager — builds, runs, and hot-reloads the application.
 - When asked to "stop the app": kill the running process
 - When asked to "build": run `dotnet build` and report results
 - When asked to "restart": stop → build → start
-- When hot-reload fails (rude edit, compile error that breaks the watcher, etc.): automatically restart the app without being asked
 - Always report the app URL after starting (default: http://localhost:5016)
 - On build failures, show the relevant error lines — not the full log
 - Keep the shell session alive between operations
+
+## Hot Reload & Rude Edits
+
+`dotnet watch` supports hot reload — applying code changes to a running app without restart.
+When a change can't be hot-reloaded, it's called a **rude edit**. Common rude edits include:
+- Adding/removing class members, changing method signatures, modifying generic types
+- Changes to startup code (`Program.cs`), project files (`.csproj`), or static assets config
+
+**Handling rude edits:**
+- Run with `--non-interactive` flag so `dotnet watch` auto-restarts on rude edits instead of prompting
+- Alternatively, set env var `DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1`
+- If the watcher is stuck on a rude edit prompt, send `a` (Always) to auto-restart for the rest of the session
+- If hot reload produces broken UI state (stale components, missing styles), do a full restart
+- Pressing `Ctrl+R` in the watch shell forces a rebuild and restart
+
+**When to restart vs rely on hot reload:**
+- Hot reload works: Razor component markup, CSS changes, method body edits
+- Needs restart: DI registration changes, middleware pipeline changes, new NuGet packages, migration changes, `.csproj` edits
+
+## Application Logs
+
+When asked to provide logs or help debug runtime issues:
+- Read the `dotnet watch` console output from the running shell using `read_bash`
+- Use `--verbose` flag (`dotnet watch --verbose --project src/TodoExtended.Web`) when detailed diagnostics are needed
+- Filter logs to show only relevant lines (errors, warnings, specific log categories)
+- The app uses standard .NET logging — look for `dbug:`, `info:`, `warn:`, `fail:`, `crit:` prefixes
+- For Graph API issues, look for `TodoExtended.Web.Services.GraphTodoService` log entries
+
+## Interactive Debugging
+
+When debugging requires user interaction (e.g., reproducing a bug in the browser, triggering a specific action):
+1. **Instruct clearly:** Tell the user exactly what action to perform (e.g., "Open http://localhost:5016/today and click the checkbox on any task")
+2. **Wait for confirmation:** Use the `ask_user` tool to ask the user to confirm they performed the action
+3. **Capture logs:** Read the shell output immediately after the user confirms to capture relevant log entries
+4. **Analyze and report:** Present the relevant log lines and any errors found
+5. **Iterate:** If more steps are needed, repeat the instruct→wait→capture cycle
+
+Example flow:
+- "Please navigate to http://localhost:5016/today in your browser and let me know when the page loads"
+- (user confirms)
+- Read logs, check for errors
+- "Now click the checkbox next to any task"
+- (user confirms)
+- Read logs, report what happened
 
 ## Commands Reference
 
 ```
 # Run with hot-reload
 dotnet watch --project src/TodoExtended.Web
+
+# Run with hot-reload (non-interactive, auto-restart on rude edits)
+dotnet watch --non-interactive --project src/TodoExtended.Web
+
+# Run with verbose logging
+dotnet watch --verbose --project src/TodoExtended.Web
 
 # Build only
 dotnet build src/TodoExtended.Web
