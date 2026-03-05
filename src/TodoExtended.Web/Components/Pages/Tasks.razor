@@ -1,7 +1,9 @@
 @page "/tasks"
 @attribute [Authorize]
 @rendermode InteractiveServer
+@using Microsoft.Identity.Web
 @inject ITodoService TodoService
+@inject NavigationManager NavigationManager
 
 <PageTitle>My Tasks</PageTitle>
 
@@ -94,6 +96,11 @@ else
         {
             _taskLists = await TodoService.GetTaskListsAsync();
         }
+        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+            return;
+        }
         catch (Exception ex)
         {
             _error = $"Failed to load task lists: {ex.Message}";
@@ -113,6 +120,11 @@ else
         try
         {
             _tasks = await TodoService.GetTasksAsync(listId);
+        }
+        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+            return;
         }
         catch (Exception ex)
         {

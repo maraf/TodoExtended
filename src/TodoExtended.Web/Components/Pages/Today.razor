@@ -1,7 +1,9 @@
 @page "/today"
 @attribute [Authorize]
 @rendermode InteractiveServer
+@using Microsoft.Identity.Web
 @inject ITodoService TodoService
+@inject NavigationManager NavigationManager
 
 <PageTitle>Today</PageTitle>
 
@@ -51,6 +53,11 @@ else
         try
         {
             _tasks = await TodoService.GetTodayTasksAsync();
+        }
+        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+            return;
         }
         catch (Exception ex)
         {
