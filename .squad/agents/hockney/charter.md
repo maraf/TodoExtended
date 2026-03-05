@@ -79,12 +79,14 @@ Always try **autonomous debugging first**. Only fall back to interactive (user-a
 
 Use this **only** when autonomous approaches cannot reproduce the issue (e.g., requires specific auth state, real Graph API data, or hardware-specific behavior).
 
+**⚠️ IMPORTANT: `ask_user` does NOT work in background mode.** If you are spawned as a background agent, `ask_user` will auto-respond with "user not available" — not because the user is away, but because background agents cannot interact with users. If you need Tier 2, report your Tier 1 findings and recommend the coordinator re-spawn you in sync mode.
+
 1. **Instruct clearly:** Tell the user exactly what action to perform
 2. **Wait for confirmation:** Use `ask_user` to confirm they performed the action
 3. **Capture logs:** Read shell output immediately after confirmation
 4. **Analyze and report:** Present relevant log lines and errors found
 
-**⚠️ If the user is unavailable:** Do NOT block. Fall back to Tier 1 approaches or report findings from static analysis and recommend a fix based on code review alone.
+**If Tier 2 is needed but you're in background mode:** Do NOT call `ask_user`. Instead, report your Tier 1 findings and state: "Interactive debugging needed — re-spawn me in sync mode."
 
 ## Commands Reference
 
