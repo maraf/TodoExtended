@@ -63,6 +63,20 @@ Use `PersistentComponentState` to serialize data fetched during prerendering int
 
 Added a `/today` view showing tasks due today across all task lists. Uses `TodoTaskWithList` to display list names, placed "Today" nav link above "My Tasks" in sidebar with a sun icon (`bi-sun-fill`), and follows same auth/loading/error patterns as Tasks.razor.
 
+### Task Templates — Local Storage and Quick-Create
+
+**Author:** Architect, Backend, Frontend  
+**Date:** 2026-03-05  
+**Status:** Implemented
+
+Users can define task templates locally (SQLite + EF Core) with Title, TaskListId, TaskListName, DueDateToday flag, and SortOrder. Templates appear as quick-create buttons on Home page (ordered by SortOrder) and can be fully managed (CRUD) on a dedicated Templates page. Task creation flows through existing ITodoService.CreateTaskAsync → Graph API. No multi-user support (single-user local app assumption).
+
+**Key Components:**
+- Data: TaskTemplate entity, AppDbContext, auto-migration at startup
+- Services: ITemplateService + TemplateService (CRUD + ExecuteTemplateAsync)
+- UI: Templates.razor (full CRUD), Home.razor (quick-create buttons), NavMenu.razor (Templates link)
+- No breaking changes; database file (todoextended.db) excluded via .gitignore
+
 ## Governance
 
 - All meaningful changes require team consensus
