@@ -60,18 +60,13 @@ else
                         <ul class="list-group">
                             @foreach (var task in _tasks)
                             {
-                                var isToggling = _togglingTaskId == task.Id;
                                 <li class="list-group-item d-flex align-items-center">
-                                    @if (isToggling)
-                                    {
-                                        <span class="spinner-border spinner-border-sm me-3" role="status"></span>
-                                    }
-                                    else
-                                    {
-                                        <input type="checkbox" checked="@task.IsCompleted"
-                                               class="form-check-input me-3"
-                                               @onchange="() => ToggleTaskStatus(task)" />
-                                    }
+                                    <TaskStatusCheckbox TaskId="@task.Id"
+                                                        ListId="@(_selectedListId!)"
+                                                        IsCompleted="@task.IsCompleted"
+                                                        TaskTitle="@task.Title"
+                                                        OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                                        OnError="(msg) => _toggleError = msg" />
                                     <div class="flex-grow-1">
                                         <span class="@(task.IsCompleted ? "text-decoration-line-through text-muted" : "")">
                                             @task.Title
@@ -108,7 +103,6 @@ else
     private bool _loading = true;
     private bool _loadingTasks;
     private string? _error;
-    private string? _togglingTaskId;
     private string? _toggleError;
 
     protected override async Task OnInitializedAsync()
@@ -163,37 +157,9 @@ else
         }
     }
 
-    private async Task ToggleTaskStatus(TodoTask task)
+    private void HandleTaskStatusChanged(string taskId, bool newStatus)
     {
-        if (_togglingTaskId is not null || _selectedListId is null) return;
-
-        _togglingTaskId = task.Id;
         _toggleError = null;
-        var newStatus = !task.IsCompleted;
-
-        // Optimistically update the visual state
-        var original = _tasks;
-        _tasks = original.Select(t => t.Id == task.Id
-            ? t with { IsCompleted = newStatus }
-            : t).ToList();
-
-        try
-        {
-            await TodoService.UpdateTaskStatusAsync(_selectedListId, task.Id, newStatus);
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception)
-        {
-            _tasks = original;
-            _toggleError = $"Failed to update \"{task.Title}\". Please try again.";
-        }
-        finally
-        {
-            _togglingTaskId = null;
-        }
+        _tasks = _tasks.Select(t => t.Id == taskId ? t with { IsCompleted = newStatus } : t).ToList();
     }
 }

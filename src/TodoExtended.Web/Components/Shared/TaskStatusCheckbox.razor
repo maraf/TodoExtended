@@ -1,0 +1,57 @@
+@using Microsoft.Identity.Web
+
+@if (_isToggling)
+{
+    <span class="spinner-border spinner-border-sm me-3" role="status"></span>
+}
+else
+{
+    <input type="checkbox" checked="@IsCompleted"
+           class="form-check-input me-3"
+           @onchange="Toggle" />
+}
+
+@code {
+    [Parameter, EditorRequired] public string TaskId { get; set; } = default!;
+    [Parameter, EditorRequired] public string ListId { get; set; } = default!;
+    [Parameter, EditorRequired] public bool IsCompleted { get; set; }
+    [Parameter, EditorRequired] public string TaskTitle { get; set; } = default!;
+    [Parameter] public EventCallback<bool> OnStatusChanged { get; set; }
+    [Parameter] public EventCallback<string> OnError { get; set; }
+
+    [Inject] private ITodoService TodoService { get; set; } = default!;
+    [Inject] private NavigationManager NavigationManager { get; set; } = default!;
+
+    private bool _isToggling;
+
+    private async Task Toggle()
+    {
+        if (_isToggling) return;
+
+        _isToggling = true;
+        var newStatus = !IsCompleted;
+
+        // Notify parent for optimistic update
+        await OnStatusChanged.InvokeAsync(newStatus);
+
+        try
+        {
+            await TodoService.UpdateTaskStatusAsync(ListId, TaskId, newStatus);
+        }
+        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+            return;
+        }
+        catch (Exception)
+        {
+            // Rollback: notify parent with original status
+            await OnStatusChanged.InvokeAsync(!newStatus);
+            await OnError.InvokeAsync($"Failed to update \"{TaskTitle}\". Please try again.");
+        }
+        finally
+        {
+            _isToggling = false;
+        }
+    }
+}

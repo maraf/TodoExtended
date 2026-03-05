@@ -34,18 +34,13 @@ else
     <ul class="list-group">
         @foreach (var task in TodayTasks)
         {
-            var isToggling = _togglingTaskId == task.Id;
             <li class="list-group-item d-flex align-items-center">
-                @if (isToggling)
-                {
-                    <span class="spinner-border spinner-border-sm me-3" role="status"></span>
-                }
-                else
-                {
-                    <input type="checkbox" checked="@task.IsCompleted"
-                           class="form-check-input me-3"
-                           @onchange="() => ToggleTaskStatus(task)" />
-                }
+                <TaskStatusCheckbox TaskId="@task.Id"
+                                    ListId="@task.ListId"
+                                    IsCompleted="@task.IsCompleted"
+                                    TaskTitle="@task.Title"
+                                    OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                    OnError="(msg) => _toggleError = msg" />
                 <div class="flex-grow-1">
                     <span class="@(task.IsCompleted ? "text-decoration-line-through text-muted" : "")">
                         @task.Title
@@ -67,7 +62,6 @@ else
 
     private bool _loading = true;
     private string? _error;
-    private string? _togglingTaskId;
     private string? _toggleError;
 
     protected override async Task OnInitializedAsync()
@@ -100,48 +94,10 @@ else
         }
     }
 
-    private async Task ToggleTaskStatus(TodoTaskWithList task)
+    private void HandleTaskStatusChanged(string taskId, bool newStatus)
     {
-        if (_togglingTaskId is not null)
-        {
-            Logger.LogDebug("ToggleTaskStatus: Already toggling {TogglingTaskId}, ignoring click for {TaskId}", _togglingTaskId, task.Id);
-            return;
-        }
-
-        _togglingTaskId = task.Id;
         _toggleError = null;
-        var newStatus = !task.IsCompleted;
-
-        Logger.LogDebug("ToggleTaskStatus: TaskId={TaskId}, Title='{Title}', ListId={ListId}, CurrentStatus={Current}, NewStatus={New}",
-            task.Id, task.Title, task.ListId, task.IsCompleted, newStatus);
-
-        // Optimistically update the visual state
-        var original = TodayTasks!;
-        TodayTasks = original.Select(t => t.Id == task.Id
-            ? t with { IsCompleted = newStatus }
-            : t).ToList();
-
-        try
-        {
-            Logger.LogDebug("ToggleTaskStatus: Calling UpdateTaskStatusAsync for TaskId={TaskId}", task.Id);
-            await TodoService.UpdateTaskStatusAsync(task.ListId, task.Id, newStatus);
-            Logger.LogDebug("ToggleTaskStatus: Successfully updated TaskId={TaskId} to completed={NewStatus}", task.Id, newStatus);
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            Logger.LogWarning("ToggleTaskStatus: Auth challenge for TaskId={TaskId}, redirecting to sign-in", task.Id);
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "ToggleTaskStatus: Failed to update TaskId={TaskId}, Title='{Title}', reverting optimistic update", task.Id, task.Title);
-            TodayTasks = original;
-            _toggleError = $"Failed to update \"{task.Title}\". Please try again.";
-        }
-        finally
-        {
-            _togglingTaskId = null;
-        }
+        Logger.LogDebug("HandleTaskStatusChanged: TaskId={TaskId}, NewStatus={NewStatus}", taskId, newStatus);
+        TodayTasks = TodayTasks!.Select(t => t.Id == taskId ? t with { IsCompleted = newStatus } : t).ToList();
     }
 }

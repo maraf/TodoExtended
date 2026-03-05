@@ -26,3 +26,7 @@
 - Nav icon SVG data URIs must be URL-encoded; lightning-fill icon added as `.bi-lightning-fill-nav-menu` in NavMenu.razor.css
 - Task completion toggle pattern: optimistic UI update with rollback on error, `_togglingTaskId` prevents double-clicks, spinner replaces checkbox during API call, dismissible `_toggleError` alert for failures
 - Since DTOs are records (immutable), toggling requires rebuilding the list via LINQ `.Select(t => t with { IsCompleted = newStatus })` and reassigning
+- Shared `TaskStatusCheckbox` component (`Components/Shared/TaskStatusCheckbox.razor`) encapsulates checkbox/spinner toggle UI, API call, auth redirect, and error handling
+- Component uses double-invoke pattern on `OnStatusChanged`: first call for optimistic update, second call (with original status) for rollback on error
+- `OnError` EventCallback<string> communicates error messages back to parent pages for page-level alert display
+- Razor attribute expressions with null-forgiving operator need parentheses: `@(_selectedListId!)` not `@_selectedListId!`
