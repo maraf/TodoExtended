@@ -1,0 +1,64 @@
+@page "/today"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject ITodoService TodoService
+
+<PageTitle>Today</PageTitle>
+
+<h1>Today</h1>
+
+@if (_loading)
+{
+    <p><em>Loading today's tasks...</em></p>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else if (_tasks.Count == 0)
+{
+    <p class="text-muted">No tasks due today! 🎉</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var task in _tasks)
+        {
+            <li class="list-group-item d-flex align-items-center">
+                <input type="checkbox" checked="@task.IsCompleted" disabled class="form-check-input me-3" />
+                <div class="flex-grow-1">
+                    <span class="@(task.IsCompleted ? "text-decoration-line-through text-muted" : "")">
+                        @task.Title
+                    </span>
+                    <small class="text-muted ms-2">@task.ListName</small>
+                    @if (task.Importance == "High")
+                    {
+                        <span class="badge bg-danger ms-2">!</span>
+                    }
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private IReadOnlyList<TodoTaskWithList> _tasks = [];
+    private bool _loading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _tasks = await TodoService.GetTodayTasksAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load today's tasks: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}
