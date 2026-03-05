@@ -1,0 +1,126 @@
+@page "/tasks"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject ITodoService TodoService
+
+<PageTitle>My Tasks</PageTitle>
+
+<h1>My Tasks</h1>
+
+@if (_loading)
+{
+    <p><em>Loading task lists...</em></p>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else
+{
+    <div class="row">
+        <div class="col-md-4">
+            <h4>Task Lists</h4>
+            <div class="list-group">
+                @foreach (var list in _taskLists)
+                {
+                    <button class="list-group-item list-group-item-action @(list.Id == _selectedListId ? "active" : "")"
+                            @onclick="() => SelectList(list.Id)">
+                        @list.DisplayName
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            @if (_selectedListId is not null)
+            {
+                @if (_loadingTasks)
+                {
+                    <p><em>Loading tasks...</em></p>
+                }
+                else
+                {
+                    <h4>@_taskLists.FirstOrDefault(l => l.Id == _selectedListId)?.DisplayName</h4>
+
+                    @if (_tasks.Count == 0)
+                    {
+                        <p class="text-muted">No tasks in this list.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-group">
+                            @foreach (var task in _tasks)
+                            {
+                                <li class="list-group-item d-flex align-items-center">
+                                    <input type="checkbox" checked="@task.IsCompleted" disabled class="form-check-input me-3" />
+                                    <div class="flex-grow-1">
+                                        <span class="@(task.IsCompleted ? "text-decoration-line-through text-muted" : "")">
+                                            @task.Title
+                                        </span>
+                                        @if (task.DueDateTime is not null)
+                                        {
+                                            <small class="text-muted ms-2">Due: @task.DueDateTime.Value.ToString("MMM d, yyyy")</small>
+                                        }
+                                        @if (task.Importance == "High")
+                                        {
+                                            <span class="badge bg-danger ms-2">!</span>
+                                        }
+                                    </div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                }
+            }
+            else
+            {
+                <p class="text-muted">Select a task list to view tasks.</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<TodoTaskList> _taskLists = [];
+    private IReadOnlyList<TodoTask> _tasks = [];
+    private string? _selectedListId;
+    private bool _loading = true;
+    private bool _loadingTasks;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _taskLists = await TodoService.GetTaskListsAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load task lists: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SelectList(string listId)
+    {
+        _selectedListId = listId;
+        _loadingTasks = true;
+        _tasks = [];
+
+        try
+        {
+            _tasks = await TodoService.GetTasksAsync(listId);
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load tasks: {ex.Message}";
+        }
+        finally
+        {
+            _loadingTasks = false;
+        }
+    }
+}

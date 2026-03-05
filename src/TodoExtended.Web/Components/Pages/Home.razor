@@ -1,0 +1,16 @@
+﻿@page "/"
+
+<PageTitle>TodoExtended</PageTitle>
+
+<h1>TodoExtended</h1>
+
+<p>An alternative view for Microsoft To Do with extended features.</p>
+
+<AuthorizeView>
+    <Authorized>
+        <p>Welcome, <strong>@context.User.Identity?.Name</strong>! Head to <a href="tasks">My Tasks</a> to see your to-do lists.</p>
+    </Authorized>
+    <NotAuthorized>
+        <p><a href="MicrosoftIdentity/Account/SignIn">Sign in with your Microsoft account</a> to get started.</p>
+    </NotAuthorized>
+</AuthorizeView>
