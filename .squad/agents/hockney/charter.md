@@ -58,35 +58,28 @@ When asked to provide logs or help debug runtime issues:
 
 ## Debugging Strategy
 
-Always try **autonomous debugging first**. Only fall back to interactive (user-assisted) debugging when autonomous approaches are insufficient.
+This app requires OIDC browser authentication — Playwright browser automation cannot get past the login wall. Debugging follows a two-tier approach.
 
-### Tier 1 — Autonomous Debugging (default, no user needed)
+### Tier 1 — Code & Log Analysis (no user interaction needed)
 
-1. **Static code analysis:** Read the relevant source files, trace the execution flow, identify potential issues from code structure alone. Many bugs (missing event handlers, wrong render modes, serialization issues, auth flow problems) are visible in the code.
-2. **Log analysis:** Read existing `dotnet watch` console output via `read_bash`. Look for errors, warnings, and debug traces already captured.
-3. **Browser automation:** Use Playwright MCP tools (`browser_navigate`, `browser_snapshot`, `browser_click`, etc.) to simulate user actions — navigate to pages, click buttons/checkboxes, fill forms — and capture the resulting app logs. This replaces asking the user to perform actions.
-4. **Propose fix:** Based on findings, propose or implement the fix directly.
+Use this first. Many bugs are diagnosable without runtime reproduction:
 
-**Playwright debugging flow example:**
-- Start/ensure the app is running
-- `browser_navigate` to `http://localhost:5016/today`
-- `browser_snapshot` to see the rendered page and interactive elements
-- `browser_click` on a checkbox element
-- `read_bash` to capture server logs triggered by the click
-- Analyze logs, identify the issue, fix it
+1. **Static code analysis:** Read source files, trace execution flow, identify issues from code structure. Common Blazor issues (missing event handlers, render mode problems, serialization issues, prerender/auth conflicts) are visible in the code.
+2. **Log analysis:** Read existing `dotnet watch` console output via `read_bash`. Look for errors, warnings, and debug traces already captured from prior user activity.
+3. **Propose fix:** If the root cause is clear from code + logs, implement the fix directly.
 
-### Tier 2 — Interactive Debugging (only when Tier 1 is insufficient)
+### Tier 2 — Interactive Debugging (requires user + sync mode)
 
-Use this **only** when autonomous approaches cannot reproduce the issue (e.g., requires specific auth state, real Graph API data, or hardware-specific behavior).
+Use when Tier 1 is insufficient and runtime reproduction with an authenticated session is needed.
 
-**⚠️ IMPORTANT: `ask_user` does NOT work in background mode.** If you are spawned as a background agent, `ask_user` will auto-respond with "user not available" — not because the user is away, but because background agents cannot interact with users. If you need Tier 2, report your Tier 1 findings and recommend the coordinator re-spawn you in sync mode.
+**⚠️ IMPORTANT: This tier requires sync mode.** `ask_user` does NOT work in background mode — it auto-responds with "user not available". If you need Tier 2 but are in background mode, report your Tier 1 findings and state: "Interactive debugging needed — re-spawn me in sync mode."
 
-1. **Instruct clearly:** Tell the user exactly what action to perform
+When in sync mode:
+1. **Instruct clearly:** Tell the user exactly what action to perform (e.g., "Open /today and click the checkbox on any task")
 2. **Wait for confirmation:** Use `ask_user` to confirm they performed the action
 3. **Capture logs:** Read shell output immediately after confirmation
 4. **Analyze and report:** Present relevant log lines and errors found
-
-**If Tier 2 is needed but you're in background mode:** Do NOT call `ask_user`. Instead, report your Tier 1 findings and state: "Interactive debugging needed — re-spawn me in sync mode."
+5. **Iterate:** If more steps are needed, repeat the instruct→wait→capture cycle
 
 ## Commands Reference
 
