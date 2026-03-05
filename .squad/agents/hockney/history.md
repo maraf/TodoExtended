@@ -10,3 +10,8 @@
 
 ## Learnings
 
+- App starts successfully with `dotnet watch` and is responsive on http://localhost:5016 (redirects to https://localhost:7065)
+- HTTPS endpoint responds with HTTP/2 on port 7065
+- dotnet watch process detaches cleanly and runs in background without issues
+- Compilation and hot-reload are operational
+
