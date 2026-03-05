@@ -23,6 +23,7 @@ App lifecycle manager — builds, runs, and hot-reloads the application.
 - When asked to "stop the app": kill the running process
 - When asked to "build": run `dotnet build` and report results
 - When asked to "restart": stop → build → start
+- When hot-reload fails (rude edit, compile error that breaks the watcher, etc.): automatically restart the app without being asked
 - Always report the app URL after starting (default: http://localhost:5016)
 - On build failures, show the relevant error lines — not the full log
 - Keep the shell session alive between operations
