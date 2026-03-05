@@ -24,7 +24,9 @@ builder.Services.AddControllersWithViews()
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<ITodoService, GraphTodoService>();
+builder.Services.Configure<TodoCacheOptions>(builder.Configuration.GetSection("TodoCache"));
+builder.Services.AddScoped<GraphTodoService>();
+builder.Services.AddScoped<ITodoService, CachedTodoService>();
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 
 builder.Services.AddRazorComponents()
