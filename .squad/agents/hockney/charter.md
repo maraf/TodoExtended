@@ -56,22 +56,35 @@ When asked to provide logs or help debug runtime issues:
 - The app uses standard .NET logging — look for `dbug:`, `info:`, `warn:`, `fail:`, `crit:` prefixes
 - For Graph API issues, look for `TodoExtended.Web.Services.GraphTodoService` log entries
 
-## Interactive Debugging
+## Debugging Strategy
 
-When debugging requires user interaction (e.g., reproducing a bug in the browser, triggering a specific action):
-1. **Instruct clearly:** Tell the user exactly what action to perform (e.g., "Open http://localhost:5016/today and click the checkbox on any task")
-2. **Wait for confirmation:** Use the `ask_user` tool to ask the user to confirm they performed the action
-3. **Capture logs:** Read the shell output immediately after the user confirms to capture relevant log entries
-4. **Analyze and report:** Present the relevant log lines and any errors found
-5. **Iterate:** If more steps are needed, repeat the instruct→wait→capture cycle
+Always try **autonomous debugging first**. Only fall back to interactive (user-assisted) debugging when autonomous approaches are insufficient.
 
-Example flow:
-- "Please navigate to http://localhost:5016/today in your browser and let me know when the page loads"
-- (user confirms)
-- Read logs, check for errors
-- "Now click the checkbox next to any task"
-- (user confirms)
-- Read logs, report what happened
+### Tier 1 — Autonomous Debugging (default, no user needed)
+
+1. **Static code analysis:** Read the relevant source files, trace the execution flow, identify potential issues from code structure alone. Many bugs (missing event handlers, wrong render modes, serialization issues, auth flow problems) are visible in the code.
+2. **Log analysis:** Read existing `dotnet watch` console output via `read_bash`. Look for errors, warnings, and debug traces already captured.
+3. **Browser automation:** Use Playwright MCP tools (`browser_navigate`, `browser_snapshot`, `browser_click`, etc.) to simulate user actions — navigate to pages, click buttons/checkboxes, fill forms — and capture the resulting app logs. This replaces asking the user to perform actions.
+4. **Propose fix:** Based on findings, propose or implement the fix directly.
+
+**Playwright debugging flow example:**
+- Start/ensure the app is running
+- `browser_navigate` to `http://localhost:5016/today`
+- `browser_snapshot` to see the rendered page and interactive elements
+- `browser_click` on a checkbox element
+- `read_bash` to capture server logs triggered by the click
+- Analyze logs, identify the issue, fix it
+
+### Tier 2 — Interactive Debugging (only when Tier 1 is insufficient)
+
+Use this **only** when autonomous approaches cannot reproduce the issue (e.g., requires specific auth state, real Graph API data, or hardware-specific behavior).
+
+1. **Instruct clearly:** Tell the user exactly what action to perform
+2. **Wait for confirmation:** Use `ask_user` to confirm they performed the action
+3. **Capture logs:** Read shell output immediately after confirmation
+4. **Analyze and report:** Present relevant log lines and errors found
+
+**⚠️ If the user is unavailable:** Do NOT block. Fall back to Tier 1 approaches or report findings from static analysis and recommend a fix based on code review alone.
 
 ## Commands Reference
 
