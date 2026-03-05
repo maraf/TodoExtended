@@ -7,7 +7,7 @@ public record TodoTask(
     string Title,
     string? Body,
     bool IsCompleted,
-    DateTimeOffset? DueDateTime,
+    DateOnly? DueDate,
     string? Importance);
 
 public record TodoTaskWithList(
@@ -15,7 +15,7 @@ public record TodoTaskWithList(
     string Title,
     string? Body,
     bool IsCompleted,
-    DateTimeOffset? DueDateTime,
+    DateOnly? DueDate,
     string? Importance,
     string ListId,
     string ListName);

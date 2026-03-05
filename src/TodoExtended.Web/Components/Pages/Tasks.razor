@@ -59,9 +59,9 @@ else
                                         <span class="@(task.IsCompleted ? "text-decoration-line-through text-muted" : "")">
                                             @task.Title
                                         </span>
-                                        @if (task.DueDateTime is not null)
+                                        @if (task.DueDate is not null)
                                         {
-                                            <small class="text-muted ms-2">Due: @task.DueDateTime.Value.ToString("MMM d, yyyy")</small>
+                                            <small class="text-muted ms-2">Due: @task.DueDate.Value.ToString("MMM d, yyyy")</small>
                                         }
                                         @if (task.Importance == "High")
                                         {

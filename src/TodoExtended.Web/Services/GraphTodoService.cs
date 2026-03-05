@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Graph;
 
 namespace TodoExtended.Web.Services;
@@ -25,9 +26,7 @@ public class GraphTodoService(GraphServiceClient graphClient) : ITodoService
                 t.Title ?? "Untitled",
                 t.Body?.Content,
                 t.Status == Microsoft.Graph.Models.TaskStatus.Completed,
-                t.DueDateTime?.DateTime is not null
-                    ? DateTimeOffset.Parse(t.DueDateTime.DateTime)
-                    : null,
+                ParseDueDate(t.DueDateTime),
                 t.Importance?.ToString()))
             .ToList();
     }
@@ -35,7 +34,7 @@ public class GraphTodoService(GraphServiceClient graphClient) : ITodoService
     public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync()
     {
         var lists = await GetTaskListsAsync();
-        var today = DateTime.Today;
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var tomorrow = today.AddDays(1);
         var filter = $"dueDateTime/dateTime ge '{today:yyyy-MM-dd}T00:00:00' and dueDateTime/dateTime lt '{tomorrow:yyyy-MM-dd}T00:00:00'";
         var result = new List<TodoTaskWithList>();
@@ -50,16 +49,12 @@ public class GraphTodoService(GraphServiceClient graphClient) : ITodoService
 
             foreach (var t in response.Value)
             {
-                var due = t.DueDateTime?.DateTime is not null
-                    ? DateTimeOffset.Parse(t.DueDateTime.DateTime)
-                    : (DateTimeOffset?)null;
-
                 result.Add(new TodoTaskWithList(
                     t.Id!,
                     t.Title ?? "Untitled",
                     t.Body?.Content,
                     t.Status == Microsoft.Graph.Models.TaskStatus.Completed,
-                    due,
+                    ParseDueDate(t.DueDateTime),
                     t.Importance?.ToString(),
                     list.Id,
                     list.DisplayName));
@@ -67,5 +62,18 @@ public class GraphTodoService(GraphServiceClient graphClient) : ITodoService
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Extracts a date-only value from Graph's dateTimeTimeZone.
+    /// Due dates in To Do are date-only concepts; the time/timezone are discarded
+    /// to prevent timezone-induced date shifts.
+    /// </summary>
+    private static DateOnly? ParseDueDate(Microsoft.Graph.Models.DateTimeTimeZone? dueDateTime)
+    {
+        if (dueDateTime?.DateTime is null) return null;
+
+        return DateOnly.FromDateTime(
+            DateTime.Parse(dueDateTime.DateTime, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind));
     }
 }
