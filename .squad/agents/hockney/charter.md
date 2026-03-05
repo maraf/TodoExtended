@@ -25,7 +25,7 @@ App lifecycle manager — builds, runs, and hot-reloads the application. Provide
 - When asked to "stop the app": kill the running process
 - When asked to "build": run `dotnet build` and report results
 - When asked to "restart": stop → build → start
-- Always report the app URL after starting (default: http://localhost:5016)
+- Always report the app URL after starting (default: https://localhost:7065)
 - On build failures, show the relevant error lines — not the full log
 - Keep the shell session alive between operations
 
@@ -97,7 +97,7 @@ dotnet watch --verbose --project src/TodoExtended.Web
 dotnet build src/TodoExtended.Web
 
 # The app typically runs at
-http://localhost:5016
+https://localhost:7065
 ```
 
 ## Model
