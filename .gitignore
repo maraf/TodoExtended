@@ -426,6 +426,11 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+# SQLite database files
+*.db
+*.db-shm
+*.db-wal
+
 # Squad: ignore generated logs
 .squad/orchestration-log/
 .squad/log/

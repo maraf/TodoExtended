@@ -78,6 +78,34 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
         return result;
     }
 
+    public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate)
+    {
+        var newTask = new Microsoft.Graph.Models.TodoTask
+        {
+            Title = title,
+        };
+
+        if (dueDate is { } due)
+        {
+            newTask.DueDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = due.ToDateTime(TimeOnly.MinValue).ToString("yyyy-MM-ddTHH:mm:ss"),
+                TimeZone = "UTC",
+            };
+        }
+
+        var created = await graphClient.Me.Todo.Lists[taskListId].Tasks.PostAsync(newTask)
+            ?? throw new InvalidOperationException("Graph API returned null when creating task.");
+
+        return new TodoTask(
+            created.Id!,
+            created.Title ?? title,
+            created.Body?.Content,
+            created.Status == Microsoft.Graph.Models.TaskStatus.Completed,
+            ParseDueDate(created.DueDateTime),
+            created.Importance?.ToString());
+    }
+
     /// <summary>
     /// Converts Graph's dateTimeTimeZone to a local DateOnly.
     /// Microsoft To Do stores due dates as midnight-local-time converted to UTC

@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
 using TodoExtended.Web.Components;
+using TodoExtended.Web.Data;
 using TodoExtended.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,12 +20,24 @@ builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddControllersWithViews()
     .AddMicrosoftIdentityUI();
 
+// EF Core + SQLite
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 builder.Services.AddScoped<ITodoService, GraphTodoService>();
+builder.Services.AddScoped<ITemplateService, TemplateService>();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 var app = builder.Build();
+
+// Auto-migrate database at startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

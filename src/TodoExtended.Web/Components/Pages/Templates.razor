@@ -1,0 +1,289 @@
+@page "/templates"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using Microsoft.Identity.Web
+@using TodoExtended.Web.Data
+@inject ITemplateService TemplateService
+@inject ITodoService TodoService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Templates</PageTitle>
+
+<h1>Templates</h1>
+
+@if (_loading)
+{
+    <p><em>Loading templates...</em></p>
+}
+else if (_error is not null)
+{
+    <div class="alert alert-danger">@_error</div>
+}
+else
+{
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">@(_editingTemplateId is not null ? "Edit Template" : "Add Template")</h5>
+
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Title</label>
+                    <input type="text" class="form-control" @bind="_formTitle" placeholder="Task title" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Task List</label>
+                    <select class="form-select" @bind="_formTaskListId">
+                        <option value="">-- Select a list --</option>
+                        @if (_taskLists is not null)
+                        {
+                            @foreach (var list in _taskLists)
+                            {
+                                <option value="@list.Id">@list.DisplayName</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Sort Order</label>
+                    <input type="number" class="form-control" @bind="_formSortOrder" />
+                </div>
+                <div class="col-md-2 d-flex align-items-center">
+                    <div class="form-check mt-4">
+                        <input type="checkbox" class="form-check-input" id="dueDateToday" @bind="_formDueDateToday" />
+                        <label class="form-check-label" for="dueDateToday">Due Today</label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-success me-2" @onclick="SaveTemplate" disabled="@_saving">
+                        @if (_saving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                        }
+                        @(_editingTemplateId is not null ? "Update" : "Add")
+                    </button>
+                    @if (_editingTemplateId is not null)
+                    {
+                        <button class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+                    }
+                </div>
+            </div>
+
+            @if (_formError is not null)
+            {
+                <div class="alert alert-danger mt-3">@_formError</div>
+            }
+        </div>
+    </div>
+
+    @if (_templates is { Count: > 0 })
+    {
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Task List</th>
+                    <th>Due Today</th>
+                    <th>Sort Order</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var template in _templates)
+                {
+                    <tr>
+                        <td>@template.Title</td>
+                        <td>@template.TaskListName</td>
+                        <td>@(template.DueDateToday ? "Yes" : "No")</td>
+                        <td>@template.SortOrder</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => StartEdit(template)">Edit</button>
+                            @if (_deleteConfirmId == template.Id)
+                            {
+                                <button class="btn btn-sm btn-danger me-1" @onclick="() => ConfirmDelete(template.Id)">Confirm</button>
+                                <button class="btn btn-sm btn-secondary" @onclick="() => _deleteConfirmId = null">Cancel</button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => _deleteConfirmId = template.Id">Delete</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <p class="text-muted">No templates yet. Create one above!</p>
+    }
+}
+
+@code {
+    private IReadOnlyList<TaskTemplate>? _templates;
+    private IReadOnlyList<TodoTaskList>? _taskLists;
+    private bool _loading = true;
+    private bool _saving;
+    private string? _error;
+    private string? _formError;
+    private int? _deleteConfirmId;
+
+    // Form fields
+    private string _formTitle = "";
+    private string _formTaskListId = "";
+    private bool _formDueDateToday;
+    private int _formSortOrder;
+    private int? _editingTemplateId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var templatesTask = TemplateService.GetAllAsync();
+            var taskListsTask = TodoService.GetTaskListsAsync();
+            await Task.WhenAll(templatesTask, taskListsTask);
+
+            _templates = templatesTask.Result.OrderBy(t => t.SortOrder).ThenBy(t => t.Title).ToList();
+            _taskLists = taskListsTask.Result;
+        }
+        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+            return;
+        }
+        catch (Exception ex)
+        {
+            _error = $"Failed to load data: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveTemplate()
+    {
+        _formError = null;
+
+        if (string.IsNullOrWhiteSpace(_formTitle))
+        {
+            _formError = "Title is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_formTaskListId))
+        {
+            _formError = "Please select a task list.";
+            return;
+        }
+
+        var selectedList = _taskLists?.FirstOrDefault(l => l.Id == _formTaskListId);
+        if (selectedList is null)
+        {
+            _formError = "Invalid task list selection.";
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            if (_editingTemplateId is not null)
+            {
+                var existing = await TemplateService.GetByIdAsync(_editingTemplateId.Value);
+                if (existing is not null)
+                {
+                    existing.Title = _formTitle.Trim();
+                    existing.TaskListId = selectedList.Id;
+                    existing.TaskListName = selectedList.DisplayName;
+                    existing.DueDateToday = _formDueDateToday;
+                    existing.SortOrder = _formSortOrder;
+                    await TemplateService.UpdateAsync(existing);
+                }
+            }
+            else
+            {
+                var template = new TaskTemplate
+                {
+                    Title = _formTitle.Trim(),
+                    TaskListId = selectedList.Id,
+                    TaskListName = selectedList.DisplayName,
+                    DueDateToday = _formDueDateToday,
+                    SortOrder = _formSortOrder
+                };
+                await TemplateService.CreateAsync(template);
+            }
+
+            await RefreshTemplates();
+            ResetForm();
+        }
+        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+            return;
+        }
+        catch (Exception ex)
+        {
+            _formError = $"Failed to save template: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void StartEdit(TaskTemplate template)
+    {
+        _editingTemplateId = template.Id;
+        _formTitle = template.Title;
+        _formTaskListId = template.TaskListId;
+        _formDueDateToday = template.DueDateToday;
+        _formSortOrder = template.SortOrder;
+        _formError = null;
+        _deleteConfirmId = null;
+    }
+
+    private void CancelEdit()
+    {
+        ResetForm();
+    }
+
+    private async Task ConfirmDelete(int templateId)
+    {
+        try
+        {
+            await TemplateService.DeleteAsync(templateId);
+            await RefreshTemplates();
+            _deleteConfirmId = null;
+
+            if (_editingTemplateId == templateId)
+            {
+                ResetForm();
+            }
+        }
+        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+            return;
+        }
+        catch (Exception ex)
+        {
+            _formError = $"Failed to delete template: {ex.Message}";
+        }
+    }
+
+    private async Task RefreshTemplates()
+    {
+        var all = await TemplateService.GetAllAsync();
+        _templates = all.OrderBy(t => t.SortOrder).ThenBy(t => t.Title).ToList();
+    }
+
+    private void ResetForm()
+    {
+        _editingTemplateId = null;
+        _formTitle = "";
+        _formTaskListId = "";
+        _formDueDateToday = false;
+        _formSortOrder = 0;
+        _formError = null;
+    }
+}

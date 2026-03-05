@@ -23,3 +23,9 @@
 - `GetTodayTasksAsync` refactored from client-side to server-side filtering, reducing payload from all tasks to only today's tasks per list.
 - Debug logging added to `GraphTodoService` via `ILogger<GraphTodoService>` (primary constructor injection). Logs raw `dueDateTime.DateTime`, `timeZone`, and parsed `DateOnly` in `ParseDueDate`; logs Graph filter string and per-task raw dueDateTime in `GetTodayTasksAsync`; logs per-task raw dueDateTime in `GetTasksAsync`. All at `LogDebug` level to aid due-date troubleshooting without noise in production.
 - Task sorting implemented to match official Microsoft To Do app: incomplete first → by importance (high→normal→low) → alphabetical title fallback. Applied consistently to both `GetTodayTasksAsync` and `GetTasksAsync`. Graph API importance values are "High", "Normal", "Low" (from `Importance` enum `.ToString()`); `ImportanceSortOrder` helper uses case-insensitive matching. Sorting is done in-memory after mapping to DTOs.
+- EF Core 9.0.7 + SQLite added for local persistence. `AppDbContext` in `TodoExtended.Web.Data` with primary constructor. Auto-migrates at startup in `Program.cs`.
+- `TaskTemplate` entity stores title, Graph task list ID/name, DueDateToday flag, and SortOrder. No user ID — single-user local app.
+- `CreateTaskAsync` added to `ITodoService`/`GraphTodoService` — POSTs a `TodoTask` to Graph with optional `DueDateTime` (UTC midnight of the given date).
+- `ITemplateService`/`TemplateService` provides CRUD + `ExecuteTemplateAsync` which loads a template, computes due date, and delegates to `ITodoService.CreateTaskAsync`.
+- `dotnet-ef` global tool needed for migrations — not installed by default on fresh machines.
+- EF Core packages: `Microsoft.EntityFrameworkCore.Sqlite` (runtime) + `Microsoft.EntityFrameworkCore.Design` (design-time, PrivateAssets=all).
