@@ -108,6 +108,8 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
 
     public async Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed)
     {
+        logger.LogDebug("UpdateTaskStatusAsync: taskListId={TaskListId}, taskId={TaskId}, completed={Completed}", taskListId, taskId, completed);
+
         var patch = new Microsoft.Graph.Models.TodoTask
         {
             Status = completed
@@ -115,7 +117,9 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
                 : Microsoft.Graph.Models.TaskStatus.NotStarted,
         };
 
+        logger.LogDebug("UpdateTaskStatusAsync: Sending PatchAsync for taskId={TaskId}, status={Status}", taskId, patch.Status);
         await graphClient.Me.Todo.Lists[taskListId].Tasks[taskId].PatchAsync(patch);
+        logger.LogDebug("UpdateTaskStatusAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
     }
 
     /// <summary>

@@ -3,6 +3,7 @@
 @using Microsoft.Identity.Web
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
+@inject ILogger<Today> Logger
 
 <PageTitle>Today</PageTitle>
 
@@ -73,13 +74,16 @@ else
     {
         if (TodayTasks is not null)
         {
+            Logger.LogDebug("OnInitializedAsync: TodayTasks restored from persistent state, count={Count}", TodayTasks.Count);
             _loading = false;
             return;
         }
 
         try
         {
+            Logger.LogDebug("OnInitializedAsync: TodayTasks not in persistent state, fetching fresh");
             TodayTasks = await TodoService.GetTodayTasksAsync();
+            Logger.LogDebug("OnInitializedAsync: Fetched {Count} tasks", TodayTasks?.Count ?? 0);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -98,11 +102,18 @@ else
 
     private async Task ToggleTaskStatus(TodoTaskWithList task)
     {
-        if (_togglingTaskId is not null) return;
+        if (_togglingTaskId is not null)
+        {
+            Logger.LogDebug("ToggleTaskStatus: Already toggling {TogglingTaskId}, ignoring click for {TaskId}", _togglingTaskId, task.Id);
+            return;
+        }
 
         _togglingTaskId = task.Id;
         _toggleError = null;
         var newStatus = !task.IsCompleted;
+
+        Logger.LogDebug("ToggleTaskStatus: TaskId={TaskId}, Title='{Title}', ListId={ListId}, CurrentStatus={Current}, NewStatus={New}",
+            task.Id, task.Title, task.ListId, task.IsCompleted, newStatus);
 
         // Optimistically update the visual state
         var original = TodayTasks!;
@@ -112,15 +123,19 @@ else
 
         try
         {
+            Logger.LogDebug("ToggleTaskStatus: Calling UpdateTaskStatusAsync for TaskId={TaskId}", task.Id);
             await TodoService.UpdateTaskStatusAsync(task.ListId, task.Id, newStatus);
+            Logger.LogDebug("ToggleTaskStatus: Successfully updated TaskId={TaskId} to completed={NewStatus}", task.Id, newStatus);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
+            Logger.LogWarning("ToggleTaskStatus: Auth challenge for TaskId={TaskId}, redirecting to sign-in", task.Id);
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
             return;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Logger.LogError(ex, "ToggleTaskStatus: Failed to update TaskId={TaskId}, Title='{Title}', reverting optimistic update", task.Id, task.Title);
             TodayTasks = original;
             _toggleError = $"Failed to update \"{task.Title}\". Please try again.";
         }
