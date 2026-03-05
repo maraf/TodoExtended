@@ -426,3 +426,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+# Squad: ignore generated logs
+.squad/orchestration-log/
+.squad/log/
