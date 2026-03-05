@@ -24,3 +24,5 @@
 - Templates.razor CRUD page uses inline form fields (not EditForm) with manual validation, matching the project's lightweight approach
 - Delete confirmation pattern: track `_deleteConfirmId` to swap the Delete button with Confirm/Cancel pair inline
 - Nav icon SVG data URIs must be URL-encoded; lightning-fill icon added as `.bi-lightning-fill-nav-menu` in NavMenu.razor.css
+- Task completion toggle pattern: optimistic UI update with rollback on error, `_togglingTaskId` prevents double-clicks, spinner replaces checkbox during API call, dismissible `_toggleError` alert for failures
+- Since DTOs are records (immutable), toggling requires rebuilding the list via LINQ `.Select(t => t with { IsCompleted = newStatus })` and reassigning

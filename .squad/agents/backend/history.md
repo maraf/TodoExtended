@@ -29,3 +29,4 @@
 - `ITemplateService`/`TemplateService` provides CRUD + `ExecuteTemplateAsync` which loads a template, computes due date, and delegates to `ITodoService.CreateTaskAsync`.
 - `dotnet-ef` global tool needed for migrations — not installed by default on fresh machines.
 - EF Core packages: `Microsoft.EntityFrameworkCore.Sqlite` (runtime) + `Microsoft.EntityFrameworkCore.Design` (design-time, PrivateAssets=all).
+- `UpdateTaskStatusAsync(taskListId, taskId, completed)` added to `ITodoService`/`GraphTodoService`. Uses `PatchAsync` on `Me.Todo.Lists[].Tasks[]` with `Microsoft.Graph.Models.TaskStatus.Completed` or `NotStarted`. Simple fire-and-forget patch — no return value needed since the UI can optimistically toggle state.

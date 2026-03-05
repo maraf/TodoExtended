@@ -106,6 +106,18 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
             created.Importance?.ToString());
     }
 
+    public async Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed)
+    {
+        var patch = new Microsoft.Graph.Models.TodoTask
+        {
+            Status = completed
+                ? Microsoft.Graph.Models.TaskStatus.Completed
+                : Microsoft.Graph.Models.TaskStatus.NotStarted,
+        };
+
+        await graphClient.Me.Todo.Lists[taskListId].Tasks[taskId].PatchAsync(patch);
+    }
+
     /// <summary>
     /// Converts Graph's dateTimeTimeZone to a local DateOnly.
     /// Microsoft To Do stores due dates as midnight-local-time converted to UTC

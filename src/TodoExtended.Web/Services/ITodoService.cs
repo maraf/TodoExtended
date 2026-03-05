@@ -26,4 +26,5 @@ public interface ITodoService
     Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId);
     Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync();
     Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate);
+    Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed);
 }
