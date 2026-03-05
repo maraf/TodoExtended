@@ -45,7 +45,7 @@ When a change can't be hot-reloaded, it's called a **rude edit**. Common rude ed
 
 **When to restart vs rely on hot reload:**
 - Hot reload works: Razor component markup, CSS changes, method body edits
-- Needs restart: DI registration changes, middleware pipeline changes, new NuGet packages, migration changes, `.csproj` edits
+- Needs restart: **Configuration files (appsettings.json, appsettings.*.json)**, DI registration changes, middleware pipeline changes, new NuGet packages, migration changes, `.csproj` edits
 
 ## Application Logs
 
