@@ -2,32 +2,89 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
+using TodoExtended.Web.Authentication;
 using TodoExtended.Web.Components;
 using TodoExtended.Web.Data;
+using TodoExtended.Web.Middleware;
 using TodoExtended.Web.Services;
 
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Register IDistributedCache backed by SQLite (must be registered before authentication)
+builder.Services.AddSingleton<Microsoft.Extensions.Caching.Distributed.IDistributedCache, SqliteDistributedCache>();
 
 // Authentication with Microsoft Entra ID
 builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"))
     .EnableTokenAcquisitionToCallDownstreamApi(["Tasks.ReadWrite", "User.Read"])
     .AddMicrosoftGraph(builder.Configuration.GetSection("Graph"))
-    .AddInMemoryTokenCaches();
+    .AddDistributedTokenCaches();
 
-builder.Services.AddAuthorization();
+// Add API Key authentication
+builder.Services.AddAuthentication()
+    .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+        ApiKeyAuthenticationOptions.DefaultScheme, 
+        options => { });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.DefaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .AddAuthenticationSchemes(
+            OpenIdConnectDefaults.AuthenticationScheme,
+            ApiKeyAuthenticationOptions.DefaultScheme)
+        .Build();
+});
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddControllersWithViews()
     .AddMicrosoftIdentityUI();
 
 // EF Core + SQLite
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+
+// Scoped DbContext for regular use
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlite(connectionString));
+
+// Singleton DbContext factory for singleton services (like SqliteDistributedCache)
+builder.Services.AddSingleton<IDbContextFactory<AppDbContext>>(provider => 
+    new SimpleDbContextFactory(connectionString));
 
 builder.Services.Configure<TodoCacheOptions>(builder.Configuration.GetSection("TodoCache"));
 builder.Services.AddScoped<GraphTodoService>();
 builder.Services.AddScoped<ITodoService, CachedTodoService>();
 builder.Services.AddScoped<ITemplateService, TemplateService>();
+builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
+builder.Services.AddSingleton<ApiKeyGraphClientFactory>();
+builder.Services.AddHttpContextAccessor();
+
+// Override GraphServiceClient to handle both OIDC and API key authentication
+builder.Services.AddScoped<Microsoft.Graph.GraphServiceClient>(sp =>
+{
+    var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
+    var context = httpContextAccessor.HttpContext;
+    var isApiKey = context?.User.HasClaim("apikey", "true") == true;
+
+    if (isApiKey && context != null)
+    {
+        // API key flow: use factory to create client with MSAL cache lookup
+        var userId = context.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")!.Value;
+        var factory = sp.GetRequiredService<ApiKeyGraphClientFactory>();
+        return factory.CreateForUser(userId);
+    }
+
+    // OIDC flow: delegate to the default GraphServiceClient registered by AddMicrosoftGraph
+    // We need to manually create it since we're overriding the registration
+    var tokenAcquisition = sp.GetRequiredService<Microsoft.Identity.Web.ITokenAcquisition>();
+    var graphScopes = sp.GetRequiredService<IConfiguration>().GetSection("Graph:Scopes").Get<string[]>()!;
+    
+    // Use the TokenAcquisition-based auth provider
+    var authProvider = new Microsoft.Kiota.Abstractions.Authentication.BaseBearerTokenAuthenticationProvider(
+        new OidcTokenProvider(tokenAcquisition, graphScopes));
+    
+    return new Microsoft.Graph.GraphServiceClient(authProvider);
+});
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -51,6 +108,7 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseAuthentication();
+app.UseMiddleware<UserSyncMiddleware>();
 app.UseAuthorization();
 app.UseAntiforgery();
 
@@ -58,5 +116,35 @@ app.MapStaticAssets();
 app.MapControllers();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// API Endpoints
+var api = app.MapGroup("/api").RequireAuthorization();
+
+// Template endpoints
+api.MapGet("/templates", async (ITemplateService templateService) =>
+{
+    var templates = await templateService.GetAllAsync();
+    return Results.Ok(templates);
+});
+
+api.MapPost("/templates/{id}/execute", async (int id, ITemplateService templateService) =>
+{
+    try
+    {
+        var task = await templateService.ExecuteTemplateAsync(id);
+        return Results.Ok(task);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.NotFound(new { error = ex.Message });
+    }
+});
+
+// Today's tasks endpoint
+api.MapGet("/today", async (ITodoService todoService) =>
+{
+    var tasks = await todoService.GetTodayTasksAsync();
+    return Results.Ok(tasks);
+});
 
 app.Run();

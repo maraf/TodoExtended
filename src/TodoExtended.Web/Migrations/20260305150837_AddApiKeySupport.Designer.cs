@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using TodoExtended.Web.Data;
 
@@ -10,9 +11,11 @@ using TodoExtended.Web.Data;
 namespace TodoExtended.Web.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260305150837_AddApiKeySupport")]
+    partial class AddApiKeySupport
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.7");
@@ -53,7 +56,7 @@ namespace TodoExtended.Web.Migrations
 
                     b.HasIndex("UserId", "IsRevoked");
 
-                    b.ToTable("ApiKeys", (string)null);
+                    b.ToTable("ApiKeys");
                 });
 
             modelBuilder.Entity("TodoExtended.Web.Data.CachedTask", b =>
@@ -105,7 +108,7 @@ namespace TodoExtended.Web.Migrations
 
                     b.HasIndex("ListId", "IsDeleted");
 
-                    b.ToTable("CachedTasks", (string)null);
+                    b.ToTable("CachedTasks");
                 });
 
             modelBuilder.Entity("TodoExtended.Web.Data.CachedTaskList", b =>
@@ -136,35 +139,7 @@ namespace TodoExtended.Web.Migrations
 
                     b.HasIndex("LastSyncUtc");
 
-                    b.ToTable("CachedTaskLists", (string)null);
-                });
-
-            modelBuilder.Entity("TodoExtended.Web.Data.DistributedCacheEntry", b =>
-                {
-                    b.Property<string>("Key")
-                        .HasMaxLength(512)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset?>("AbsoluteExpiration")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTimeOffset?>("LastAccessed")
-                        .HasColumnType("TEXT");
-
-                    b.Property<double?>("SlidingExpirationInSeconds")
-                        .HasColumnType("REAL");
-
-                    b.Property<byte[]>("Value")
-                        .IsRequired()
-                        .HasColumnType("BLOB");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("AbsoluteExpiration");
-
-                    b.HasIndex("LastAccessed");
-
-                    b.ToTable("DistributedCacheEntries", (string)null);
+                    b.ToTable("CachedTaskLists");
                 });
 
             modelBuilder.Entity("TodoExtended.Web.Data.SyncMetadata", b =>
@@ -183,7 +158,7 @@ namespace TodoExtended.Web.Migrations
 
                     b.HasKey("Key");
 
-                    b.ToTable("SyncMetadata", (string)null);
+                    b.ToTable("SyncMetadata");
                 });
 
             modelBuilder.Entity("TodoExtended.Web.Data.TaskTemplate", b =>
@@ -215,7 +190,7 @@ namespace TodoExtended.Web.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TaskTemplates", (string)null);
+                    b.ToTable("TaskTemplates");
                 });
 
             modelBuilder.Entity("TodoExtended.Web.Data.User", b =>
@@ -237,10 +212,6 @@ namespace TodoExtended.Web.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("HomeAccountId")
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
                     b.Property<DateTime>("LastSeenUtc")
                         .HasColumnType("TEXT");
 
@@ -248,7 +219,7 @@ namespace TodoExtended.Web.Migrations
 
                     b.HasIndex("Email");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("TodoExtended.Web.Data.UserToken", b =>
@@ -266,7 +237,7 @@ namespace TodoExtended.Web.Migrations
 
                     b.HasKey("UserId");
 
-                    b.ToTable("UserTokens", (string)null);
+                    b.ToTable("UserTokens");
                 });
 
             modelBuilder.Entity("TodoExtended.Web.Data.ApiKey", b =>

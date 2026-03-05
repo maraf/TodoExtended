@@ -8,6 +8,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<CachedTaskList> CachedTaskLists => Set<CachedTaskList>();
     public DbSet<CachedTask> CachedTasks => Set<CachedTask>();
     public DbSet<SyncMetadata> SyncMetadata => Set<SyncMetadata>();
+    public DbSet<User> Users => Set<User>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<UserToken> UserTokens => Set<UserToken>();
+    public DbSet<DistributedCacheEntry> DistributedCacheEntries => Set<DistributedCacheEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -51,6 +55,51 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasKey(e => e.Key);
             entity.Property(e => e.Key).HasMaxLength(256);
             entity.Property(e => e.Value).HasMaxLength(4096);
+        });
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasMaxLength(256);
+            entity.Property(e => e.Email).HasMaxLength(256);
+            entity.Property(e => e.DisplayName).HasMaxLength(256);
+            entity.Property(e => e.HomeAccountId).HasMaxLength(256);
+            entity.HasIndex(e => e.Email);
+        });
+
+        modelBuilder.Entity<ApiKey>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).HasMaxLength(256);
+            entity.Property(e => e.Name).HasMaxLength(256);
+            entity.Property(e => e.KeyHash).HasMaxLength(64);
+            
+            entity.HasIndex(e => e.KeyHash);
+            entity.HasIndex(e => new { e.UserId, e.IsRevoked });
+            
+            entity.HasOne(e => e.User)
+                .WithMany(e => e.ApiKeys)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserToken>(entity =>
+        {
+            entity.HasKey(e => e.UserId);
+            entity.Property(e => e.UserId).HasMaxLength(256);
+            
+            entity.HasOne(e => e.User)
+                .WithOne(e => e.Token)
+                .HasForeignKey<UserToken>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DistributedCacheEntry>(entity =>
+        {
+            entity.HasKey(e => e.Key);
+            entity.Property(e => e.Key).HasMaxLength(512);
+            entity.HasIndex(e => e.AbsoluteExpiration);
+            entity.HasIndex(e => e.LastAccessed);
         });
     }
 }
