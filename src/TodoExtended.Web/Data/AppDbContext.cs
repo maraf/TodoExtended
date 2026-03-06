@@ -18,6 +18,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<TaskTemplate>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasConversion<string>();
             entity.Property(e => e.Title).HasMaxLength(256);
             entity.Property(e => e.TaskListId).HasMaxLength(256);
             entity.Property(e => e.TaskListName).HasMaxLength(256);
