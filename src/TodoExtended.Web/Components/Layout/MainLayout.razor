@@ -1,4 +1,6 @@
 ﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@inject TodoExtended.Web.Services.IUserPreferenceService UserPreferenceService
 
 <MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
 <MudPopoverProvider />
@@ -34,8 +36,12 @@
 </MudLayout>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     private bool _drawerOpen = true;
     private bool _isDarkMode = false;
+    private string? _userId;
 
     private MudTheme _theme = new MudTheme
     {
@@ -65,6 +71,27 @@
         }
     };
 
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthState is not null)
+        {
+            var authState = await AuthState;
+            _userId = authState.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
+            if (_userId is not null)
+            {
+                _isDarkMode = await UserPreferenceService.GetIsDarkModeAsync(_userId);
+            }
+        }
+    }
+
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
-    private void ToggleDarkMode() => _isDarkMode = !_isDarkMode;
+
+    private async Task ToggleDarkMode()
+    {
+        _isDarkMode = !_isDarkMode;
+        if (_userId is not null)
+        {
+            await UserPreferenceService.SetIsDarkModeAsync(_userId, _isDarkMode);
+        }
+    }
 }

@@ -57,6 +57,7 @@ builder.Services.AddScoped<GraphTodoService>();
 builder.Services.AddScoped<ITodoService, CachedTodoService>();
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
+builder.Services.AddScoped<IUserPreferenceService, UserPreferenceService>();
 builder.Services.AddSingleton<ApiKeyGraphClientFactory>();
 builder.Services.AddHttpContextAccessor();
 
