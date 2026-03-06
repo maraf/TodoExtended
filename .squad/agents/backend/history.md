@@ -45,3 +45,52 @@
 - Microsoft.Identity.Web distributed cache integration: `AddDistributedTokenCaches()` automatically uses registered `IDistributedCache` for MSAL persistence. Cache entries are binary-serialized MSAL cache data with sliding expiration (90 days). MSAL's `UserTokenCache.SetBeforeAccessAsync` / `SetAfterAccessAsync` hooks load/save from distributed cache using `DeserializeMsalV3` / `SerializeMsalV3`.
 - MSAL token acquisition for API keys: Build `ConfidentialClientApplication` manually, attach distributed cache via event hooks, get cached account by `HomeAccountId`, call `AcquireTokenSilent` with Graph scopes. On `MsalUiRequiredException`, fail gracefully with clear error message directing user to sign in again via OIDC.
 - `UserSyncMiddleware` enhancements: Now captures `tid` claim from OIDC, computes `homeAccountId` as `{oid}.{tid}`, and stores it in User entity during sign-in. This enables cache key lookup for API key flows.
+- **Task List Archiving:** Added `IsArchived` bool to `CachedTaskList` entity. `GetTaskListsAsync` / `IsCacheStaleAsync` / `DeltaSyncAsync` all filter out archived lists. New `SetTaskListArchivedAsync` and `GetArchivedTaskListsAsync` methods on `ITodoService`. `TodoTaskList` record now carries `IsArchived` (default false for backward compat). `GraphTodoService` stubs throw `NotSupportedException` / return empty.
+- **Parallel List Sync:** `SyncTasksForListAsync` now accepts an `AppDbContext` parameter. Both `InitialSyncAsync` and `DeltaSyncAsync` call `SyncTasksForListsInParallelAsync` which uses `Task.WhenAll` + `SemaphoreSlim` throttle (configurable via `MaxParallelListSync` in `TodoCacheOptions`, default 4). Each parallel task creates its own `AppDbContext` via `IDbContextFactory<AppDbContext>` to avoid thread-safety issues.
+- **SQLite WAL Mode:** Set programmatically at startup in `Program.cs` after migration via `PRAGMA journal_mode=WAL;`. This allows concurrent readers/writers needed for parallel sync. Connection string left unchanged.
+- Key files modified: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoService.cs`, `GraphTodoService.cs`, `TodoCacheOptions.cs`, `Program.cs`.
+- Migration: ` adds `IsArchived` column + index to `CachedTaskLists`.AddTaskListArchiveAndParallelSync` 
+
+## 2026-03-06: Sync Performance Improvements
+
+**Session:** Sync Performance Integration (2026-03-06T0901Z)
+
+### Completed Tasks
+
+1. **Task List Archiving**
+   - Added `IsArchived` bool property to `CachedTaskList` entity
+   - Updated `GetTaskListsAsync()`, `IsCacheStaleAsync()`, `DeltaSyncAsync()` to filter out archived lists
+   - Implemented `SetTaskListArchivedAsync(listId, isArchived)` and `GetArchivedTaskListsAsync()` on `ITodoService`
+   - Updated `TodoTaskList` DTO to carry `IsArchived` (backward compatible, defaults to false)
+   - Migration: `AddTaskListArchiveAndParallelSync` creates column and index
+
+2. **Parallel List Sync**
+   - Refactored `SyncTasksForListAsync()` to accept `AppDbContext` parameter
+   - Created `SyncTasksForListsInParallelAsync()` using `Task.WhenAll` + `SemaphoreSlim` throttle
+   - Both `InitialSyncAsync()` and `DeltaSyncAsync()` now use parallel sync
+   - Max parallelism configurable via `TodoCacheOptions.MaxParallelListSync` (default 4)
+   - Each parallel task creates its own `AppDbContext` via `IDbContextFactory<AppDbContext>`
+
+3. **SQLite WAL Mode**
+   - Set programmatically at startup in `Program.cs` after migrations
+   - Executed via `PRAGMA journal_mode=WAL;` on the connection
+   - Enables concurrent readers with serialized writers for safe parallel sync
+
+### Cross-Team Coordination
+
+**Frontend:** Implemented archive/unarchive UI with collapsible archived section and lazy-load on the Tasks.razor page. Bootstrap Icons CDN added to App.razor.
+
+### Technical Details
+
+- `SimpleDbContextFactory` created to provide `DbContext` instances to singleton services without scope conflicts
+- Parallel sync leverages `IDbContextFactory<AppDbContext>` singleton pattern for thread-safe concurrent access
+- WAL mode is essential for SQLite with concurrent writes from parallel sync tasks
+- Backward compatibility maintained: new archived lists default to false in delta sync
+
+### Files Modified
+
+Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoService.cs`, `GraphTodoService.cs`, `TodoCacheOptions.cs`, `Program.cs`
+
+### Build Status
+
+ Project builds clean. Migration created successfully.

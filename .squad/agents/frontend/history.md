@@ -30,3 +30,56 @@
 - Component uses double-invoke pattern on `OnStatusChanged`: first call for optimistic update, second call (with original status) for rollback on error
 - `OnError` EventCallback<string> communicates error messages back to parent pages for page-level alert display
 - Razor attribute expressions with null-forgiving operator need parentheses: `@(_selectedListId!)` not `@_selectedListId!`
+- Archive/unarchive pattern: track `_archivingListId` to show spinner on the specific list being processed, guard with `if (_archivingListId is not null) return` to prevent double-clicks
+- Collapsible section pattern: `_showArchived` bool toggles visibility, `_archivedListsLoaded` bool ensures API is only called on first expand (lazy load)
+- When modifying `IReadOnlyList` properties (like `TaskLists`), create new lists via LINQ `.Where().ToList()` or collection expressions `[.. existing, newItem]`
+- Bootstrap Icons CSS added via CDN in App.razor (`bootstrap-icons@1.11.3`), enabling `<i class="bi bi-archive">` icon usage throughout the app
+- Use `@onclick:stopPropagation="true"` on nested buttons inside clickable list items to prevent parent click handler from firing
+
+## 2026-03-06: Sync Performance Improvements
+
+**Session:** Sync Performance Integration (2026-03-06T0901Z)
+
+### Completed Tasks
+
+1. **Archive/Unarchive UI**
+   - Added archive/unarchive buttons to each list item in sidebar
+   - Uses `_archivingListId` state tracking to prevent double-clicks
+   - Shows spinner on button during API call
+   - Calls `SetTaskListArchivedAsync()` on backend
+   - On success: list moves between active and archived sections
+   - On error: dismissible alert displays error message
+
+2. **Collapsible Archived Section**
+   - New "Archived" section in sidebar below active lists
+   - Lazy-loads archived lists on first expand via `GetArchivedTaskListsAsync()`
+   - Uses `_showArchived` bool for toggle state
+   - Uses `_archivedListsLoaded` bool to prevent redundant API calls
+   - Chevron icon animates on collapse/expand
+   - Visually distinct styling (muted text/icons)
+
+3. **Bootstrap Icons Integration**
+   - Added `bootstrap-icons@1.11.3` CSS from jsDelivr CDN to `App.razor`
+   - Enables icon classes: `bi-archive`, `bi-arrow-counterclockwise`, `bi-chevron-up`, `bi-chevron-down`
+   - Icons rendered via `<i class="bi bi-*"></i>` inline elements
+
+### Cross-Team Coordination
+
+**Backend:** Implemented `IsArchived` flag on `CachedTaskList` entity with filters in sync methods. Parallel `SyncTasksForListsInParallelAsync()` using `Task.WhenAll` + `SemaphoreSlim`. SQLite WAL mode enabled at startup.
+
+### Technical Details
+
+- Optimistic list manipulation: after API success, lists are moved locally (no full reload)
+- Selection clearing: when archiving the currently selected list, selection and tasks are cleared
+- Component state: `_archivedLists` list tracks archived items separately from `TaskLists`
+- Error handling: 401 redirects to OIDC sign-in via `NavigationManager.NavigateTo()`
+- Lazy-load pattern prevents unnecessary API calls on page load
+
+### Files Modified
+
+Pages: `Components/Pages/Tasks.razor`  
+Layout: `Components/App.razor`
+
+### Build Status
+
+ Project builds clean. UI renders correctly with Bootstrap Icons.

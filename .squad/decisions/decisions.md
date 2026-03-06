@@ -800,3 +800,156 @@ Extracted the duplicated task-completion toggle pattern from Tasks.razor and Tod
 **Parameters:** `TaskId`, `ListId`, `IsCompleted`, `TaskTitle` (all `[EditorRequired]`), `OnStatusChanged` (`EventCallback<bool>`), `OnError` (`EventCallback<string>`).
 
 Each component instance manages its own `_isToggling` state independently, which is safe because Blazor Server processes events sequentially within a circuit.
+
+---
+
+## API Key Authentication & Token Storage Design
+
+**Author:** Architect  
+**Date:** 2026-03-06  
+**Status:** Implemented (V1 + V2)
+
+### Overview
+
+Added API key authentication to TodoExtended, enabling users to create named API keys that authenticate API requests without browser sign-in. Each key is tied to a user and their stored MS Graph tokens, allowing API-authenticated requests to call Graph on behalf of the user.
+
+### Requirements
+
+1. **API Keys per  Users can create/manage named API keys stored in SQLiteUser** 
+2. **Token  Capture and persist OIDC/Graph access + refresh tokens per userPersistence** 
+3. **API  Three endpoints authenticated via API key:Endpoints** 
+   - `GET /api/ list user's templatestemplates` 
+   - `POST /api/templates/{id}/ create task from templateexecute` 
+   - `GET /api/ get today's task listtoday` 
+4. ** Hash API keys; encrypt tokens at rest; leverage existing MSAL infrastructureSecurity** 
+
+### Data Model
+
+#### Entities
+
+**ApiKey**: Stores user API keys with one-way hash for secure comparison.
+- Id (int, PK)
+- UserId (string, FK to User)
+- Name (string, user-friendly)
+- KeyHash (string, SHA256 hash)
+- CreatedUtc, LastUsedUtc (DateTime)
+- IsRevoked (bool)
+
+**User**: Represents an authenticated user; stores their Entra ID object identifier.
+- Id (string, Entra ID OID, PK)
+- Email (string, 256 chars, indexed)
+- DisplayName (string)
+- HomeAccountId (string, nullable, `{oid}.{tid}` format for MSAL cache lookup)
+- CreatedUtc, LastSeenUtc (DateTime)
+
+**UserToken**: Stores encrypted MSAL token cache data per user.
+- UserId (string, FK to User, 1:1)
+- EncryptedCacheData (string, BLOB)
+- UpdatedUtc (DateTime)
+
+**DistributedCacheEntry**: Implements `IDistributedCache` backed by SQLite.
+- Key (string, 512 chars, PK)
+- Value (byte[], BLOB)
+- AbsoluteExpiration (DateTime?)
+- SlidingExpirationInSeconds (int?)
+- LastAccessed (DateTime)
+
+### V1 Implementation
+
+- **Dual authentication schemes**: Both OIDC and API key schemes registered, authorization policy accepts either
+- **In-memory token caching**: Kept `AddInMemoryTokenCaches()` for simplicity
+- **Session dependency**: API key requests work only while user's OIDC session is active on server (tokens in MSAL in-memory cache)
+- **Key format**: `tek_` prefix + 43 chars base64url (32 random bytes)
+- **Storage**: SHA256 hash (lowercase hex) stored in database, plain key returned only once at creation
+- **User sync**: Middleware auto-creates User records on OIDC sign-in, extracts OID/email/displayName from claims
+- **REST API**: Minimal APIs at `/api` endpoints (templates, today's tasks, key management) secured with `RequireAuthorization()`
+
+### V2 Enhancement: Persistent MSAL Token Cache
+
+Replaced `AddInMemoryTokenCaches()` with `AddDistributedTokenCaches()` backed by SQLite. This enables API key requests to call MS Graph after server restart.
+
+**Core Components:**
+
+1. ** Implements `IDistributedCache` backed by `DistributedCacheEntry` table. Uses `IDbContextFactory<AppDbContext>` to avoid singleton/scoped conflicts.SqliteDistributedCache** 
+
+2. ** Custom `IDbContextFactory<AppDbContext>` implementation. Manually constructs `DbContextOptions` per call. Registered as singleton to serve singleton services.SimpleDbContextFactory** 
+
+3. ** Creates `GraphServiceClient` for API key-authenticated users. Loads user's `HomeAccountId` from database. Builds `ConfidentialClientApplication` with Azure AD config. Attaches distributed cache via MSAL event hooks. Calls `AcquireTokenSilent` with cached account. Handles `MsalUiRequiredException` with clear error message.ApiKeyGraphClientFactory** 
+
+4. **User Entity  Added `HomeAccountId` property. Stores MSAL cache key in `{oid}.{tid}` format. Captured during OIDC sign-in via `UserSyncMiddleware`.Enhancement** 
+
+5. **UserSyncMiddleware  Extracts `tid` claim from OIDC tokens. Computes `homeAccountId = $"{oid}.{tid}"`. Stores in User entity for cache key lookup.Enhancement** 
+
+6. **GraphServiceClient Registration  Factory checks if request is API key authenticated. If API key: uses `ApiKeyGraphClientFactory.CreateForUser(userId)`. If OIDC: uses `OidcTokenProvider` wrapped in `BaseBearerTokenAuthenticationProvider`.Override** 
+
+### Migrations
+
+- ** Creates User, ApiKey, UserToken tablesAddApiKeySupport** 
+- ** Creates DistributedCacheEntry table, adds HomeAccountId column to UsersAddPersistentTokenCache** 
+
+### Consequences
+
+**V1 Positive:**
+- Simple implementation, low complexity
+- Works well for single-server deployment
+- Clear security model (hash-based validation)
+- Proper separation of concerns (handler, middleware, service)
+
+**V1 Negative:**
+- API keys stop working after server restart
+- Not suitable for true "headless" scenarios
+
+**V2 Positive:**
+- API keys work across server restarts
+- Enables fully headless API usage
+- Maintains backward compatibility with OIDC
+
+---
+
+## Sync Performance: Archive + Parallel Sync
+
+**Date:** 2026-03-06  
+**Author:** Backend  
+**Status:** Implemented
+
+### Task List Archiving
+
+Users can mark task lists as archived via `SetTaskListArchivedAsync`. Archived lists are excluded from:
+- Sync operations (`DeltaSyncAsync`, `InitialSyncAsync`)
+- Staleness checks (`IsCacheStaleAsync`)
+- Default list queries (`GetTaskListsAsync`)
+
+The `TodoTaskList` record now includes `IsArchived` (default `false`) for backward compatibility. Newly discovered lists during delta sync default to non-archived.
+
+### Parallel List Sync
+
+`SyncTasksForListAsync` now runs concurrently across lists using `Task.WhenAll` with `SemaphoreSlim` throttle. Each parallel task gets its own `AppDbContext` via `IDbContextFactory<AppDbContext>` (already registered as singleton). Max parallelism is configurable via `TodoCacheOptions.MaxParallelListSync` (default 4).
+
+### SQLite WAL Mode
+
+Set programmatically at startup (`PRAGMA journal_mode=WAL;`) after migration. WAL mode enables concurrent readers with serialized writers, which is essential for parallel sync against SQLite. Connection string unchanged.
+
+---
+
+## Archive/Unarchive UI for Task Lists
+
+**Author:** Frontend  
+**Date:** 2026-03-06  
+**Status:** Implemented
+
+### Decision
+
+Added archive/unarchive UI to the Tasks page sidebar with these design choices:
+
+1. **Lazy-load archived  The collapsible "Archived" section only fetches `GetArchivedTaskListsAsync()` on first expand, avoiding unnecessary API calls on page load.lists** 
+
+2. **Local list  After archive/unarchive API calls, lists are moved between `TaskLists` and `_archivedLists` locally (no full reload), keeping the UI responsive.manipulation** 
+
+3. **Bootstrap Icons via  Added `bootstrap-icons@1.11.3` CSS from jsDelivr CDN to `App.razor` to support icon usage (`bi-archive`, `bi-arrow-counterclockwise`, `bi-chevron-up/down`). This replaces the need for inline SVG data URIs for new icons.CDN** 
+
+4. **Selection clearing on  When archiving the currently selected list, the selection and tasks are cleared to avoid stale UI state.archive** 
+
+### Key Files
+
+- `Components/Pages/Tasks. Archive/unarchive UI and logicrazor` 
+- `Components/App. Bootstrap Icons CDN linkrazor` 
