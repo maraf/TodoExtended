@@ -83,3 +83,27 @@ Layout: `Components/App.razor`
 ### Build Status
 
  Project builds clean. UI renders correctly with Bootstrap Icons.
+
+## 2025-07-22: Flowbite Blazor UI Redesign
+
+**Session:** Full UI migration from Bootstrap to Flowbite Blazor + Tailwind CSS
+
+### Completed Tasks
+
+1. **MainLayout.razor** — Replaced Bootstrap layout with Tailwind `flex min-h-screen`. Sticky sidebar + sticky header bar with auth links.
+2. **NavMenu.razor** — Flowbite `<Sidebar>`, `<SidebarLogo>`, `<SidebarItem>` with icons (HomeIcon, CalendarMonthIcon, ListIcon, StarIcon, LockIcon).
+3. **Home.razor** — Flowbite `<Heading>`, `<Paragraph>`, `<Alert>`, `<Button>` (with `Loading` prop), `<Spinner>`.
+4. **Today.razor** — Card-styled div with divide-y items. `<Badge>` for importance, `<Spinner>` for loading.
+5. **Tasks.razor** — Tailwind `grid grid-cols-1 md:grid-cols-3` two-panel layout. Archive/restore text buttons. Collapsible archived section.
+6. **Templates.razor** — Flowbite `<Card>`, `<Table>` family, `<Button>`, `<Badge>`, `<Alert>`. Native inputs with Tailwind styling.
+7. **ApiKeys.razor** — Same pattern as Templates with warning alert for new key display.
+8. **TaskStatusCheckbox.razor** — Flowbite `<Spinner>` + Tailwind-styled native checkbox.
+
+### Learnings
+
+- Flowbite Blazor v0.2.6-beta: `Badge`, `Button` are types with nested enums; `Table`, `Typography` are namespaces
+- Use `@using static Flowbite.Components.Button` to import `ButtonColor`, `ButtonSize` as nested types
+- Use `@using Flowbite.Components.Table` for Table sub-components
+- Use native HTML inputs with Tailwind classes for reliable `@bind` behavior
+- `<Alert>` uses `<CustomContent>` for rich content; manual close button for dismissibility
+- Dark mode: use `dark:` Tailwind variants throughout

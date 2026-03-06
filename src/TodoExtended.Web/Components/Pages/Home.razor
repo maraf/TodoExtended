@@ -6,54 +6,60 @@
 
 <PageTitle>TodoExtended</PageTitle>
 
-<h1>TodoExtended</h1>
+<Heading Tag="HeadingTag.H1" class="mb-4">TodoExtended</Heading>
 
-<p>An alternative view for Microsoft To Do with extended features.</p>
+<Paragraph class="mb-6 text-gray-500 dark:text-gray-400">An alternative view for Microsoft To Do with extended features.</Paragraph>
 
 <AuthorizeView>
     <Authorized>
-        <p>Welcome, <strong>@context.User.Identity?.Name</strong>! Head to <a href="tasks">My Tasks</a> to see your to-do lists.</p>
+        <Paragraph class="mb-4">Welcome, <span class="font-semibold">@context.User.Identity?.Name</span>! Head to <a href="tasks" class="text-blue-600 hover:underline dark:text-blue-400">My Tasks</a> to see your to-do lists.</Paragraph>
 
         @if (_loading)
         {
-            <p><em>Loading templates...</em></p>
+            <div class="flex items-center gap-2 mb-4">
+                <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
+                <span class="text-gray-500 dark:text-gray-400">Loading templates...</span>
+            </div>
         }
         else if (_templateError is not null)
         {
-            <div class="alert alert-danger">@_templateError</div>
+            <Alert Color="AlertColor.Failure" class="mb-4">
+                <CustomContent>@_templateError</CustomContent>
+            </Alert>
         }
         else if (_templates is { Count: > 0 })
         {
-            <h5 class="mt-4">Quick Create</h5>
-            <div class="d-flex flex-wrap gap-2 mb-3">
+            <Heading Tag="HeadingTag.H5" class="mt-6 mb-3">Quick Create</Heading>
+            <div class="flex flex-wrap gap-2 mb-4">
                 @foreach (var template in _templates)
                 {
                     var t = template;
-                    <button class="btn btn-primary"
-                            disabled="@(_executingTemplateId == t.Id)"
-                            @onclick="() => ExecuteTemplate(t)">
-                        @if (_executingTemplateId == t.Id)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                        }
+                    <Button Color="ButtonColor.Primary"
+                            Disabled="@(_executingTemplateId == t.Id)"
+                            Loading="@(_executingTemplateId == t.Id)"
+                            OnClick="() => ExecuteTemplate(t)">
                         @t.Title
-                    </button>
+                    </Button>
                 }
             </div>
         }
 
         @if (_feedbackMessage is not null)
         {
-            <div class="alert @(_feedbackIsError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
-                @_feedbackMessage
-                <button type="button" class="btn-close" @onclick="() => _feedbackMessage = null"></button>
-            </div>
+            <Alert Color="@(_feedbackIsError ? AlertColor.Failure : AlertColor.Success)" class="mb-4">
+                <CustomContent>
+                    <div class="flex items-center justify-between">
+                        <span>@_feedbackMessage</span>
+                        <button class="ml-4 text-sm font-medium hover:opacity-75" @onclick="() => _feedbackMessage = null">✕</button>
+                    </div>
+                </CustomContent>
+            </Alert>
         }
 
-        <p><a href="templates">Manage templates &rarr;</a></p>
+        <Paragraph><a href="templates" class="text-blue-600 hover:underline dark:text-blue-400">Manage templates →</a></Paragraph>
     </Authorized>
     <NotAuthorized>
-        <p><a href="MicrosoftIdentity/Account/SignIn">Sign in with your Microsoft account</a> to get started.</p>
+        <Paragraph><a href="MicrosoftIdentity/Account/SignIn" class="text-blue-600 hover:underline dark:text-blue-400">Sign in with your Microsoft account</a> to get started.</Paragraph>
     </NotAuthorized>
 </AuthorizeView>
 

@@ -94,3 +94,24 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
 ### Build Status
 
  Project builds clean. Migration created successfully.
+
+## 2025-07-17: Flowbite Blazor Infrastructure Setup
+
+### Completed Tasks
+
+1. **Installed Flowbite NuGet package** (v0.2.6-beta prerelease) to TodoExtended.Web.csproj
+2. **Registered Flowbite services** in Program.cs via `builder.Services.AddFlowbite()`
+3. **Updated App. removed Bootstrap CSS + Icons CDN, added Tailwind CSS v4 CDN (`@@tailwindcss/browser@@4` escaped for Razor), added `<ToastHost />` componentrazor** 
+4. **Updated _Imports. added `@using Flowbite`, `@using Flowbite.Components`, `@using Flowbite.Icons`razor** 
+5. **Cleaned up app. removed all Bootstrap-specific rules, kept blazor-error-boundary and validation stylescss** 
+6. **Deleted Bootstrap scoped  removed `MainLayout.razor.css` and `NavMenu.razor.css`CSS** 
+7. **Fixed build  escaped `@` in Tailwind CDN URL, fully qualified `System.Diagnostics.Activity` in Error.razor to resolve ambiguity with `Flowbite.Components.Activity`errors** 
+
+### Learnings
+
+- Flowbite.Blazor v0.2.6-beta targets net10.0 and installs cleanly
+- `@using Flowbite.Components` introduces `Activity` type that conflicts with `System.Diagnostics. must fully qualify in Error.razorActivity` 
+- Tailwind CDN URL contains `@` characters that Razor interprets as  must escape as `@@`code 
+- `AddFlowbite()` extension method lives in `Flowbite.Services` namespace
+- RZ10012 warning on `<ToastHost />` in App.razor is  component resolves at runtime despite Razor analyzer not finding it at design timeharmless 
+- Key files: `Program.cs` (service registration), `App.razor` (Tailwind CDN + ToastHost), `_Imports.razor` (Flowbite usings), `app.css` (cleaned)

@@ -1,43 +1,15 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">TodoExtended</a>
-    </div>
-</div>
-
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-
+﻿<Sidebar>
+    <SidebarLogo Href="/">TodoExtended</SidebarLogo>
+    <SidebarItemGroup>
+        <SidebarItem Href="/" Icon="@(new HomeIcon())">Home</SidebarItem>
         <AuthorizeView>
             <Authorized>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="today">
-                        <span class="bi bi-sun-fill-nav-menu" aria-hidden="true"></span> Today
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="tasks">
-                        <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Tasks
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="templates">
-                        <span class="bi bi-lightning-fill-nav-menu" aria-hidden="true"></span> Templates
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="api-keys">
-                        <i class="bi bi-braces-asterisk"></i> API Keys
-                    </NavLink>
-                </div>
+                <SidebarItem Href="/today" Icon="@(new CalendarMonthIcon())">Today</SidebarItem>
+                <SidebarItem Href="/tasks" Icon="@(new ListIcon())">My Tasks</SidebarItem>
+                <SidebarItem Href="/templates" Icon="@(new StarIcon())">Templates</SidebarItem>
+                <SidebarItem Href="/api-keys" Icon="@(new LockIcon())">API Keys</SidebarItem>
             </Authorized>
         </AuthorizeView>
-    </nav>
-</div>
+    </SidebarItemGroup>
+</Sidebar>
 

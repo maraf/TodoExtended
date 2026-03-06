@@ -7,94 +7,104 @@
 
 <PageTitle>API Keys</PageTitle>
 
-<h1>API Keys</h1>
+<Heading Tag="HeadingTag.H1" class="mb-6">API Keys</Heading>
 
 @if (_loading)
 {
-    <p><em>Loading API keys...</em></p>
+    <div class="flex items-center gap-2">
+        <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
+        <span class="text-gray-500 dark:text-gray-400">Loading API keys...</span>
+    </div>
 }
 else if (_error is not null)
 {
-    <div class="alert alert-danger">@_error</div>
+    <Alert Color="AlertColor.Failure">
+        <CustomContent>@_error</CustomContent>
+    </Alert>
 }
 else
 {
     @if (_newlyCreatedKey is not null)
     {
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            <h5 class="alert-heading">⚠️ Copy this key now! It will only be shown once.</h5>
-            <p class="mb-2">Your new API key has been created. Make sure to copy it now - you won't be able to see it again!</p>
-            <div class="bg-light p-3 rounded border">
-                <code style="font-size: 1.1em; word-break: break-all;">@_newlyCreatedKey</code>
-            </div>
-            <button type="button" class="btn-close" @onclick="() => _newlyCreatedKey = null" aria-label="Close"></button>
-        </div>
+        <Alert Color="AlertColor.Warning" class="mb-6">
+            <CustomContent>
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h5 class="text-lg font-semibold mb-1">⚠️ Copy this key now! It will only be shown once.</h5>
+                        <p class="mb-2 text-sm">Your new API key has been created. Make sure to copy it now — you won't be able to see it again!</p>
+                        <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <code class="text-sm break-all">@_newlyCreatedKey</code>
+                        </div>
+                    </div>
+                    <button class="ml-4 shrink-0 text-sm hover:opacity-75" @onclick="() => _newlyCreatedKey = null">✕</button>
+                </div>
+            </CustomContent>
+        </Alert>
     }
 
-    <div class="card mb-4">
-        <div class="card-body">
-            <h5 class="card-title">Create New API Key</h5>
+    <Card class="mb-6">
+        <Heading Tag="HeadingTag.H5" class="mb-4">Create New API Key</Heading>
 
-            <div class="row g-3 align-items-end">
-                <div class="col-md-6">
-                    <label class="form-label">Key Name</label>
-                    <input type="text" class="form-control" @bind="_formKeyName" placeholder="e.g., Mobile App, CI/CD Pipeline" />
-                </div>
-                <div class="col-md-3">
-                    <button class="btn btn-success" @onclick="CreateKey" disabled="@_creating">
-                        @if (_creating)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                        }
-                        Create
-                    </button>
-                </div>
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            <div class="md:col-span-6">
+                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Key Name</label>
+                <input type="text" @bind="_formKeyName" placeholder="e.g., Mobile App, CI/CD Pipeline"
+                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
             </div>
-
-            @if (_formError is not null)
-            {
-                <div class="alert alert-danger mt-3">@_formError</div>
-            }
+            <div class="md:col-span-3">
+                <Button Color="ButtonColor.Green" OnClick="CreateKey" Disabled="@_creating" Loading="@_creating">
+                    Create
+                </Button>
+            </div>
         </div>
-    </div>
+
+        @if (_formError is not null)
+        {
+            <Alert Color="AlertColor.Failure" class="mt-4">
+                <CustomContent>@_formError</CustomContent>
+            </Alert>
+        }
+    </Card>
 
     @if (_apiKeys is { Count: > 0 })
     {
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Created</th>
-                    <th>Last Used</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
+        <Table Striped="true" Hoverable="true">
+            <TableHead>
+                <TableRow>
+                    <TableHeadCell>Name</TableHeadCell>
+                    <TableHeadCell>Created</TableHeadCell>
+                    <TableHeadCell>Last Used</TableHeadCell>
+                    <TableHeadCell><span class="sr-only">Actions</span></TableHeadCell>
+                </TableRow>
+            </TableHead>
+            <TableBody class="divide-y">
                 @foreach (var key in _apiKeys)
                 {
-                    <tr>
-                        <td>@key.Name</td>
-                        <td>@key.CreatedUtc.ToLocalTime().ToString("g")</td>
-                        <td>@(key.LastUsedUtc?.ToLocalTime().ToString("g") ?? "Never")</td>
-                        <td>
-                            @if (_revokeConfirmId == key.Id)
-                            {
-                                <button class="btn btn-sm btn-danger me-1" @onclick="() => ConfirmRevoke(key.Id)">Confirm</button>
-                                <button class="btn btn-sm btn-secondary" @onclick="() => _revokeConfirmId = null">Cancel</button>
-                            }
-                            else
-                            {
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => _revokeConfirmId = key.Id">Revoke</button>
-                            }
-                        </td>
-                    </tr>
+                    <TableRow class="bg-white dark:border-gray-700 dark:bg-gray-800">
+                        <TableCell>@key.Name</TableCell>
+                        <TableCell>@key.CreatedUtc.ToLocalTime().ToString("g")</TableCell>
+                        <TableCell>@(key.LastUsedUtc?.ToLocalTime().ToString("g") ?? "Never")</TableCell>
+                        <TableCell>
+                            <div class="flex gap-2">
+                                @if (_revokeConfirmId == key.Id)
+                                {
+                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Red" OnClick="() => ConfirmRevoke(key.Id)">Confirm</Button>
+                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Gray" OnClick="() => _revokeConfirmId = null">Cancel</Button>
+                                }
+                                else
+                                {
+                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Red" OnClick="() => _revokeConfirmId = key.Id">Revoke</Button>
+                                }
+                            </div>
+                        </TableCell>
+                    </TableRow>
                 }
-            </tbody>
-        </table>
+            </TableBody>
+        </Table>
     }
     else
     {
-        <p class="text-muted">No API keys yet. Create one above!</p>
+        <Paragraph class="text-gray-500 dark:text-gray-400">No API keys yet. Create one above!</Paragraph>
     }
 }
 

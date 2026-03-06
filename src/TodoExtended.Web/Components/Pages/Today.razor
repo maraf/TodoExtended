@@ -7,53 +7,62 @@
 
 <PageTitle>Today</PageTitle>
 
-<h1>Today</h1>
+<Heading Tag="HeadingTag.H1" class="mb-6">Today</Heading>
 
 @if (_loading)
 {
-    <p><em>Loading today's tasks...</em></p>
+    <div class="flex items-center gap-2">
+        <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
+        <span class="text-gray-500 dark:text-gray-400">Loading today's tasks...</span>
+    </div>
 }
 else if (_error is not null)
 {
-    <div class="alert alert-danger">@_error</div>
+    <Alert Color="AlertColor.Failure">
+        <CustomContent>@_error</CustomContent>
+    </Alert>
 }
 else if (TodayTasks is not { Count: > 0 })
 {
-    <p class="text-muted">No tasks due today! 🎉</p>
+    <Paragraph class="text-gray-500 dark:text-gray-400">No tasks due today! 🎉</Paragraph>
 }
 else
 {
     @if (_toggleError is not null)
     {
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            @_toggleError
-            <button type="button" class="btn-close" @onclick="() => _toggleError = null"></button>
-        </div>
+        <Alert Color="AlertColor.Warning" class="mb-4">
+            <CustomContent>
+                <div class="flex items-center justify-between">
+                    <span>@_toggleError</span>
+                    <button class="ml-4 text-sm font-medium hover:opacity-75" @onclick="() => _toggleError = null">✕</button>
+                </div>
+            </CustomContent>
+        </Alert>
     }
 
-    <ul class="list-group">
+    <div class="bg-white rounded-lg border border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
         @foreach (var task in TodayTasks)
         {
-            <li class="list-group-item d-flex align-items-center">
+            <div class="flex items-center px-4 py-3">
                 <TaskStatusCheckbox TaskId="@task.Id"
                                     ListId="@task.ListId"
                                     IsCompleted="@task.IsCompleted"
                                     TaskTitle="@task.Title"
                                     OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
                                     OnError="(msg) => _toggleError = msg" />
-                <div class="flex-grow-1">
-                    <span class="@(task.IsCompleted ? "text-decoration-line-through text-muted" : "")">
+                <div class="flex-1">
+                    <span class="@(task.IsCompleted ? "line-through text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-white")">
                         @task.Title
                     </span>
-                    <small class="text-muted ms-2">@task.ListName</small>
+                    <span class="text-sm text-gray-500 dark:text-gray-400 ml-2">@task.ListName</span>
                     @if (task.Importance == "High")
                     {
-                        <span class="badge bg-danger ms-2">!</span>
+                        <Badge Color="BadgeColor.Pink" class="ml-2">!</Badge>
                     }
                 </div>
-            </li>
+            </div>
         }
-    </ul>
+    </div>
 }
 
 @code {

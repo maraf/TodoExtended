@@ -6,78 +6,85 @@
 
 <PageTitle>My Tasks</PageTitle>
 
-<h1>My Tasks</h1>
+<Heading Tag="HeadingTag.H1" class="mb-6">My Tasks</Heading>
 
 @if (_loading)
 {
-    <p><em>Loading task lists...</em></p>
+    <div class="flex items-center gap-2">
+        <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
+        <span class="text-gray-500 dark:text-gray-400">Loading task lists...</span>
+    </div>
 }
 else if (_error is not null)
 {
-    <div class="alert alert-danger">@_error</div>
+    <Alert Color="AlertColor.Failure">
+        <CustomContent>@_error</CustomContent>
+    </Alert>
 }
 else
 {
-    <div class="row">
-        <div class="col-md-4">
-            <h4>Task Lists</h4>
-            <div class="list-group">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div>
+            <Heading Tag="HeadingTag.H4" class="mb-3">Task Lists</Heading>
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
                 @foreach (var list in TaskLists)
                 {
-                    <div class="list-group-item list-group-item-action d-flex align-items-center @(list.Id == _selectedListId ? "active" : "")"
-                         role="button"
+                    <div class="flex items-center px-4 py-3 cursor-pointer transition-colors @(list.Id == _selectedListId ? "bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500" : "hover:bg-gray-50 dark:hover:bg-gray-700")"
                          @onclick="() => SelectList(list.Id)">
-                        <span class="flex-grow-1">@list.DisplayName</span>
+                        <span class="flex-1 text-sm @(list.Id == _selectedListId ? "font-semibold text-blue-700 dark:text-blue-400" : "text-gray-900 dark:text-white")">@list.DisplayName</span>
                         @if (_archivingListId == list.Id)
                         {
-                            <span class="spinner-border spinner-border-sm ms-2" role="status"></span>
+                            <Spinner Size="SpinnerSize.Xs" Color="SpinnerColor.Gray" />
                         }
                         else
                         {
-                            <button class="btn btn-sm p-0 ms-2 @(list.Id == _selectedListId ? "text-white" : "text-muted")"
+                            <button class="text-xs text-gray-400 hover:text-red-600 dark:hover:text-red-400 ml-2"
                                     @onclick="() => ArchiveList(list.Id)" @onclick:stopPropagation="true"
                                     title="Archive list">
-                                <i class="bi bi-archive"></i>
+                                Archive
                             </button>
                         }
                     </div>
                 }
             </div>
 
-            <div class="mt-3">
-                <button class="btn btn-sm btn-outline-secondary w-100 d-flex align-items-center justify-content-between"
+            <div class="mt-4">
+                <button class="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                         @onclick="ToggleArchivedSection">
                     <span>Archived</span>
-                    <i class="bi @(_showArchived ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                    <span class="text-xs">@(_showArchived ? "▲" : "▼")</span>
                 </button>
 
                 @if (_showArchived)
                 {
                     @if (_loadingArchived)
                     {
-                        <p class="text-muted mt-2"><em>Loading archived lists...</em></p>
+                        <div class="flex items-center gap-2 mt-3 px-2">
+                            <Spinner Size="SpinnerSize.Xs" Color="SpinnerColor.Gray" />
+                            <span class="text-sm text-gray-500 dark:text-gray-400">Loading archived lists...</span>
+                        </div>
                     }
                     else if (_archivedLists.Count == 0)
                     {
-                        <p class="text-muted mt-2 small">No archived lists.</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-3 px-2">No archived lists.</p>
                     }
                     else
                     {
-                        <div class="list-group mt-2">
+                        <div class="bg-white rounded-lg border border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 mt-2">
                             @foreach (var list in _archivedLists)
                             {
-                                <div class="list-group-item d-flex align-items-center">
-                                    <span class="flex-grow-1 text-muted">@list.DisplayName</span>
+                                <div class="flex items-center px-4 py-3">
+                                    <span class="flex-1 text-sm text-gray-500 dark:text-gray-400">@list.DisplayName</span>
                                     @if (_archivingListId == list.Id)
                                     {
-                                        <span class="spinner-border spinner-border-sm ms-2" role="status"></span>
+                                        <Spinner Size="SpinnerSize.Xs" Color="SpinnerColor.Gray" />
                                     }
                                     else
                                     {
-                                        <button class="btn btn-sm p-0 ms-2 text-muted"
+                                        <button class="text-xs text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 ml-2"
                                                 @onclick="() => UnarchiveList(list.Id)"
-                                                title="Unarchive list">
-                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                                title="Restore list">
+                                            Restore
                                         </button>
                                     }
                                 </div>
@@ -88,63 +95,70 @@ else
             </div>
         </div>
 
-        <div class="col-md-8">
+        <div class="md:col-span-2">
             @if (_selectedListId is not null)
             {
                 @if (_loadingTasks)
                 {
-                    <p><em>Loading tasks...</em></p>
+                    <div class="flex items-center gap-2">
+                        <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
+                        <span class="text-gray-500 dark:text-gray-400">Loading tasks...</span>
+                    </div>
                 }
                 else
                 {
-                    <h4>@TaskLists.FirstOrDefault(l => l.Id == _selectedListId)?.DisplayName</h4>
+                    <Heading Tag="HeadingTag.H4" class="mb-3">@TaskLists.FirstOrDefault(l => l.Id == _selectedListId)?.DisplayName</Heading>
 
                     @if (_toggleError is not null)
                     {
-                        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                            @_toggleError
-                            <button type="button" class="btn-close" @onclick="() => _toggleError = null"></button>
-                        </div>
+                        <Alert Color="AlertColor.Warning" class="mb-4">
+                            <CustomContent>
+                                <div class="flex items-center justify-between">
+                                    <span>@_toggleError</span>
+                                    <button class="ml-4 text-sm font-medium hover:opacity-75" @onclick="() => _toggleError = null">✕</button>
+                                </div>
+                            </CustomContent>
+                        </Alert>
                     }
 
                     @if (_tasks.Count == 0)
                     {
-                        <p class="text-muted">No tasks in this list.</p>
+                        <Paragraph class="text-gray-500 dark:text-gray-400">No tasks in this list.</Paragraph>
                     }
                     else
                     {
-                        <ul class="list-group">
+                        <div class="bg-white rounded-lg border border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
                             @foreach (var task in _tasks)
                             {
-                                <li class="list-group-item d-flex align-items-center">
+                                <div class="flex items-center px-4 py-3">
                                     <TaskStatusCheckbox TaskId="@task.Id"
                                                         ListId="@(_selectedListId!)"
                                                         IsCompleted="@task.IsCompleted"
                                                         TaskTitle="@task.Title"
                                                         OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
                                                         OnError="(msg) => _toggleError = msg" />
-                                    <div class="flex-grow-1">
-                                        <span class="@(task.IsCompleted ? "text-decoration-line-through text-muted" : "")">
+                                    <div class="flex-1">
+                                        <span class="@(task.IsCompleted ? "line-through text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-white")">
                                             @task.Title
                                         </span>
                                         @if (task.DueDate is not null)
                                         {
-                                            <small class="text-muted ms-2">Due: @task.DueDate.Value.ToString("MMM d, yyyy")</small>
+                                            <span class="text-sm text-gray-500 dark:text-gray-400 ml-2">Due: @task.DueDate.Value.ToString("MMM d, yyyy")</span>
                                         }
                                         @if (task.Importance == "High")
                                         {
-                                            <span class="badge bg-danger ms-2">!</span>
+                                            <Badge Color="BadgeColor.Pink" class="ml-2">!</Badge>
                                         }
                                     </div>
-                                </li>
+                                </div>
                             }
-                        </ul>
+                        </div>
                     }
                 }
             }
             else
             {
-                <p class="text-muted">Select a task list to view tasks.</p>
+                <Paragraph class="text-gray-500 dark:text-gray-400">Select a task list to view tasks.</Paragraph>
             }
         </div>
     </div>

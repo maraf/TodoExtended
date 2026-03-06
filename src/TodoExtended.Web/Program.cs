@@ -6,6 +6,7 @@ using TodoExtended.Web.Authentication;
 using TodoExtended.Web.Components;
 using TodoExtended.Web.Data;
 using TodoExtended.Web.Middleware;
+using Flowbite.Services;
 using TodoExtended.Web.Services;
 
 
@@ -85,6 +86,8 @@ builder.Services.AddScoped<Microsoft.Graph.GraphServiceClient>(sp =>
     
     return new Microsoft.Graph.GraphServiceClient(authProvider);
 });
+
+builder.Services.AddFlowbite();
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

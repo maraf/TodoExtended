@@ -8,112 +8,126 @@
 
 <PageTitle>Templates</PageTitle>
 
-<h1>Templates</h1>
+<Heading Tag="HeadingTag.H1" class="mb-6">Templates</Heading>
 
 @if (_loading)
 {
-    <p><em>Loading templates...</em></p>
+    <div class="flex items-center gap-2">
+        <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
+        <span class="text-gray-500 dark:text-gray-400">Loading templates...</span>
+    </div>
 }
 else if (_error is not null)
 {
-    <div class="alert alert-danger">@_error</div>
+    <Alert Color="AlertColor.Failure">
+        <CustomContent>@_error</CustomContent>
+    </Alert>
 }
 else
 {
-    <div class="card mb-4">
-        <div class="card-body">
-            <h5 class="card-title">@(_editingTemplateId is not null ? "Edit Template" : "Add Template")</h5>
+    <Card class="mb-6">
+        <Heading Tag="HeadingTag.H5" class="mb-4">@(_editingTemplateId is not null ? "Edit Template" : "Add Template")</Heading>
 
-            <div class="row g-3 align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label">Title</label>
-                    <input type="text" class="form-control" @bind="_formTitle" placeholder="Task title" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Task List</label>
-                    <select class="form-select" @bind="_formTaskListId">
-                        <option value="">-- Select a list --</option>
-                        @if (_taskLists is not null)
-                        {
-                            @foreach (var list in _taskLists)
-                            {
-                                <option value="@list.Id">@list.DisplayName</option>
-                            }
-                        }
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label">Sort Order</label>
-                    <input type="number" class="form-control" @bind="_formSortOrder" />
-                </div>
-                <div class="col-md-2 d-flex align-items-center">
-                    <div class="form-check mt-4">
-                        <input type="checkbox" class="form-check-input" id="dueDateToday" @bind="_formDueDateToday" />
-                        <label class="form-check-label" for="dueDateToday">Due Today</label>
-                    </div>
-                </div>
-                <div class="col-md-2">
-                    <button class="btn btn-success me-2" @onclick="SaveTemplate" disabled="@_saving">
-                        @if (_saving)
-                        {
-                            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                        }
-                        @(_editingTemplateId is not null ? "Update" : "Add")
-                    </button>
-                    @if (_editingTemplateId is not null)
-                    {
-                        <button class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
-                    }
-                </div>
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            <div class="md:col-span-3">
+                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Title</label>
+                <input type="text" @bind="_formTitle" placeholder="Task title"
+                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
             </div>
-
-            @if (_formError is not null)
-            {
-                <div class="alert alert-danger mt-3">@_formError</div>
-            }
+            <div class="md:col-span-3">
+                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Task List</label>
+                <select @bind="_formTaskListId"
+                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                    <option value="">-- Select a list --</option>
+                    @if (_taskLists is not null)
+                    {
+                        @foreach (var list in _taskLists)
+                        {
+                            <option value="@list.Id">@list.DisplayName</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="md:col-span-2">
+                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Sort Order</label>
+                <input type="number" @bind="_formSortOrder"
+                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
+            </div>
+            <div class="md:col-span-2 flex items-center gap-2 pb-1">
+                <input type="checkbox" id="dueDateToday" @bind="_formDueDateToday"
+                       class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
+                <label for="dueDateToday" class="text-sm font-medium text-gray-900 dark:text-white">Due Today</label>
+            </div>
+            <div class="md:col-span-2 flex gap-2">
+                <Button Color="ButtonColor.Green" OnClick="SaveTemplate" Disabled="@_saving" Loading="@_saving">
+                    @(_editingTemplateId is not null ? "Update" : "Add")
+                </Button>
+                @if (_editingTemplateId is not null)
+                {
+                    <Button Color="ButtonColor.Gray" OnClick="CancelEdit">Cancel</Button>
+                }
+            </div>
         </div>
-    </div>
+
+        @if (_formError is not null)
+        {
+            <Alert Color="AlertColor.Failure" class="mt-4">
+                <CustomContent>@_formError</CustomContent>
+            </Alert>
+        }
+    </Card>
 
     @if (_templates is { Count: > 0 })
     {
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Task List</th>
-                    <th>Due Today</th>
-                    <th>Sort Order</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
+        <Table Striped="true" Hoverable="true">
+            <TableHead>
+                <TableRow>
+                    <TableHeadCell>Title</TableHeadCell>
+                    <TableHeadCell>Task List</TableHeadCell>
+                    <TableHeadCell>Due Today</TableHeadCell>
+                    <TableHeadCell>Sort Order</TableHeadCell>
+                    <TableHeadCell><span class="sr-only">Actions</span></TableHeadCell>
+                </TableRow>
+            </TableHead>
+            <TableBody class="divide-y">
                 @foreach (var template in _templates)
                 {
-                    <tr>
-                        <td>@template.Title</td>
-                        <td>@template.TaskListName</td>
-                        <td>@(template.DueDateToday ? "Yes" : "No")</td>
-                        <td>@template.SortOrder</td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => StartEdit(template)">Edit</button>
-                            @if (_deleteConfirmId == template.Id)
+                    <TableRow class="bg-white dark:border-gray-700 dark:bg-gray-800">
+                        <TableCell>@template.Title</TableCell>
+                        <TableCell>@template.TaskListName</TableCell>
+                        <TableCell>
+                            @if (template.DueDateToday)
                             {
-                                <button class="btn btn-sm btn-danger me-1" @onclick="() => ConfirmDelete(template.Id)">Confirm</button>
-                                <button class="btn btn-sm btn-secondary" @onclick="() => _deleteConfirmId = null">Cancel</button>
+                                <Badge Color="BadgeColor.Success">Yes</Badge>
                             }
                             else
                             {
-                                <button class="btn btn-sm btn-outline-danger" @onclick="() => _deleteConfirmId = template.Id">Delete</button>
+                                <span class="text-gray-500 dark:text-gray-400">No</span>
                             }
-                        </td>
-                    </tr>
+                        </TableCell>
+                        <TableCell>@template.SortOrder</TableCell>
+                        <TableCell>
+                            <div class="flex gap-2">
+                                <Button Size="ButtonSize.Small" Color="ButtonColor.Primary" OnClick="() => StartEdit(template)">Edit</Button>
+                                @if (_deleteConfirmId == template.Id)
+                                {
+                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Red" OnClick="() => ConfirmDelete(template.Id)">Confirm</Button>
+                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Gray" OnClick="() => _deleteConfirmId = null">Cancel</Button>
+                                }
+                                else
+                                {
+                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Red" OnClick="() => _deleteConfirmId = template.Id">Delete</Button>
+                                }
+                            </div>
+                        </TableCell>
+                    </TableRow>
                 }
-            </tbody>
-        </table>
+            </TableBody>
+        </Table>
     }
     else
     {
-        <p class="text-muted">No templates yet. Create one above!</p>
+        <Paragraph class="text-gray-500 dark:text-gray-400">No templates yet. Create one above!</Paragraph>
     }
 }
 
