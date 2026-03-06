@@ -240,3 +240,11 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
 ---
 
 [2025-07-17 Flowbite setup and MudBlazor swap details consolidated into ## Core Context section above]
+
+## Learnings
+
+ Guid Migration (2026-03-06)
+- **Pattern:** Replaced autoincrement `int Id` with `Guid Id` (default `Guid.NewGuid()`) on `TaskTemplate` to avoid exposing sequential database identifiers in the API.
+- **SQLite constraint:** `ALTER COLUMN` is not supported; migration uses table-rebuild approach (create new table, copy data with generated UUIDs via `randomblob`, drop old, rename).
+- **Files touched:** `TaskTemplate.cs`, `AppDbContext.cs` (no changes  `HasKey` works for both types), `ITemplateService.cs`, `TemplateService.cs`, `Program.cs` (API endpoint), `Templates.razor`, `Home.razor`.needed 
+- **User preference:** Don't expose autoincrement IDs in APIs; use GUIDs as public identifiers.

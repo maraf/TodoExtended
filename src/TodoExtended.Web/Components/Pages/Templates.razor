@@ -257,7 +257,7 @@ else
     private bool _formDueDateToday;
     private TimeSpan? _formReminderTimeSpan;
     private int _formSortOrder;
-    private int? _editingTemplateId;
+    private Guid? _editingTemplateId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -407,7 +407,7 @@ else
         }
     }
 
-    private async Task PromptDelete(int templateId)
+    private async Task PromptDelete(Guid templateId)
     {
         var confirmed = await DialogService.ShowMessageBoxAsync(
             "Delete Template",
@@ -420,7 +420,7 @@ else
         }
     }
 
-    private async Task ConfirmDelete(int templateId)
+    private async Task ConfirmDelete(Guid templateId)
     {
         try
         {

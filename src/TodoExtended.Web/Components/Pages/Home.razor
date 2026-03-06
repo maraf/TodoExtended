@@ -86,7 +86,7 @@
     private IReadOnlyList<TaskTemplate>? _templates;
     private bool _loading = true;
     private string? _templateError;
-    private int? _executingTemplateId;
+    private Guid? _executingTemplateId;
 
     protected override async Task OnInitializedAsync()
     {

@@ -133,7 +133,7 @@ api.MapGet("/templates", async (ITemplateService templateService) =>
     return Results.Ok(templates);
 });
 
-api.MapPost("/templates/{id}/execute", async (int id, ITemplateService templateService) =>
+api.MapPost("/templates/{id}/execute", async (Guid id, ITemplateService templateService) =>
 {
     try
     {

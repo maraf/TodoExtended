@@ -14,7 +14,7 @@ public class TemplateService(AppDbContext db, ITodoService todoService) : ITempl
             .ToListAsync();
     }
 
-    public async Task<TaskTemplate?> GetByIdAsync(int id)
+    public async Task<TaskTemplate?> GetByIdAsync(Guid id)
     {
         return await db.TaskTemplates.FindAsync(id);
     }
@@ -32,7 +32,7 @@ public class TemplateService(AppDbContext db, ITodoService todoService) : ITempl
         await db.SaveChangesAsync();
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(Guid id)
     {
         var template = await db.TaskTemplates.FindAsync(id);
         if (template is not null)
@@ -42,7 +42,7 @@ public class TemplateService(AppDbContext db, ITodoService todoService) : ITempl
         }
     }
 
-    public async Task<TodoTask> ExecuteTemplateAsync(int templateId)
+    public async Task<TodoTask> ExecuteTemplateAsync(Guid templateId)
     {
         var template = await db.TaskTemplates.FindAsync(templateId)
             ?? throw new InvalidOperationException($"Template with ID {templateId} not found.");
