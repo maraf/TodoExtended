@@ -190,3 +190,29 @@ Layout: `Components/App.razor`
 - Use native HTML inputs with Tailwind classes for reliable `@bind` behavior
 - `<Alert>` uses `<CustomContent>` for rich content; manual close button for dismissibility
 - Dark mode: use `dark:` Tailwind variants throughout
+
+## 2026-03-06: Templates Page Card-Based Redesign
+
+**Session:** Templates Redesign (2026-03-06T10:06Z)
+
+Redesigned Templates.razor from MudDataGrid to card-based layout with MudDialog CRUD interface.
+
+### Completed Tasks
+
+-  Card-based display (3 cols desktop, 1 mobile) inside MudGrid
+-  Grouped templates by task list with section headers
+-  MudDialog for add/edit (opens from "New Template" button or empty state CTA)
+-  Empty state with icon + CTA ("Create Your First Template")
+-  Snackbar feedback for create/update/delete operations
+
+### Key Design Patterns
+
+- **Responsive Grid:** `MudGrid` with `md:3` columns collapses to 1 on mobile
+- **Dialog-driven CRUD:** Cleaner than always-visible form
+- **Empty State:** Better UX than generic alert
+- **Grouped Display:** Section headers show task list context
+- **Snackbar Feedback:** Non-intrusive success/error messaging
+
+### Build Status
+
+ Zero errors, zero warnings

@@ -1010,3 +1010,44 @@ Custom `MudTheme` with task-management personality:
 
 `014caf2` — "Redesign UI from Flowbite Blazor to MudBlazor v9" 
 
+
+---
+
+# Templates Page  Card-Based LayoutRedesign 
+
+**Author:** Frontend  
+**Date:** 2026-03-06  
+**Status:** Implemented
+
+## Decision
+
+Redesigned Templates.razor from MudDataGrid + always-visible inline form to a card-based layout with dialog-driven CRUD.
+
+## Key Changes
+
+1. **Card-based  Each template rendered as a `MudCard` inside a responsive `MudGrid` (3 columns on desktop, 1 on mobile). Cards show title prominently, "Due Today" as a warning chip, sort order as an outlined chip, and a three-dot menu for edit/delete.display** 
+
+2. **Grouped by task  Templates are visually grouped under their task list name with a section header, giving immediate context about where each template creates tasks.list** 
+
+3. **MudDialog for add/ Replaced the always-visible form with an inline `MudDialog` opened via "New Template" button (header) or empty state CTA. Saves space and focuses user attention.edit** 
+
+4. **Empty  Dashed-border placeholder with icon, description text, and prominent "Create Your First Template" button instead of a plain info alert.state** 
+
+5. **Snackbar  Added success snackbar for create and update operations (delete already had one). Error feedback for delete moved from inline alert to snackbar.feedback** 
+
+## What's Preserved
+
+- Same route, authorization, service injections
+- All CRUD operations with identical validation
+- Auth redirect on MSAL challenge
+- Loading skeleton and error states
+- Delete confirmation via `ShowMessageBoxAsync`
+
+### Build Verification
+
+ 0 compilation errors  
+ 0 warnings
+
+### Files Modified
+
+- `src/TodoExtended.Web/Components/Pages/Templates.razor`
