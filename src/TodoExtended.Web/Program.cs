@@ -124,7 +124,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 // API Endpoints
-var api = app.MapGroup("/api").RequireAuthorization();
+var api = app.MapGroup("/api").RequireAuthorization().DisableAntiforgery();
 
 // Template endpoints
 api.MapGet("/templates", async (ITemplateService templateService) =>
