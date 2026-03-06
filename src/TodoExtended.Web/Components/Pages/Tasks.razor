@@ -3,165 +3,153 @@
 @using Microsoft.Identity.Web
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
 
 <PageTitle>My Tasks</PageTitle>
 
-<Heading Tag="HeadingTag.H1" class="mb-6">My Tasks</Heading>
+<MudText Typo="Typo.h4" Class="mb-4">My Tasks</MudText>
 
 @if (_loading)
 {
-    <div class="flex items-center gap-2">
-        <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
-        <span class="text-gray-500 dark:text-gray-400">Loading task lists...</span>
-    </div>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
+        </MudItem>
+        <MudItem xs="12" md="8">
+            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
+        </MudItem>
+    </MudGrid>
 }
 else if (_error is not null)
 {
-    <Alert Color="AlertColor.Failure">
-        <CustomContent>@_error</CustomContent>
-    </Alert>
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
 }
 else
 {
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-            <Heading Tag="HeadingTag.H4" class="mb-3">Task Lists</Heading>
-            <div class="bg-white rounded-lg border border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
-                @foreach (var list in TaskLists)
-                {
-                    <div class="flex items-center px-4 py-3 cursor-pointer transition-colors @(list.Id == _selectedListId ? "bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500" : "hover:bg-gray-50 dark:hover:bg-gray-700")"
-                         @onclick="() => SelectList(list.Id)">
-                        <span class="flex-1 text-sm @(list.Id == _selectedListId ? "font-semibold text-blue-700 dark:text-blue-400" : "text-gray-900 dark:text-white")">@list.DisplayName</span>
-                        @if (_archivingListId == list.Id)
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Class="pa-2">
+                <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true">
+                    <MudTabPanel Text="Active">
+                        <MudList T="string" @bind-SelectedValue="_selectedListId" Dense="true">
+                            @foreach (var list in TaskLists!)
+                            {
+                                <MudListItem T="string" Value="@list.Id" OnClick="() => SelectList(list.Id)">
+                                    <div class="d-flex align-center" style="width:100%">
+                                        <MudText Style="@(_selectedListId == list.Id ? "font-weight:600;" : "")">@list.DisplayName</MudText>
+                                        <MudSpacer />
+                                        @if (_archivingListId == list.Id)
+                                        {
+                                            <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                        }
+                                        else
+                                        {
+                                            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight">
+                                                <MudMenuItem Icon="@Icons.Material.Filled.Archive" OnClick="() => ArchiveList(list.Id)">Archive</MudMenuItem>
+                                            </MudMenu>
+                                        }
+                                    </div>
+                                </MudListItem>
+                            }
+                        </MudList>
+                    </MudTabPanel>
+                    <MudTabPanel Text="Archived" OnClick="EnsureArchivedLoaded">
+                        @if (_loadingArchived)
                         {
-                            <Spinner Size="SpinnerSize.Xs" Color="SpinnerColor.Gray" />
+                            <MudProgressLinear Indeterminate="true" Color="Color.Secondary" />
+                        }
+                        else if (_archivedLists.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-2">No archived lists.</MudText>
                         }
                         else
                         {
-                            <button class="text-xs text-gray-400 hover:text-red-600 dark:hover:text-red-400 ml-2"
-                                    @onclick="() => ArchiveList(list.Id)" @onclick:stopPropagation="true"
-                                    title="Archive list">
-                                Archive
-                            </button>
+                            <MudList T="string" Dense="true">
+                                @foreach (var list in _archivedLists)
+                                {
+                                    <MudListItem T="string">
+                                        <div class="d-flex align-center" style="width:100%">
+                                            <MudText Color="Color.Secondary">@list.DisplayName</MudText>
+                                            <MudSpacer />
+                                            @if (_archivingListId == list.Id)
+                                            {
+                                                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                                            }
+                                            else
+                                            {
+                                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight">
+                                                    <MudMenuItem Icon="@Icons.Material.Filled.Unarchive" OnClick="() => UnarchiveList(list.Id)">Restore</MudMenuItem>
+                                                </MudMenu>
+                                            }
+                                        </div>
+                                    </MudListItem>
+                                }
+                            </MudList>
                         }
-                    </div>
-                }
-            </div>
+                    </MudTabPanel>
+                </MudTabs>
+            </MudPaper>
+        </MudItem>
 
-            <div class="mt-4">
-                <button class="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                        @onclick="ToggleArchivedSection">
-                    <span>Archived</span>
-                    <span class="text-xs">@(_showArchived ? "▲" : "▼")</span>
-                </button>
-
-                @if (_showArchived)
+        <MudItem xs="12" md="8">
+            <MudPaper Elevation="2" Class="pa-4">
+                @if (_selectedListId is not null)
                 {
-                    @if (_loadingArchived)
+                    @if (_loadingTasks)
                     {
-                        <div class="flex items-center gap-2 mt-3 px-2">
-                            <Spinner Size="SpinnerSize.Xs" Color="SpinnerColor.Gray" />
-                            <span class="text-sm text-gray-500 dark:text-gray-400">Loading archived lists...</span>
-                        </div>
-                    }
-                    else if (_archivedLists.Count == 0)
-                    {
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-3 px-2">No archived lists.</p>
+                        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
                     }
                     else
                     {
-                        <div class="bg-white rounded-lg border border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700 mt-2">
-                            @foreach (var list in _archivedLists)
-                            {
-                                <div class="flex items-center px-4 py-3">
-                                    <span class="flex-1 text-sm text-gray-500 dark:text-gray-400">@list.DisplayName</span>
-                                    @if (_archivingListId == list.Id)
-                                    {
-                                        <Spinner Size="SpinnerSize.Xs" Color="SpinnerColor.Gray" />
-                                    }
-                                    else
-                                    {
-                                        <button class="text-xs text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 ml-2"
-                                                @onclick="() => UnarchiveList(list.Id)"
-                                                title="Restore list">
-                                            Restore
-                                        </button>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    }
-                }
-            </div>
-        </div>
+                        <MudText Typo="Typo.h5" Class="mb-2">@TaskLists!.FirstOrDefault(l => l.Id == _selectedListId)?.DisplayName</MudText>
+                        <MudDivider Class="mb-4" />
 
-        <div class="md:col-span-2">
-            @if (_selectedListId is not null)
-            {
-                @if (_loadingTasks)
-                {
-                    <div class="flex items-center gap-2">
-                        <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
-                        <span class="text-gray-500 dark:text-gray-400">Loading tasks...</span>
-                    </div>
+                        @if (_tasks.Count == 0)
+                        {
+                            <MudAlert Severity="Severity.Info">No tasks in this list.</MudAlert>
+                        }
+                        else
+                        {
+                            <MudList T="string" Dense="true">
+                                @foreach (var task in _tasks)
+                                {
+                                    <MudListItem T="string">
+                                        <div class="d-flex align-center" style="width:100%">
+                                            <TaskStatusCheckbox TaskId="@task.Id"
+                                                                ListId="@(_selectedListId ?? "")"
+                                                                IsCompleted="@task.IsCompleted"
+                                                                TaskTitle="@task.Title"
+                                                                OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                                                OnError="(msg) => Snackbar.Add(msg, Severity.Warning)" />
+                                            <div>
+                                                <MudText Style="@(task.IsCompleted ? "text-decoration: line-through; opacity: 0.5;" : "")">
+                                                    @task.Title
+                                                </MudText>
+                                                @if (task.DueDate is not null)
+                                                {
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Due: @task.DueDate.Value.ToString("MMM d, yyyy")</MudText>
+                                                }
+                                            </div>
+                                            <MudSpacer />
+                                            @if (task.Importance == "High")
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Error">!</MudChip>
+                                            }
+                                        </div>
+                                    </MudListItem>
+                                }
+                            </MudList>
+                        }
+                    }
                 }
                 else
                 {
-                    <Heading Tag="HeadingTag.H4" class="mb-3">@TaskLists.FirstOrDefault(l => l.Id == _selectedListId)?.DisplayName</Heading>
-
-                    @if (_toggleError is not null)
-                    {
-                        <Alert Color="AlertColor.Warning" class="mb-4">
-                            <CustomContent>
-                                <div class="flex items-center justify-between">
-                                    <span>@_toggleError</span>
-                                    <button class="ml-4 text-sm font-medium hover:opacity-75" @onclick="() => _toggleError = null">✕</button>
-                                </div>
-                            </CustomContent>
-                        </Alert>
-                    }
-
-                    @if (_tasks.Count == 0)
-                    {
-                        <Paragraph class="text-gray-500 dark:text-gray-400">No tasks in this list.</Paragraph>
-                    }
-                    else
-                    {
-                        <div class="bg-white rounded-lg border border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
-                            @foreach (var task in _tasks)
-                            {
-                                <div class="flex items-center px-4 py-3">
-                                    <TaskStatusCheckbox TaskId="@task.Id"
-                                                        ListId="@(_selectedListId!)"
-                                                        IsCompleted="@task.IsCompleted"
-                                                        TaskTitle="@task.Title"
-                                                        OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
-                                                        OnError="(msg) => _toggleError = msg" />
-                                    <div class="flex-1">
-                                        <span class="@(task.IsCompleted ? "line-through text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-white")">
-                                            @task.Title
-                                        </span>
-                                        @if (task.DueDate is not null)
-                                        {
-                                            <span class="text-sm text-gray-500 dark:text-gray-400 ml-2">Due: @task.DueDate.Value.ToString("MMM d, yyyy")</span>
-                                        }
-                                        @if (task.Importance == "High")
-                                        {
-                                            <Badge Color="BadgeColor.Pink" class="ml-2">!</Badge>
-                                        }
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    }
+                    <MudAlert Severity="Severity.Info">Select a task list to view tasks.</MudAlert>
                 }
-            }
-            else
-            {
-                <Paragraph class="text-gray-500 dark:text-gray-400">Select a task list to view tasks.</Paragraph>
-            }
-        </div>
-    </div>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
 }
 
 @code {
@@ -173,7 +161,6 @@ else
     private bool _loading = true;
     private bool _loadingTasks;
     private string? _error;
-    private string? _toggleError;
 
     private IReadOnlyList<TodoTaskList> _archivedLists = [];
     private bool _showArchived;
@@ -235,8 +222,15 @@ else
 
     private void HandleTaskStatusChanged(string taskId, bool newStatus)
     {
-        _toggleError = null;
         _tasks = _tasks.Select(t => t.Id == taskId ? t with { IsCompleted = newStatus } : t).ToList();
+    }
+
+    private async Task EnsureArchivedLoaded()
+    {
+        if (!_archivedListsLoaded)
+        {
+            await ToggleArchivedSection();
+        }
     }
 
     private async Task ToggleArchivedSection()
@@ -285,6 +279,8 @@ else
                 _selectedListId = null;
                 _tasks = [];
             }
+
+            Snackbar.Add($"List \"{list.DisplayName}\" archived.", Severity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -293,7 +289,7 @@ else
         }
         catch (Exception ex)
         {
-            _error = $"Failed to archive list: {ex.Message}";
+            Snackbar.Add($"Failed to archive list: {ex.Message}", Severity.Error);
         }
         finally
         {
@@ -313,6 +309,8 @@ else
             var list = _archivedLists.First(l => l.Id == listId);
             _archivedLists = _archivedLists.Where(l => l.Id != listId).ToList();
             TaskLists = [.. TaskLists!, list with { IsArchived = false }];
+
+            Snackbar.Add($"List \"{list.DisplayName}\" restored.", Severity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -321,7 +319,7 @@ else
         }
         catch (Exception ex)
         {
-            _error = $"Failed to unarchive list: {ex.Message}";
+            Snackbar.Add($"Failed to unarchive list: {ex.Message}", Severity.Error);
         }
         finally
         {

@@ -4,107 +4,85 @@
 @using TodoExtended.Web.Services
 @inject IApiKeyService ApiKeyService
 @inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>API Keys</PageTitle>
 
-<Heading Tag="HeadingTag.H1" class="mb-6">API Keys</Heading>
+<MudText Typo="Typo.h4" Class="mb-2">API Keys</MudText>
+<MudText Typo="Typo.subtitle1" Color="Color.Secondary" Class="mb-4">Manage API keys for external integrations.</MudText>
 
 @if (_loading)
 {
-    <div class="flex items-center gap-2">
-        <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
-        <span class="text-gray-500 dark:text-gray-400">Loading API keys...</span>
-    </div>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" />
 }
 else if (_error is not null)
 {
-    <Alert Color="AlertColor.Failure">
-        <CustomContent>@_error</CustomContent>
-    </Alert>
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
 }
 else
 {
     @if (_newlyCreatedKey is not null)
     {
-        <Alert Color="AlertColor.Warning" class="mb-6">
-            <CustomContent>
-                <div class="flex items-start justify-between">
-                    <div>
-                        <h5 class="text-lg font-semibold mb-1">⚠️ Copy this key now! It will only be shown once.</h5>
-                        <p class="mb-2 text-sm">Your new API key has been created. Make sure to copy it now — you won't be able to see it again!</p>
-                        <div class="bg-gray-100 dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
-                            <code class="text-sm break-all">@_newlyCreatedKey</code>
-                        </div>
-                    </div>
-                    <button class="ml-4 shrink-0 text-sm hover:opacity-75" @onclick="() => _newlyCreatedKey = null">✕</button>
-                </div>
-            </CustomContent>
-        </Alert>
+        <MudAlert Severity="Severity.Warning" Class="mb-6" ShowCloseIcon="true" CloseIconClicked="() => _newlyCreatedKey = null">
+            <MudText Typo="Typo.subtitle1" Class="mb-1"><strong>⚠️ Copy this key now!</strong> It will only be shown once.</MudText>
+            <MudTextField Value="@_newlyCreatedKey" ReadOnly="true" Variant="Variant.Outlined"
+                          Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.ContentCopy"
+                          OnAdornmentClick="CopyKeyToClipboard" Class="mt-2" />
+        </MudAlert>
     }
 
-    <Card class="mb-6">
-        <Heading Tag="HeadingTag.H5" class="mb-4">Create New API Key</Heading>
+    <MudPaper Elevation="2" Class="pa-4 mb-6">
+        <MudText Typo="Typo.h6" Class="mb-4">Create New API Key</MudText>
 
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-            <div class="md:col-span-6">
-                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Key Name</label>
-                <input type="text" @bind="_formKeyName" placeholder="e.g., Mobile App, CI/CD Pipeline"
-                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-            </div>
-            <div class="md:col-span-3">
-                <Button Color="ButtonColor.Green" OnClick="CreateKey" Disabled="@_creating" Loading="@_creating">
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="_formKeyName" Label="Key Name" Placeholder="e.g., Mobile App, CI/CD Pipeline" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="3" Class="d-flex align-center">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateKey" Disabled="@_creating">
+                    @if (_creating)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
                     Create
-                </Button>
-            </div>
-        </div>
+                </MudButton>
+            </MudItem>
+        </MudGrid>
 
         @if (_formError is not null)
         {
-            <Alert Color="AlertColor.Failure" class="mt-4">
-                <CustomContent>@_formError</CustomContent>
-            </Alert>
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_formError</MudAlert>
         }
-    </Card>
+    </MudPaper>
 
     @if (_apiKeys is { Count: > 0 })
     {
-        <Table Striped="true" Hoverable="true">
-            <TableHead>
-                <TableRow>
-                    <TableHeadCell>Name</TableHeadCell>
-                    <TableHeadCell>Created</TableHeadCell>
-                    <TableHeadCell>Last Used</TableHeadCell>
-                    <TableHeadCell><span class="sr-only">Actions</span></TableHeadCell>
-                </TableRow>
-            </TableHead>
-            <TableBody class="divide-y">
-                @foreach (var key in _apiKeys)
-                {
-                    <TableRow class="bg-white dark:border-gray-700 dark:bg-gray-800">
-                        <TableCell>@key.Name</TableCell>
-                        <TableCell>@key.CreatedUtc.ToLocalTime().ToString("g")</TableCell>
-                        <TableCell>@(key.LastUsedUtc?.ToLocalTime().ToString("g") ?? "Never")</TableCell>
-                        <TableCell>
-                            <div class="flex gap-2">
-                                @if (_revokeConfirmId == key.Id)
-                                {
-                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Red" OnClick="() => ConfirmRevoke(key.Id)">Confirm</Button>
-                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Gray" OnClick="() => _revokeConfirmId = null">Cancel</Button>
-                                }
-                                else
-                                {
-                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Red" OnClick="() => _revokeConfirmId = key.Id">Revoke</Button>
-                                }
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                }
-            </TableBody>
-        </Table>
+        <MudDataGrid T="ApiKeyDto" Items="@_apiKeys" Striped="true" Hover="true" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Name" Title="Name" />
+                <TemplateColumn Title="Created">
+                    <CellTemplate>
+                        <MudText Typo="Typo.body2">@context.Item.CreatedUtc.ToLocalTime().ToString("g")</MudText>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Last Used">
+                    <CellTemplate>
+                        <MudText Typo="Typo.body2">@(context.Item.LastUsedUtc?.ToLocalTime().ToString("g") ?? "Never")</MudText>
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Actions">
+                    <CellTemplate>
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => PromptRevoke(context.Item.Id)" />
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
     }
     else
     {
-        <Paragraph class="text-gray-500 dark:text-gray-400">No API keys yet. Create one above!</Paragraph>
+        <MudAlert Severity="Severity.Info">No API keys yet. Create one above!</MudAlert>
     }
 }
 
@@ -117,7 +95,6 @@ else
     private bool _creating;
     private string? _error;
     private string? _formError;
-    private int? _revokeConfirmId;
     private string? _newlyCreatedKey;
     private string? _userId;
 
@@ -190,13 +167,26 @@ else
         }
     }
 
+    private async Task PromptRevoke(int keyId)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Revoke API Key",
+            "Are you sure you want to revoke this API key? This action cannot be undone.",
+            yesText: "Revoke", cancelText: "Cancel");
+
+        if (confirmed == true)
+        {
+            await ConfirmRevoke(keyId);
+        }
+    }
+
     private async Task ConfirmRevoke(int keyId)
     {
         try
         {
             await ApiKeyService.RevokeKeyAsync(keyId, _userId!);
             await RefreshKeys();
-            _revokeConfirmId = null;
+            Snackbar.Add("API key revoked.", Severity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -212,5 +202,10 @@ else
     private async Task RefreshKeys()
     {
         _apiKeys = await ApiKeyService.GetUserKeysAsync(_userId!);
+    }
+
+    private void CopyKeyToClipboard()
+    {
+        Snackbar.Add("Key copied to clipboard! (Use Ctrl+C to copy from the field)", Severity.Info);
     }
 }

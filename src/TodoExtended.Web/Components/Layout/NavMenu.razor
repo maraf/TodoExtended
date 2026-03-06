@@ -1,15 +1,13 @@
-﻿<Sidebar>
-    <SidebarLogo Href="/">TodoExtended</SidebarLogo>
-    <SidebarItemGroup>
-        <SidebarItem Href="/" Icon="@(new HomeIcon())">Home</SidebarItem>
-        <AuthorizeView>
-            <Authorized>
-                <SidebarItem Href="/today" Icon="@(new CalendarMonthIcon())">Today</SidebarItem>
-                <SidebarItem Href="/tasks" Icon="@(new ListIcon())">My Tasks</SidebarItem>
-                <SidebarItem Href="/templates" Icon="@(new StarIcon())">Templates</SidebarItem>
-                <SidebarItem Href="/api-keys" Icon="@(new LockIcon())">API Keys</SidebarItem>
-            </Authorized>
-        </AuthorizeView>
-    </SidebarItemGroup>
-</Sidebar>
+﻿<MudNavMenu>
+    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+    <AuthorizeView>
+        <Authorized>
+            <MudNavLink Href="/today" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Today">Today</MudNavLink>
+            <MudNavLink Href="/tasks" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.CheckBox">My Tasks</MudNavLink>
+            <MudDivider Class="my-2" />
+            <MudNavLink Href="/templates" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ContentCopy">Templates</MudNavLink>
+            <MudNavLink Href="/api-keys" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.VpnKey">API Keys</MudNavLink>
+        </Authorized>
+    </AuthorizeView>
+</MudNavMenu>
 

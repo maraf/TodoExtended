@@ -4,65 +4,55 @@
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
 @inject ILogger<Today> Logger
+@inject ISnackbar Snackbar
 
 <PageTitle>Today</PageTitle>
 
-<Heading Tag="HeadingTag.H1" class="mb-6">Today</Heading>
+<MudText Typo="Typo.h4" Class="mb-2">Today</MudText>
 
 @if (_loading)
 {
-    <div class="flex items-center gap-2">
-        <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
-        <span class="text-gray-500 dark:text-gray-400">Loading today's tasks...</span>
-    </div>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" />
 }
 else if (_error is not null)
 {
-    <Alert Color="AlertColor.Failure">
-        <CustomContent>@_error</CustomContent>
-    </Alert>
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
 }
 else if (TodayTasks is not { Count: > 0 })
 {
-    <Paragraph class="text-gray-500 dark:text-gray-400">No tasks due today! 🎉</Paragraph>
+    <MudAlert Severity="Severity.Success" Class="mt-4">🎉 No tasks due today! Enjoy your free time.</MudAlert>
 }
 else
 {
-    @if (_toggleError is not null)
-    {
-        <Alert Color="AlertColor.Warning" class="mb-4">
-            <CustomContent>
-                <div class="flex items-center justify-between">
-                    <span>@_toggleError</span>
-                    <button class="ml-4 text-sm font-medium hover:opacity-75" @onclick="() => _toggleError = null">✕</button>
-                </div>
-            </CustomContent>
-        </Alert>
-    }
+    <MudText Typo="Typo.subtitle1" Color="Color.Secondary" Class="mb-4">@TodayTasks.Count task(s) due today</MudText>
 
-    <div class="bg-white rounded-lg border border-gray-200 shadow-sm dark:bg-gray-800 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
-        @foreach (var task in TodayTasks)
-        {
-            <div class="flex items-center px-4 py-3">
-                <TaskStatusCheckbox TaskId="@task.Id"
-                                    ListId="@task.ListId"
-                                    IsCompleted="@task.IsCompleted"
-                                    TaskTitle="@task.Title"
-                                    OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
-                                    OnError="(msg) => _toggleError = msg" />
-                <div class="flex-1">
-                    <span class="@(task.IsCompleted ? "line-through text-gray-400 dark:text-gray-500" : "text-gray-900 dark:text-white")">
-                        @task.Title
-                    </span>
-                    <span class="text-sm text-gray-500 dark:text-gray-400 ml-2">@task.ListName</span>
-                    @if (task.Importance == "High")
-                    {
-                        <Badge Color="BadgeColor.Pink" class="ml-2">!</Badge>
-                    }
-                </div>
-            </div>
-        }
-    </div>
+    <MudPaper Elevation="2" Class="pa-0">
+        <MudList T="string" Dense="true">
+            @foreach (var task in TodayTasks)
+            {
+                <MudListItem T="string">
+                    <div class="d-flex align-center" style="width:100%">
+                        <TaskStatusCheckbox TaskId="@task.Id"
+                                            ListId="@task.ListId"
+                                            IsCompleted="@task.IsCompleted"
+                                            TaskTitle="@task.Title"
+                                            OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                            OnError="(msg) => Snackbar.Add(msg, Severity.Warning)" />
+                        <MudText Style="@(task.IsCompleted ? "text-decoration: line-through; opacity: 0.5;" : "")">
+                            @task.Title
+                        </MudText>
+                        <MudSpacer />
+                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Class="ml-2">@task.ListName</MudChip>
+                        @if (task.Importance == "High")
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Class="ml-1">!</MudChip>
+                        }
+                    </div>
+                </MudListItem>
+            }
+        </MudList>
+    </MudPaper>
 }
 
 @code {
@@ -71,7 +61,6 @@ else
 
     private bool _loading = true;
     private string? _error;
-    private string? _toggleError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -105,7 +94,6 @@ else
 
     private void HandleTaskStatusChanged(string taskId, bool newStatus)
     {
-        _toggleError = null;
         Logger.LogDebug("HandleTaskStatusChanged: TaskId={TaskId}, NewStatus={NewStatus}", taskId, newStatus);
         TodayTasks = TodayTasks!.Select(t => t.Id == taskId ? t with { IsCompleted = newStatus } : t).ToList();
     }

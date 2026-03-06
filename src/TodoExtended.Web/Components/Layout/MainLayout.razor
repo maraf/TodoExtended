@@ -1,31 +1,70 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="flex min-h-screen bg-gray-50 dark:bg-gray-900">
-    <aside class="w-64 shrink-0 h-screen sticky top-0 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
+<MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1" Dense="true">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" />
+        <MudText Typo="Typo.h6" Class="ml-2">TodoExtended</MudText>
+        <MudSpacer />
+        <AuthorizeView>
+            <Authorized>
+                <MudText Typo="Typo.body2" Class="mr-2">@context.User.Identity?.Name</MudText>
+                <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" Color="Color.Inherit" OnClick="ToggleDarkMode" />
+                <MudButton Href="MicrosoftIdentity/Account/SignOut" Color="Color.Inherit" Variant="Variant.Text">Sign out</MudButton>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Href="MicrosoftIdentity/Account/SignIn" Color="Color.Inherit" Variant="Variant.Text">Sign in</MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="2" Variant="@DrawerVariant.Responsive" ClipMode="DrawerClipMode.Always">
         <NavMenu />
-    </aside>
+    </MudDrawer>
 
-    <div class="flex-1 flex flex-col min-w-0">
-        <header class="sticky top-0 z-10 flex items-center justify-end px-6 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-            <AuthorizeView>
-                <Authorized>
-                    <span class="text-sm text-gray-600 dark:text-gray-300 mr-4">Hello, @context.User.Identity?.Name</span>
-                    <a href="MicrosoftIdentity/Account/SignOut" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">Sign out</a>
-                </Authorized>
-                <NotAuthorized>
-                    <a href="MicrosoftIdentity/Account/SignIn" class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400">Sign in</a>
-                </NotAuthorized>
-            </AuthorizeView>
-        </header>
-
-        <main class="flex-1 p-6 overflow-auto">
+    <MudMainContent Class="pa-4">
+        <MudContainer MaxWidth="MaxWidth.Large">
             @Body
-        </main>
-    </div>
-</div>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
-</div>
+@code {
+    private bool _drawerOpen = true;
+    private bool _isDarkMode = false;
+
+    private MudTheme _theme = new MudTheme
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#1976D2",
+            Secondary = "#7C4DFF",
+            Tertiary = "#00BFA5",
+            AppbarBackground = "#1976D2",
+            DrawerBackground = "#FAFAFA",
+            Background = "#F5F5F5",
+            Surface = "#FFFFFF",
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#90CAF9",
+            Secondary = "#B388FF",
+            Tertiary = "#64FFDA",
+            AppbarBackground = "#1E1E1E",
+            DrawerBackground = "#121212",
+            Background = "#121212",
+            Surface = "#1E1E1E",
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography { FontFamily = new[] { "Roboto", "Helvetica", "Arial", "sans-serif" } }
+        }
+    };
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void ToggleDarkMode() => _isDarkMode = !_isDarkMode;
+}

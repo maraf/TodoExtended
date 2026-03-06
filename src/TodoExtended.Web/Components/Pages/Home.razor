@@ -3,63 +3,79 @@
 @using TodoExtended.Web.Data
 @inject ITemplateService TemplateService
 @inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
 
 <PageTitle>TodoExtended</PageTitle>
 
-<Heading Tag="HeadingTag.H1" class="mb-4">TodoExtended</Heading>
-
-<Paragraph class="mb-6 text-gray-500 dark:text-gray-400">An alternative view for Microsoft To Do with extended features.</Paragraph>
+<MudText Typo="Typo.h4" Class="mb-2">TodoExtended</MudText>
+<MudText Typo="Typo.subtitle1" Color="Color.Secondary" Class="mb-6">An alternative view for Microsoft To Do with extended features.</MudText>
 
 <AuthorizeView>
     <Authorized>
-        <Paragraph class="mb-4">Welcome, <span class="font-semibold">@context.User.Identity?.Name</span>! Head to <a href="tasks" class="text-blue-600 hover:underline dark:text-blue-400">My Tasks</a> to see your to-do lists.</Paragraph>
+        <MudText Typo="Typo.body1" Class="mb-4">
+            Welcome, <strong>@context.User.Identity?.Name</strong>!
+            Head to <MudLink Href="tasks">My Tasks</MudLink> to see your to-do lists.
+        </MudText>
 
         @if (_loading)
         {
-            <div class="flex items-center gap-2 mb-4">
-                <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
-                <span class="text-gray-500 dark:text-gray-400">Loading templates...</span>
-            </div>
+            <MudGrid>
+                @for (int i = 0; i < 3; i++)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="120px" />
+                    </MudItem>
+                }
+            </MudGrid>
         }
         else if (_templateError is not null)
         {
-            <Alert Color="AlertColor.Failure" class="mb-4">
-                <CustomContent>@_templateError</CustomContent>
-            </Alert>
+            <MudAlert Severity="Severity.Error" Class="mb-4">@_templateError</MudAlert>
         }
         else if (_templates is { Count: > 0 })
         {
-            <Heading Tag="HeadingTag.H5" class="mt-6 mb-3">Quick Create</Heading>
-            <div class="flex flex-wrap gap-2 mb-4">
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3">Quick Create</MudText>
+            <MudGrid>
                 @foreach (var template in _templates)
                 {
                     var t = template;
-                    <Button Color="ButtonColor.Primary"
-                            Disabled="@(_executingTemplateId == t.Id)"
-                            Loading="@(_executingTemplateId == t.Id)"
-                            OnClick="() => ExecuteTemplate(t)">
-                        @t.Title
-                    </Button>
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudCard Elevation="2">
+                            <MudCardContent>
+                                <MudText Typo="Typo.subtitle1">@t.Title</MudText>
+                                @if (!string.IsNullOrEmpty(t.TaskListName))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@t.TaskListName</MudText>
+                                }
+                            </MudCardContent>
+                            <MudCardActions>
+                                @if (_executingTemplateId == t.Id)
+                                {
+                                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                                }
+                                else
+                                {
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.Add"
+                                               OnClick="() => ExecuteTemplate(t)">
+                                        Create
+                                    </MudButton>
+                                }
+                            </MudCardActions>
+                        </MudCard>
+                    </MudItem>
                 }
-            </div>
+            </MudGrid>
         }
 
-        @if (_feedbackMessage is not null)
-        {
-            <Alert Color="@(_feedbackIsError ? AlertColor.Failure : AlertColor.Success)" class="mb-4">
-                <CustomContent>
-                    <div class="flex items-center justify-between">
-                        <span>@_feedbackMessage</span>
-                        <button class="ml-4 text-sm font-medium hover:opacity-75" @onclick="() => _feedbackMessage = null">✕</button>
-                    </div>
-                </CustomContent>
-            </Alert>
-        }
-
-        <Paragraph><a href="templates" class="text-blue-600 hover:underline dark:text-blue-400">Manage templates →</a></Paragraph>
+        <MudText Typo="Typo.body2" Class="mt-4">
+            <MudLink Href="templates">Manage templates →</MudLink>
+        </MudText>
     </Authorized>
     <NotAuthorized>
-        <Paragraph><a href="MicrosoftIdentity/Account/SignIn" class="text-blue-600 hover:underline dark:text-blue-400">Sign in with your Microsoft account</a> to get started.</Paragraph>
+        <MudText Typo="Typo.body1">
+            <MudLink Href="MicrosoftIdentity/Account/SignIn">Sign in with your Microsoft account</MudLink> to get started.
+        </MudText>
     </NotAuthorized>
 </AuthorizeView>
 
@@ -71,8 +87,6 @@
     private bool _loading = true;
     private string? _templateError;
     private int? _executingTemplateId;
-    private string? _feedbackMessage;
-    private bool _feedbackIsError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -104,13 +118,11 @@
     private async Task ExecuteTemplate(TaskTemplate template)
     {
         _executingTemplateId = template.Id;
-        _feedbackMessage = null;
 
         try
         {
             await TemplateService.ExecuteTemplateAsync(template.Id);
-            _feedbackMessage = $"Created task \"{template.Title}\" successfully!";
-            _feedbackIsError = false;
+            Snackbar.Add($"Created task \"{template.Title}\" successfully!", Severity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -119,8 +131,7 @@
         }
         catch (Exception ex)
         {
-            _feedbackMessage = $"Failed to create task: {ex.Message}";
-            _feedbackIsError = true;
+            Snackbar.Add($"Failed to create task: {ex.Message}", Severity.Error);
         }
         finally
         {

@@ -5,129 +5,100 @@
 @inject ITemplateService TemplateService
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Templates</PageTitle>
 
-<Heading Tag="HeadingTag.H1" class="mb-6">Templates</Heading>
+<MudText Typo="Typo.h4" Class="mb-4">Templates</MudText>
 
 @if (_loading)
 {
-    <div class="flex items-center gap-2">
-        <Spinner Size="SpinnerSize.Sm" Color="SpinnerColor.Info" />
-        <span class="text-gray-500 dark:text-gray-400">Loading templates...</span>
-    </div>
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
 }
 else if (_error is not null)
 {
-    <Alert Color="AlertColor.Failure">
-        <CustomContent>@_error</CustomContent>
-    </Alert>
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
 }
 else
 {
-    <Card class="mb-6">
-        <Heading Tag="HeadingTag.H5" class="mb-4">@(_editingTemplateId is not null ? "Edit Template" : "Add Template")</Heading>
+    <MudPaper Elevation="2" Class="pa-4 mb-6">
+        <MudText Typo="Typo.h6" Class="mb-4">@(_editingTemplateId is not null ? "Edit Template" : "Add Template")</MudText>
 
-        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-            <div class="md:col-span-3">
-                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Title</label>
-                <input type="text" @bind="_formTitle" placeholder="Task title"
-                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-            </div>
-            <div class="md:col-span-3">
-                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Task List</label>
-                <select @bind="_formTaskListId"
-                        class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                    <option value="">-- Select a list --</option>
+        <MudGrid>
+            <MudItem xs="12" md="3">
+                <MudTextField @bind-Value="_formTitle" Label="Title" Placeholder="Task title" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudSelect T="string" @bind-Value="_formTaskListId" Label="Task List" Variant="Variant.Outlined" Placeholder="-- Select a list --">
                     @if (_taskLists is not null)
                     {
                         @foreach (var list in _taskLists)
                         {
-                            <option value="@list.Id">@list.DisplayName</option>
+                            <MudSelectItem T="string" Value="@list.Id">@list.DisplayName</MudSelectItem>
                         }
                     }
-                </select>
-            </div>
-            <div class="md:col-span-2">
-                <label class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">Sort Order</label>
-                <input type="number" @bind="_formSortOrder"
-                       class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" />
-            </div>
-            <div class="md:col-span-2 flex items-center gap-2 pb-1">
-                <input type="checkbox" id="dueDateToday" @bind="_formDueDateToday"
-                       class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600" />
-                <label for="dueDateToday" class="text-sm font-medium text-gray-900 dark:text-white">Due Today</label>
-            </div>
-            <div class="md:col-span-2 flex gap-2">
-                <Button Color="ButtonColor.Green" OnClick="SaveTemplate" Disabled="@_saving" Loading="@_saving">
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="2">
+                <MudNumericField @bind-Value="_formSortOrder" Label="Sort Order" Variant="Variant.Outlined" />
+            </MudItem>
+            <MudItem xs="12" md="2" Class="d-flex align-center">
+                <MudSwitch @bind-Value="_formDueDateToday" Label="Due Today" Color="Color.Primary" />
+            </MudItem>
+            <MudItem xs="12" md="2" Class="d-flex align-center gap-2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveTemplate" Disabled="@_saving">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
                     @(_editingTemplateId is not null ? "Update" : "Add")
-                </Button>
+                </MudButton>
                 @if (_editingTemplateId is not null)
                 {
-                    <Button Color="ButtonColor.Gray" OnClick="CancelEdit">Cancel</Button>
+                    <MudButton Variant="Variant.Outlined" OnClick="CancelEdit">Cancel</MudButton>
                 }
-            </div>
-        </div>
+            </MudItem>
+        </MudGrid>
 
         @if (_formError is not null)
         {
-            <Alert Color="AlertColor.Failure" class="mt-4">
-                <CustomContent>@_formError</CustomContent>
-            </Alert>
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_formError</MudAlert>
         }
-    </Card>
+    </MudPaper>
 
     @if (_templates is { Count: > 0 })
     {
-        <Table Striped="true" Hoverable="true">
-            <TableHead>
-                <TableRow>
-                    <TableHeadCell>Title</TableHeadCell>
-                    <TableHeadCell>Task List</TableHeadCell>
-                    <TableHeadCell>Due Today</TableHeadCell>
-                    <TableHeadCell>Sort Order</TableHeadCell>
-                    <TableHeadCell><span class="sr-only">Actions</span></TableHeadCell>
-                </TableRow>
-            </TableHead>
-            <TableBody class="divide-y">
-                @foreach (var template in _templates)
-                {
-                    <TableRow class="bg-white dark:border-gray-700 dark:bg-gray-800">
-                        <TableCell>@template.Title</TableCell>
-                        <TableCell>@template.TaskListName</TableCell>
-                        <TableCell>
-                            @if (template.DueDateToday)
-                            {
-                                <Badge Color="BadgeColor.Success">Yes</Badge>
-                            }
-                            else
-                            {
-                                <span class="text-gray-500 dark:text-gray-400">No</span>
-                            }
-                        </TableCell>
-                        <TableCell>@template.SortOrder</TableCell>
-                        <TableCell>
-                            <div class="flex gap-2">
-                                <Button Size="ButtonSize.Small" Color="ButtonColor.Primary" OnClick="() => StartEdit(template)">Edit</Button>
-                                @if (_deleteConfirmId == template.Id)
-                                {
-                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Red" OnClick="() => ConfirmDelete(template.Id)">Confirm</Button>
-                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Gray" OnClick="() => _deleteConfirmId = null">Cancel</Button>
-                                }
-                                else
-                                {
-                                    <Button Size="ButtonSize.Small" Color="ButtonColor.Red" OnClick="() => _deleteConfirmId = template.Id">Delete</Button>
-                                }
-                            </div>
-                        </TableCell>
-                    </TableRow>
-                }
-            </TableBody>
-        </Table>
+        <MudDataGrid T="TaskTemplate" Items="@_templates" Striped="true" Hover="true" Dense="true">
+            <Columns>
+                <PropertyColumn Property="x => x.Title" Title="Title" />
+                <PropertyColumn Property="x => x.TaskListName" Title="Task List" />
+                <TemplateColumn Title="Due Today">
+                    <CellTemplate>
+                        @if (context.Item.DueDateToday)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success">Yes</MudChip>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">No</MudText>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <PropertyColumn Property="x => x.SortOrder" Title="Sort Order" />
+                <TemplateColumn Title="Actions">
+                    <CellTemplate>
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => StartEdit(context.Item)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => PromptDelete(context.Item.Id)" />
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+        </MudDataGrid>
     }
     else
     {
-        <Paragraph class="text-gray-500 dark:text-gray-400">No templates yet. Create one above!</Paragraph>
+        <MudAlert Severity="Severity.Info">No templates yet. Create one above!</MudAlert>
     }
 }
 
@@ -138,7 +109,6 @@ else
     private bool _saving;
     private string? _error;
     private string? _formError;
-    private int? _deleteConfirmId;
 
     // Form fields
     private string _formTitle = "";
@@ -252,12 +222,24 @@ else
         _formDueDateToday = template.DueDateToday;
         _formSortOrder = template.SortOrder;
         _formError = null;
-        _deleteConfirmId = null;
     }
 
     private void CancelEdit()
     {
         ResetForm();
+    }
+
+    private async Task PromptDelete(int templateId)
+    {
+        var confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete Template",
+            "Are you sure you want to delete this template?",
+            yesText: "Delete", cancelText: "Cancel");
+
+        if (confirmed == true)
+        {
+            await ConfirmDelete(templateId);
+        }
     }
 
     private async Task ConfirmDelete(int templateId)
@@ -266,12 +248,13 @@ else
         {
             await TemplateService.DeleteAsync(templateId);
             await RefreshTemplates();
-            _deleteConfirmId = null;
 
             if (_editingTemplateId == templateId)
             {
                 ResetForm();
             }
+
+            Snackbar.Add("Template deleted.", Severity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
