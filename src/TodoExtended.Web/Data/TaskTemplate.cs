@@ -7,5 +7,6 @@ public class TaskTemplate
     public required string TaskListId { get; set; }
     public required string TaskListName { get; set; }
     public bool DueDateToday { get; set; }
+    public TimeOnly? ReminderTime { get; set; }
     public int SortOrder { get; set; }
 }

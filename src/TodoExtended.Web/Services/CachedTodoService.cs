@@ -87,9 +87,9 @@ public class CachedTodoService(
             .ToList();
     }
 
-    public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate)
+    public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, TimeOnly? reminderTime = null)
     {
-        var created = await graphService.CreateTaskAsync(taskListId, title, dueDate);
+        var created = await graphService.CreateTaskAsync(taskListId, title, dueDate, reminderTime);
         
         var cachedTask = new CachedTask
         {

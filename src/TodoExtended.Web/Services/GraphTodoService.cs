@@ -78,7 +78,7 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
         return result;
     }
 
-    public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate)
+    public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, TimeOnly? reminderTime = null)
     {
         var newTask = new Microsoft.Graph.Models.TodoTask
         {
@@ -91,6 +91,17 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
             {
                 DateTime = due.ToDateTime(TimeOnly.MinValue).ToString("yyyy-MM-ddTHH:mm:ss"),
                 TimeZone = "UTC",
+            };
+        }
+
+        if (reminderTime is { } reminder)
+        {
+            var reminderDateTime = DateTime.Today.Add(reminder.ToTimeSpan());
+            newTask.IsReminderOn = true;
+            newTask.ReminderDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = reminderDateTime.ToString("yyyy-MM-ddTHH:mm:ss"),
+                TimeZone = TimeZoneInfo.Local.Id,
             };
         }
 

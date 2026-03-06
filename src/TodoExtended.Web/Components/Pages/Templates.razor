@@ -120,6 +120,16 @@ else
                                         Due Today
                                     </MudChip>
                                 }
+                                @if (template.ReminderTime is not null)
+                                {
+                                    <MudChip T="string"
+                                             Size="Size.Small"
+                                             Color="Color.Info"
+                                             Icon="@Icons.Material.Filled.Alarm"
+                                             Variant="Variant.Filled">
+                                        @template.ReminderTime.Value.ToString("HH:mm")
+                                    </MudChip>
+                                }
                                 @if (template.SortOrder != 0)
                                 {
                                     <MudChip T="string"
@@ -177,11 +187,23 @@ else
                                  HelperText="Lower numbers appear first" />
             </MudItem>
             <MudItem xs="6" Class="d-flex align-center">
-                <MudSwitch @bind-Value="_formDueDateToday"
+                <MudSwitch Value="_formDueDateToday"
+                           ValueChanged="OnDueDateTodayChanged"
                            Label="Due Today"
-                           Color="Color.Warning" />
+                           Color="Color.Warning"
+                           T="bool" />
             </MudItem>
         </MudGrid>
+
+        @if (_formDueDateToday)
+        {
+            <MudTimePicker @bind-Time="_formReminderTimeSpan"
+                           Label="Reminder Time"
+                           Variant="Variant.Outlined"
+                           Clearable="true"
+                           Class="mb-4"
+                           HelperText="Optional — set a reminder for today at this time" />
+        }
 
         @if (_formError is not null)
         {
@@ -233,6 +255,7 @@ else
     private string _formTitle = "";
     private string _formTaskListId = "";
     private bool _formDueDateToday;
+    private TimeSpan? _formReminderTimeSpan;
     private int _formSortOrder;
     private int? _editingTemplateId;
 
@@ -274,6 +297,7 @@ else
         _formTitle = template.Title;
         _formTaskListId = template.TaskListId;
         _formDueDateToday = template.DueDateToday;
+        _formReminderTimeSpan = template.ReminderTime?.ToTimeSpan();
         _formSortOrder = template.SortOrder;
         _formError = null;
         _dialogVisible = true;
@@ -321,6 +345,8 @@ else
                     existing.TaskListId = selectedList.Id;
                     existing.TaskListName = selectedList.DisplayName;
                     existing.DueDateToday = _formDueDateToday;
+                    existing.ReminderTime = _formDueDateToday && _formReminderTimeSpan.HasValue
+                        ? TimeOnly.FromTimeSpan(_formReminderTimeSpan.Value) : null;
                     existing.SortOrder = _formSortOrder;
                     await TemplateService.UpdateAsync(existing);
                 }
@@ -335,6 +361,8 @@ else
                     TaskListId = selectedList.Id,
                     TaskListName = selectedList.DisplayName,
                     DueDateToday = _formDueDateToday,
+                    ReminderTime = _formDueDateToday && _formReminderTimeSpan.HasValue
+                        ? TimeOnly.FromTimeSpan(_formReminderTimeSpan.Value) : null,
                     SortOrder = _formSortOrder
                 };
                 await TemplateService.CreateAsync(template);
@@ -365,7 +393,7 @@ else
         try
         {
             DateOnly? dueDate = template.DueDateToday ? DateOnly.FromDateTime(DateTime.Today) : null;
-            await TodoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate);
+            await TodoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate, template.ReminderTime);
             Snackbar.Add($"Task \"{template.Title}\" created.", Severity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
@@ -423,7 +451,17 @@ else
         _formTitle = "";
         _formTaskListId = "";
         _formDueDateToday = false;
+        _formReminderTimeSpan = null;
         _formSortOrder = 0;
         _formError = null;
+    }
+
+    private void OnDueDateTodayChanged(bool value)
+    {
+        _formDueDateToday = value;
+        if (!value)
+        {
+            _formReminderTimeSpan = null;
+        }
     }
 }

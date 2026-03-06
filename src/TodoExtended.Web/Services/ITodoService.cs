@@ -25,7 +25,7 @@ public interface ITodoService
     Task<IReadOnlyList<TodoTaskList>> GetTaskListsAsync();
     Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId);
     Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync();
-    Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate);
+    Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, TimeOnly? reminderTime = null);
     Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed);
     Task SetTaskListArchivedAsync(string taskListId, bool isArchived);
     Task<IReadOnlyList<TodoTaskList>> GetArchivedTaskListsAsync();
