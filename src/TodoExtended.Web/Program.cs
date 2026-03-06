@@ -12,6 +12,8 @@ using TodoExtended.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: true);
+
 // Register IDistributedCache backed by SQLite (must be registered before authentication)
 builder.Services.AddSingleton<Microsoft.Extensions.Caching.Distributed.IDistributedCache, SqliteDistributedCache>();
 

@@ -434,3 +434,6 @@ FodyWeavers.xsd
 # Squad: ignore generated logs
 .squad/orchestration-log/
 .squad/log/
+
+# Local secrets
+appsettings.local.json
