@@ -10,97 +10,210 @@
 
 <PageTitle>Templates</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Templates</MudText>
+@* Header row with title and add button *@
+<div class="d-flex align-center justify-space-between mb-6">
+    <MudText Typo="Typo.h4">Templates</MudText>
+    @if (!_loading && _error is null)
+    {
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenAddDialog">
+            New Template
+        </MudButton>
+    }
+</div>
 
 @if (_loading)
 {
     <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
-    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
+    <MudGrid Spacing="4">
+        @for (var i = 0; i < 3; i++)
+        {
+            <MudItem xs="12" sm="6" md="4">
+                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="160px" Class="rounded-lg" />
+            </MudItem>
+        }
+    </MudGrid>
 }
 else if (_error is not null)
 {
     <MudAlert Severity="Severity.Error">@_error</MudAlert>
 }
+else if (_templates is not { Count: > 0 })
+{
+    @* Empty state *@
+    <MudPaper Elevation="0" Class="d-flex flex-column align-center justify-center pa-12 mt-4" Style="border: 2px dashed var(--mud-palette-lines-default); border-radius: 12px;">
+        <MudIcon Icon="@Icons.Material.Filled.ContentPaste" Size="Size.Large" Color="Color.Secondary" Class="mb-4" Style="font-size: 4rem;" />
+        <MudText Typo="Typo.h5" Color="Color.Secondary" Class="mb-2">No templates yet</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">Create templates to quickly add recurring tasks with a single click.</MudText>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Size="Size.Large"
+                   OnClick="OpenAddDialog">
+            Create Your First Template
+        </MudButton>
+    </MudPaper>
+}
 else
 {
-    <MudPaper Elevation="2" Class="pa-4 mb-6">
-        <MudText Typo="Typo.h6" Class="mb-4">@(_editingTemplateId is not null ? "Edit Template" : "Add Template")</MudText>
+    @* Group templates by task list *@
+    @foreach (var group in _templates.GroupBy(t => t.TaskListName).OrderBy(g => g.Key))
+    {
+        <MudText Typo="Typo.subtitle1" Color="Color.Secondary" Class="mb-2 mt-4">
+            <MudIcon Icon="@Icons.Material.Filled.List" Size="Size.Small" Class="mr-1" Style="vertical-align: middle;" />
+            @group.Key
+        </MudText>
 
-        <MudGrid>
-            <MudItem xs="12" md="3">
-                <MudTextField @bind-Value="_formTitle" Label="Title" Placeholder="Task title" Variant="Variant.Outlined" />
-            </MudItem>
-            <MudItem xs="12" md="3">
-                <MudSelect T="string" @bind-Value="_formTaskListId" Label="Task List" Variant="Variant.Outlined" Placeholder="-- Select a list --">
-                    @if (_taskLists is not null)
-                    {
-                        @foreach (var list in _taskLists)
+        <MudGrid Spacing="3" Class="mb-2">
+            @foreach (var template in group.OrderBy(t => t.SortOrder).ThenBy(t => t.Title))
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudCard Elevation="2" Class="template-card" Style="position: relative; height: 100%;">
+                        @* Sort order badge *@
+                        @if (template.SortOrder != 0)
                         {
-                            <MudSelectItem T="string" Value="@list.Id">@list.DisplayName</MudSelectItem>
+                            <MudBadge Content="@template.SortOrder"
+                                      Color="Color.Default"
+                                      Overlap="true"
+                                      Origin="Origin.TopRight"
+                                      Class="template-sort-badge">
+                                <span></span>
+                            </MudBadge>
                         }
-                    }
-                </MudSelect>
-            </MudItem>
-            <MudItem xs="12" md="2">
-                <MudNumericField @bind-Value="_formSortOrder" Label="Sort Order" Variant="Variant.Outlined" />
-            </MudItem>
-            <MudItem xs="12" md="2" Class="d-flex align-center">
-                <MudSwitch @bind-Value="_formDueDateToday" Label="Due Today" Color="Color.Primary" />
-            </MudItem>
-            <MudItem xs="12" md="2" Class="d-flex align-center gap-2">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveTemplate" Disabled="@_saving">
-                    @if (_saving)
-                    {
-                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                    }
-                    @(_editingTemplateId is not null ? "Update" : "Add")
-                </MudButton>
-                @if (_editingTemplateId is not null)
+                        <MudCardHeader>
+                            <CardHeaderContent>
+                                <MudText Typo="Typo.h6">@template.Title</MudText>
+                            </CardHeaderContent>
+                            <CardHeaderActions>
+                                <MudMenu Icon="@Icons.Material.Filled.MoreVert"
+                                         Size="Size.Small"
+                                         AnchorOrigin="Origin.BottomRight"
+                                         TransformOrigin="Origin.TopRight">
+                                    <MudMenuItem Icon="@Icons.Material.Filled.Edit"
+                                                 OnClick="() => OpenEditDialog(template)">
+                                        Edit
+                                    </MudMenuItem>
+                                    <MudMenuItem Icon="@Icons.Material.Filled.Delete"
+                                                 IconColor="Color.Error"
+                                                 OnClick="() => PromptDelete(template.Id)">
+                                        Delete
+                                    </MudMenuItem>
+                                </MudMenu>
+                            </CardHeaderActions>
+                        </MudCardHeader>
+                        <MudCardContent Class="pt-0">
+                            <div class="d-flex gap-2 flex-wrap">
+                                @if (template.DueDateToday)
+                                {
+                                    <MudChip T="string"
+                                             Size="Size.Small"
+                                             Color="Color.Warning"
+                                             Icon="@Icons.Material.Filled.Today"
+                                             Variant="Variant.Filled">
+                                        Due Today
+                                    </MudChip>
+                                }
+                                @if (template.SortOrder != 0)
+                                {
+                                    <MudChip T="string"
+                                             Size="Size.Small"
+                                             Color="Color.Default"
+                                             Variant="Variant.Outlined">
+                                        Order: @template.SortOrder
+                                    </MudChip>
+                                }
+                            </div>
+                        </MudCardContent>
+                    </MudCard>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+}
+
+@* Add/Edit Dialog *@
+<MudDialog @bind-Visible="_dialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@(_editingTemplateId is not null ? Icons.Material.Filled.Edit : Icons.Material.Filled.Add)" Class="mr-2" Style="vertical-align: middle;" />
+            @(_editingTemplateId is not null ? "Edit Template" : "New Template")
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField @bind-Value="_formTitle"
+                      Label="Title"
+                      Placeholder="e.g. Morning standup notes"
+                      Variant="Variant.Outlined"
+                      Class="mb-4"
+                      Immediate="true" />
+
+        <MudSelect T="string"
+                   @bind-Value="_formTaskListId"
+                   Label="Task List"
+                   Variant="Variant.Outlined"
+                   Placeholder="Select a list"
+                   Class="mb-4">
+            @if (_taskLists is not null)
+            {
+                @foreach (var list in _taskLists)
                 {
-                    <MudButton Variant="Variant.Outlined" OnClick="CancelEdit">Cancel</MudButton>
+                    <MudSelectItem T="string" Value="@list.Id">@list.DisplayName</MudSelectItem>
                 }
+            }
+        </MudSelect>
+
+        <MudGrid Spacing="3" Class="mb-2">
+            <MudItem xs="6">
+                <MudNumericField @bind-Value="_formSortOrder"
+                                 Label="Sort Order"
+                                 Variant="Variant.Outlined"
+                                 HelperText="Lower numbers appear first" />
+            </MudItem>
+            <MudItem xs="6" Class="d-flex align-center">
+                <MudSwitch @bind-Value="_formDueDateToday"
+                           Label="Due Today"
+                           Color="Color.Warning" />
             </MudItem>
         </MudGrid>
 
         @if (_formError is not null)
         {
-            <MudAlert Severity="Severity.Error" Class="mt-4">@_formError</MudAlert>
+            <MudAlert Severity="Severity.Error" Class="mt-2">@_formError</MudAlert>
         }
-    </MudPaper>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="SaveTemplate"
+                   Disabled="@_saving">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            @(_editingTemplateId is not null ? "Update" : "Create")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
 
-    @if (_templates is { Count: > 0 })
-    {
-        <MudDataGrid T="TaskTemplate" Items="@_templates" Striped="true" Hover="true" Dense="true">
-            <Columns>
-                <PropertyColumn Property="x => x.Title" Title="Title" />
-                <PropertyColumn Property="x => x.TaskListName" Title="Task List" />
-                <TemplateColumn Title="Due Today">
-                    <CellTemplate>
-                        @if (context.Item.DueDateToday)
-                        {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Success">Yes</MudChip>
-                        }
-                        else
-                        {
-                            <MudText Typo="Typo.body2" Color="Color.Secondary">No</MudText>
-                        }
-                    </CellTemplate>
-                </TemplateColumn>
-                <PropertyColumn Property="x => x.SortOrder" Title="Sort Order" />
-                <TemplateColumn Title="Actions">
-                    <CellTemplate>
-                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="() => StartEdit(context.Item)" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" OnClick="() => PromptDelete(context.Item.Id)" />
-                    </CellTemplate>
-                </TemplateColumn>
-            </Columns>
-        </MudDataGrid>
+<style>
+    .template-card:hover {
+        transform: translateY(-2px);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
-    else
-    {
-        <MudAlert Severity="Severity.Info">No templates yet. Create one above!</MudAlert>
+
+    .template-card {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
-}
+
+    .template-sort-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+    }
+</style>
 
 @code {
     private IReadOnlyList<TaskTemplate>? _templates;
@@ -109,6 +222,7 @@ else
     private bool _saving;
     private string? _error;
     private string? _formError;
+    private bool _dialogVisible;
 
     // Form fields
     private string _formTitle = "";
@@ -141,6 +255,29 @@ else
         {
             _loading = false;
         }
+    }
+
+    private void OpenAddDialog()
+    {
+        ResetForm();
+        _dialogVisible = true;
+    }
+
+    private void OpenEditDialog(TaskTemplate template)
+    {
+        _editingTemplateId = template.Id;
+        _formTitle = template.Title;
+        _formTaskListId = template.TaskListId;
+        _formDueDateToday = template.DueDateToday;
+        _formSortOrder = template.SortOrder;
+        _formError = null;
+        _dialogVisible = true;
+    }
+
+    private void CloseDialog()
+    {
+        _dialogVisible = false;
+        ResetForm();
     }
 
     private async Task SaveTemplate()
@@ -182,6 +319,8 @@ else
                     existing.SortOrder = _formSortOrder;
                     await TemplateService.UpdateAsync(existing);
                 }
+
+                Snackbar.Add("Template updated.", Severity.Success);
             }
             else
             {
@@ -194,9 +333,11 @@ else
                     SortOrder = _formSortOrder
                 };
                 await TemplateService.CreateAsync(template);
+                Snackbar.Add("Template created.", Severity.Success);
             }
 
             await RefreshTemplates();
+            _dialogVisible = false;
             ResetForm();
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
@@ -212,21 +353,6 @@ else
         {
             _saving = false;
         }
-    }
-
-    private void StartEdit(TaskTemplate template)
-    {
-        _editingTemplateId = template.Id;
-        _formTitle = template.Title;
-        _formTaskListId = template.TaskListId;
-        _formDueDateToday = template.DueDateToday;
-        _formSortOrder = template.SortOrder;
-        _formError = null;
-    }
-
-    private void CancelEdit()
-    {
-        ResetForm();
     }
 
     private async Task PromptDelete(int templateId)
@@ -248,12 +374,6 @@ else
         {
             await TemplateService.DeleteAsync(templateId);
             await RefreshTemplates();
-
-            if (_editingTemplateId == templateId)
-            {
-                ResetForm();
-            }
-
             Snackbar.Add("Template deleted.", Severity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
@@ -263,7 +383,7 @@ else
         }
         catch (Exception ex)
         {
-            _formError = $"Failed to delete template: {ex.Message}";
+            Snackbar.Add($"Failed to delete: {ex.Message}", Severity.Error);
         }
     }
 
