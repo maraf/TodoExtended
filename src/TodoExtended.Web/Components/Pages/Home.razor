@@ -8,15 +8,9 @@
 <PageTitle>TodoExtended</PageTitle>
 
 <MudText Typo="Typo.h4" Class="mb-2">TodoExtended</MudText>
-<MudText Typo="Typo.subtitle1" Color="Color.Secondary" Class="mb-6">An alternative view for Microsoft To Do with extended features.</MudText>
 
 <AuthorizeView>
     <Authorized>
-        <MudText Typo="Typo.body1" Class="mb-4">
-            Welcome, <strong>@context.User.Identity?.Name</strong>!
-            Head to <MudLink Href="tasks">My Tasks</MudLink> to see your to-do lists.
-        </MudText>
-
         @if (_loading)
         {
             <MudGrid>
