@@ -53,3 +53,15 @@
 - **Key constraints:** Phone must be paired for any API call; 28-128 KB memory limits; ~8-16 KB response size cap; 1-5s latency per request; 240-454px round screens showing 3-5 list items.
 - **No API changes needed for v1** — existing `/api/today`, `/api/templates`, `/api/templates/{id}/execute`, `/api/tasks/{listId}/{taskId}/complete` endpoints are sufficient.
 - **Tooling:** Connect IQ SDK, VS Code Monkey C extension (`garmin.monkey-c`), Java JDK 8+.
+
+### 2026-03-06 — Garmin Watch App Scaffold Implementation
+- Backend scaffolded the entire Garmin Connect IQ Monkey C companion app project per Architect's design.
+- **Deliverables:** 17 files complete — manifest.xml, monkey.jungle, 9 Monkey C source modules (TodoExtendedApp, TodayView/Delegate, TemplatesView/Delegate, TaskDetailView, ApiClient, Settings, Models), resource XMLs (layouts, strings, drawables, settings), and .gitignore.
+- **Architecture implemented:** Module-based design with ApiClient, Settings, Models as Monkey C modules; Views/Delegates as classes. WatchUi.Menu2 for memory-efficient list display.
+- **Navigation:** Swipe up/down between Today and Templates views. Tap drills into task detail or executes template.
+- **Authentication:** Settings-based API key (`X-Api-Key` header); URL and key configurable via Garmin Connect Mobile app — no hardcoding.
+- **API coverage:** All 4 endpoints integrated (GET /api/today, GET /api/templates, POST /api/templates/{id}/execute, POST /api/tasks/{listId}/{taskId}/complete). No backend changes required for v1.
+- **Error handling:** Covers network failures (-104), HTTP errors, and unconfigured state (missing URL/key).
+- **Device targets:** Venu 3, Fenix 7, Forerunner 265. minSdkVersion 4.2.0 for Menu2, Communications, Properties API support.
+- **Key decision:** App type `app` (not `widget`) required for Communications permission to make HTTP requests.
+- **Status:** Ready for Connect IQ SDK build verification and device testing.

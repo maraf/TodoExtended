@@ -1,0 +1,7 @@
+# Connect IQ build output
+bin/
+
+# IDE files
+.vscode/
+*.prg
+*.debug.xml

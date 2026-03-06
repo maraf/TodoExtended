@@ -1,0 +1,4 @@
+<properties>
+    <property id="apiBaseUrl" type="string"></property>
+    <property id="apiKey" type="string"></property>
+</properties>

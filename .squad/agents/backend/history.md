@@ -248,3 +248,18 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
 - **SQLite constraint:** `ALTER COLUMN` is not supported; migration uses table-rebuild approach (create new table, copy data with generated UUIDs via `randomblob`, drop old, rename).
 - **Files touched:** `TaskTemplate.cs`, `AppDbContext.cs` (no changes  `HasKey` works for both types), `ITemplateService.cs`, `TemplateService.cs`, `Program.cs` (API endpoint), `Templates.razor`, `Home.razor`.needed 
 - **User preference:** Don't expose autoincrement IDs in APIs; use GUIDs as public identifiers.
+
+## Learnings
+
+### Garmin Connect IQ / Monkey C (2026-03-xx)
+
+- **Project location:** `garmin/TodoExtended.Watch/` — companion watch app for Venu 3, Fenix 7, Forerunner 265.
+- **Build system:** `monkey.jungle` uses `project.manifest`, `base.sourcePath`, `base.resourcePath` (property = value format, not JSON/XML).
+- **Manifest:** `iq:manifest version="3"` with `iq:application` element; type `app` (not widget) required for Communications permission.
+- **Device IDs:** `venu3`, `fenix7`, `fr265` in `<iq:product>` elements.
+- **Settings require two files:** `resources/settings/properties.xml` (defaults + types) and `resources/settings/settings.xml` (UI definition). Access via `Application.Properties.getValue("key")`.
+- **HTTP:** `Communications.makeWebRequest(url, params, options, method(:callback))` — callback signature is `(responseCode as Number, data as ...)`. Must match `:responseType` to server's Content-Type. Custom headers via `:headers` dictionary.
+- **Error codes:** -104 = no phone connection, -300 = network error, -400 = invalid response, -402 = response too large.
+- **UI pattern:** `WatchUi.Menu2` with `Menu2InputDelegate` for scrollable lists (auto-scrolls, memory-efficient). Views extend `WatchUi.View`, delegates extend `WatchUi.BehaviorDelegate`.
+- **Memory:** 28-128 KB budget depending on device; keep response payloads under 8-16 KB.
+- **Launcher icon:** Referenced in `drawables.xml` as `<bitmap id="LauncherIcon">`, must match `launcherIcon="@Drawables.LauncherIcon"` in manifest.

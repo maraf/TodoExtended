@@ -1,0 +1,18 @@
+<strings>
+    <string id="AppName">TodoExtended</string>
+    <string id="Loading">Loading...</string>
+    <string id="NoTasks">No tasks today!</string>
+    <string id="NoTemplates">No templates</string>
+    <string id="Completing">Completing...</string>
+    <string id="TaskCompleted">Task completed!</string>
+    <string id="TodayTitle">Today's Tasks</string>
+    <string id="TemplatesTitle">Templates</string>
+    <string id="PressToView">Press to view</string>
+    <string id="TapToCreate">Tap to create</string>
+    <string id="Creating">Creating...</string>
+    <string id="ConfigureHint">Configure API URL and key in Garmin Connect</string>
+    <string id="NoConnection">No phone connection</string>
+    <string id="NetworkError">Network error</string>
+    <string id="InvalidApiKey">Invalid API key</string>
+    <string id="ServerError">Server error</string>
+</strings>

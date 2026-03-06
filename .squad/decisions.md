@@ -106,6 +106,69 @@ Migrated all UI from Bootstrap to Flowbite Blazor components + Tailwind CSS util
 
 **Impact:** All 8 UI files redesigned, _Imports.razor updated with 4 new Flowbite imports, zero Bootstrap classes remain, build clean (zero errors, zero warnings)
 
+### Garmin Connect IQ Watch App Scaffold
+
+**Date:** 2026-03-06  
+**Author:** Backend  
+**Status:** Implemented
+
+Scaffolded the complete Garmin Connect IQ project at `garmin/TodoExtended.Watch/` with full Monkey C source code, targeting Venu 3, Fenix 7, and Forerunner 265 devices.
+
+**Key Choices:**
+
+1. **App type `app` (not `widget`)** — Required for `Communications` permission (HTTP requests)
+2. **WatchUi.Menu2 for all list views** — More memory-efficient than custom drawing; auto-scrolls on device
+3. **Module-based architecture** — `ApiClient`, `Settings`, `Models` as Monkey C modules for clean separation. Views/Delegates as classes
+4. **Settings via properties.xml + settings.xml** — Users configure `apiBaseUrl` and `apiKey` through Garmin Connect Mobile app
+5. **Navigation: swipe up/down** — Today view ↔ Templates view via `onNextPage`/`onPreviousPage`. Tap to drill into task detail or execute template
+6. **Error handling** — Covers no-connection (-104), network errors, HTTP status codes, and unconfigured state
+7. **Placeholder launcher icon** — 1x1 PNG; needs real icon before Connect IQ Store submission
+8. **minSdkVersion 4.2.0** — Supports Menu2, Communications, Properties APIs on target devices
+
+**Files Created:**
+
+- `manifest.xml` — App metadata, permissions, device targets
+- `monkey.jungle` — Build configuration
+- `source/TodoExtendedApp.mc` — AppBase entry point
+- `source/TodayView.mc` + `TodayDelegate.mc` — Today's tasks view + input
+- `source/TemplatesView.mc` + `TemplatesDelegate.mc` — Template list + execution
+- `source/TaskDetailView.mc` — Task detail + completion (view + delegate in one file)
+- `source/ApiClient.mc` — HTTP client wrapper for all 4 API endpoints
+- `source/Settings.mc` — Properties accessor for API URL and key
+- `source/Models.mc` — TodoTask and Template data classes with JSON parsing
+- `resources/` — layouts, strings, drawables, settings (properties.xml + settings.xml)
+- `.gitignore` — Excludes bin/ output
+
+**API Endpoints Used:**
+
+- `GET /api/today` — Today's tasks
+- `GET /api/templates` — Template list
+- `POST /api/templates/{id}/execute` — Create task from template
+- `POST /api/tasks/{listId}/{taskId}/complete` — Mark task complete
+
+### TaskTemplate Id: Autoincrement Int → Guid
+
+**Date:** 2026-03-06  
+**Author:** Backend  
+**Status:** Implemented
+
+Replaced `TaskTemplate.Id` from autoincrement `int` to `Guid` (generated client-side via `Guid.NewGuid()`). The API, service layer, and UI all use Guid identifiers.
+
+**Rationale:**
+
+- Sequential integer IDs leak information (row count, insertion order) and are predictable
+- GUIDs are safe to expose publicly and don't reveal database internals
+- Aligns with the team preference to not expose autoincrement IDs in the API
+
+**Migration Strategy:**
+
+SQLite doesn't support `ALTER COLUMN`, so the EF Core migration uses a table-rebuild:
+1. Create new table with TEXT primary key
+2. Copy existing rows with SQLite-generated UUID v4 values (`randomblob`)
+3. Drop old table, rename new one
+
+**Impact:** Existing template IDs change. Since templates are local-only data and not referenced externally, this is safe.
+
 ## Governance
 
 - All meaningful changes require team consensus
