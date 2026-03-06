@@ -42,6 +42,41 @@ All 8 UI component files redesigned from Bootstrap to Flowbite Blazor components
 
 ✅ Zero errors, zero warnings, clean build
 
+## 2026-03-06: MudBlazor UI Redesign
+
+**Session:** MudBlazor UI Redesign (2026-03-06T09:53:24Z)
+
+All 8 UI component files redesigned from Flowbite Blazor + Tailwind CSS to MudBlazor Material Design. Build clean, zero errors.
+
+### Completed Tasks
+
+- ✅ **MainLayout.razor** — MudLayout with MudAppBar, MudDrawer (responsive), dark mode toggle
+- ✅ **NavMenu.razor** — MudNavMenu with MudNavLink items, auto-highlighted routes
+- ✅ **Home.razor** — MudGrid + MudCard dashboard with Material Design palette
+- ✅ **Today.razor** — MudList with task items, MudSnackbar feedback
+- ✅ **Tasks.razor** — MudTable for task lists, archive/unarchive, collapsible archived section
+- ✅ **Templates.razor** — MudDataGrid + MudDialog for CRUD, Material typography
+- ✅ **ApiKeys.razor** — MudDataGrid + MudDialog for API key management
+- ✅ **TaskStatusCheckbox.razor** — MudCheckBox with status binding, MudSnackbar feedback
+
+### Key Design Patterns
+
+- **Responsive Layout:** MudAppBar (sticky), MudDrawer (auto-collapses on mobile)
+- **Material Components:** MudList, MudTable, MudDataGrid, MudDialog, MudFab, MudChip
+- **Feedback:** ISnackbar for non-intrusive notifications (replaces inline alerts)
+- **Loading States:** MudSkeleton for content-shaped placeholders
+- **Theming:** Custom MudTheme with blue primary, purple secondary, teal success. Dark mode toggle built in.
+- **Icons:** MudBlazor Material Icons (`Icons.Material.Filled.*`)
+
+### Cross-Team Coordination
+
+**Backend:** MudBlazor infrastructure ready (services, CSS/JS, providers in App.razor)  
+**Architect:** Design proposal informed all component implementations
+
+### Build Status
+
+✅ Zero errors, zero warnings, all components compile successfully
+
 ## Cross-Team Coordination
 
 **Backend:** Added `GetTodayTasksAsync(CancellationToken)` method to ITodoService returning `IEnumerable<TodoTaskWithList>`. Aggregates tasks from all lists with due date matching today; parses Graph DueDateTime via `DateTimeOffset.Parse()`, uses `DateOnly.FromDateTime()` for timezone-safe comparison.
@@ -75,6 +110,14 @@ All 8 UI component files redesigned from Bootstrap to Flowbite Blazor components
 - When modifying `IReadOnlyList` properties (like `TaskLists`), create new lists via LINQ `.Where().ToList()` or collection expressions `[.. existing, newItem]`
 - Bootstrap Icons CSS added via CDN in App.razor (`bootstrap-icons@1.11.3`), enabling `<i class="bi bi-archive">` icon usage throughout the app
 - Use `@onclick:stopPropagation="true"` on nested buttons inside clickable list items to prevent parent click handler from firing
+- MudBlazor v9 uses `ShowMessageBoxAsync` (not `ShowMessageBox`) on `IDialogService`
+- MudBlazor v9: `MudList` requires explicit `T` type parameter; `@bind-SelectedValue` expects matching type
+- MudBlazor v9: `MudTabs` no longer supports `PanelClass` attribute — use `Class` on individual `MudTabPanel` instead
+- MudBlazor v9: `MudCheckBox` requires `T` type parameter (`MudCheckBox<bool>`) and uses `ValueChanged` event
+- MudBlazor v9: Use `ISnackbar` (injected) for toast notifications instead of inline dismissible alerts
+- MudBlazor v9: `MudDataGrid<T>` with `Items` binding for in-memory data; use `PropertyColumn` and `TemplateColumn`
+- MudBlazor v9: `MudChip` requires `T` type parameter
+- Dark/light theme toggle via `MudThemeProvider @bind-IsDarkMode` with custom `MudTheme` palette
 
 ## 2026-03-06: Sync Performance Improvements
 

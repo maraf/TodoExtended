@@ -952,4 +952,61 @@ Added archive/unarchive UI to the Tasks page sidebar with these design choices:
 ### Key Files
 
 - `Components/Pages/Tasks. Archive/unarchive UI and logicrazor` 
-- `Components/App. Bootstrap Icons CDN linkrazor` 
+- `Components/App. Bootstrap Icons CDN linkrazor`
+
+---
+
+## MudBlazor Redesign — Component Design Proposal
+
+**Author:** Architect  
+**Date:** 2026-03-06  
+**Status:** Implemented
+
+### Overview
+
+Replaced Flowbite Blazor + Tailwind CSS with MudBlazor v9 (Material Design). This was not a 1:1 migration — it was a UX rethink using MudBlazor idioms. The original layout used a static sidebar + plain lists + tables. The new design uses Material Design's app shell, rich list components, floating actions, dialogs, and snackbar feedback.
+
+### Setup Completed
+
+- **NuGet:** MudBlazor 9.1.0 installed, Flowbite.Blazor removed
+- **App.razor:** MudBlazor stylesheets and fonts added to head; MudBlazor.min.js added to body
+- **_Imports.razor:** Added `@using MudBlazor`; removed Flowbite imports
+- **Program.cs:** Added `builder.Services.AddMudServices()`
+
+### Theme Implementation
+
+Custom `MudTheme` with task-management personality:
+- **Primary:** Material Blue 700 (#1976D2) — trust, productivity
+- **Secondary:** Deep Purple (#7C4DFF) — templates/special actions
+- **Tertiary:** Teal (#00BFA5) — success/completion
+- Dark mode support with `MudThemeProvider` toggle in AppBar
+
+### Component Architecture
+
+1. **MainLayout.razor** — MudLayout with MudAppBar (responsive, dark mode toggle) + MudDrawer (responsive collapse on mobile)
+2. **NavMenu.razor** — MudNavMenu with MudNavLink items (auto-highlighted active routes)
+3. **Home.razor** — MudGrid + MudCard layout for welcome dashboard + template quick-create
+4. **Today.razor** — MudList with task items, MudSnackbar feedback
+5. **Tasks.razor** — MudTable for task list management with archive/unarchive UI
+6. **Templates.razor** — MudCard grid for template display and management
+7. **ApiKeys.razor** — MudTable for API key CRUD operations
+8. **TaskStatusCheckbox.razor** — MudCheckBox with status binding and snackbar feedback
+
+### Key Design Decisions
+
+- **Snackbar Feedback:** Replaced all inline alert/success messages with `ISnackbar.Add()` for non-intrusive feedback
+- **Responsive Drawer:** `DrawerVariant.Responsive` auto-collapses on mobile (vs. fixed sidebar in Flowbite)
+- **Material Icons:** Use MudBlazor's built-in icon system (`Icons.Material.Filled.*`)
+- **Container Max-Width:** `MudContainer` constrains content width for readability on large screens
+- **Lazy Loading:** Archive lists and other heavy UI sections load on-demand
+
+### Build Verification
+
+✅ 0 compilation errors  
+✅ 0 warnings  
+✅ All 8 components successfully integrated
+
+### Commit
+
+`014caf2` — "Redesign UI from Flowbite Blazor to MudBlazor v9" 
+

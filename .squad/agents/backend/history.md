@@ -127,6 +127,32 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
 
  Project builds clean. Migration created successfully.
 
+## 2026-03-06: MudBlazor Infrastructure Swap
+
+**Session:** MudBlazor UI Redesign (2026-03-06T09:53:24Z)
+
+### Completed Tasks
+
+1. **Removed Flowbite package** (`Flowbite.Blazor` v0.2.6-beta) and **added MudBlazor** (v9.1.0) via NuGet
+2. **Updated App.razor:** Removed Tailwind CDN, Flowbite components, Bootstrap Icons. Added Roboto font link, MudBlazor CSS/JS, and MudBlazor provider components (`MudThemeProvider`, `MudPopoverProvider`, `MudDialogProvider`, `MudSnackbarProvider`)
+3. **Updated _Imports.razor:** Removed all Flowbite `@using` lines, added single `@using MudBlazor`
+4. **Updated Program.cs:** Added `builder.Services.AddMudServices()`
+
+### Cross-Team Coordination
+
+**Frontend:** Simultaneously rewrote all 8 UI files with MudBlazor components and Material Design. Zero build errors, zero warnings.
+
+### Technical Details
+
+- MudBlazor v9.1.0 targets net10.0
+- All 4 provider components required in App.razor body for full functionality
+- CSS/JS served from `_content/MudBlazor/` static assets
+- Infrastructure is now ready for Material Design-based UI pages
+
+### Build Status
+
+✅ Infrastructure builds clean. Remaining changes are all in page/layout Razor files (Frontend responsibility).
+
 ## 2025-07-17: Flowbite Blazor Infrastructure Setup
 
 ### Completed Tasks
@@ -147,3 +173,26 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
 - `AddFlowbite()` extension method lives in `Flowbite.Services` namespace
 - RZ10012 warning on `<ToastHost />` in App.razor is  component resolves at runtime despite Razor analyzer not finding it at design timeharmless 
 - Key files: `Program.cs` (service registration), `App.razor` (Tailwind CDN + ToastHost), `_Imports.razor` (Flowbite usings), `app.css` (cleaned)
+
+ MudBlazor Infrastructure Swap
+
+### Completed Tasks
+
+1. **Removed Flowbite package** (`Flowbite` v0.2.6-beta) and **added MudBlazor** (v9.1.0) via `dotnet remove/add package`
+ `AddMudServices()`
+3. **Updated _Imports.razor**: Removed all 7 Flowbite `@using` lines, added single `@using MudBlazor`
+4. **Updated App.razor**: Removed Tailwind CDN, Flowbite `@using`, `<ResourcePreloader/>`, `<ImportMap/>`, `<ToastHost/>`, `<ReconnectModal/>`. Added Roboto font, MudBlazor CSS, MudBlazor JS, and MudBlazor provider components (`MudThemeProvider`, `MudPopoverProvider`, `MudDialogProvider`, `MudSnackbarProvider`)
+5. **app.css**: Already  no Flowbite/Tailwind-specific CSS to removeclean 
+
+### Build Status
+
+ Infrastructure builds clean. Remaining errors are all in page/layout Razor files (Flowbite icons, `AlertColor`  Frontend agent's responsibility.enum) 
+
+### Learnings
+
+- MudBlazor v9.1.0 is latest stable, targets net10.0 cleanly
+- MudBlazor requires 4 provider components in App.razor body: `MudThemeProvider`, `MudPopoverProvider`, `MudDialogProvider`, `MudSnackbarProvider`
+- Single `@using MudBlazor` replaces all 7 Flowbite namespace imports
+- `AddMudServices()` lives in `MudBlazor.Services` namespace (mirrors Flowbite pattern)
+- Flowbite's `<ResourcePreloader/>`, `<ImportMap/>`, `<ReconnectModal/>` have no MudBlazor  removedequivalents 
+- MudBlazor CSS/JS are served from `_content/MudBlazor/` static web assets

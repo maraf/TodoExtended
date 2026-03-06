@@ -22,3 +22,24 @@
 - **Endpoint design:** Minimal APIs for `/api/templates`, `/api/templates/{id}/execute`, `/api/today`, plus CRUD endpoints for API key management.
 - **Migration path:** Additive changes only. Existing Blazor pages unaffected. On next OIDC sign-in, users auto-register and can create API keys.
 - **Open questions:** Key expiration, per-key scopes, audit logging, CORS policy for browser clients.
+
+### 2025-07-24 — MudBlazor Redesign Architecture
+- Designed full UI migration from Flowbite Blazor + Tailwind CSS to MudBlazor v9 (Material Design).
+- **Layout:** MudLayout + MudAppBar + MudDrawer (responsive) + MudMainContent replaces fixed sidebar layout. Adds mobile-friendly collapsible drawer.
+- **Task lists:** MudList + MudListItem with MudCheckBox and MudChip replaces raw divs. Richer, more scannable.
+- **Tasks page:** MudTabs for Active/Archived replaces collapsible section. MudMenu per list for archive actions replaces inline text buttons.
+- **Forms:** MudDialog for create/edit (Templates, API Keys) replaces inline card forms. MudFab for primary "add" action.
+- **Tables:** MudDataGrid replaces Flowbite Table for Templates and API Keys pages. Adds free sorting.
+- **Feedback:** ISnackbar replaces inline Alert components. Non-blocking, auto-dismiss.
+- **Loading:** MudSkeleton replaces Spinner components. Content-shaped placeholders.
+- **Theme:** Custom MudTheme with blue primary, purple secondary, teal success. Dark mode toggle in AppBar.
+- **Migration order:** Infrastructure → Layout → Shared components → Simple pages → Complex pages → Theme tuning.
+- **12 files** need changes; all are rewrites except Program.cs and csproj (additive).
+
+### 2026-03-06 — MudBlazor Redesign Implementation
+- Completed full UI migration from Flowbite Blazor + Tailwind CSS to MudBlazor v9 Material Design.
+- **Implemented:** All 8 components successfully rewritten (MainLayout, NavMenu, Home, Today, Tasks, Templates, ApiKeys, TaskStatusCheckbox).
+- **Build verified:** 0 errors, 0 warnings. All MudBlazor components integrated cleanly.
+- **Theme applied:** Custom MudTheme with blue primary (#1976D2), purple secondary (#7C4DFF), teal tertiary (#00BFA5). Dark mode toggle in AppBar.
+- **Key patterns:** MudLayout + MudAppBar (responsive header), MudDrawer (collapsible sidebar), MudList (task display), MudDataGrid (templates/API keys), MudDialog (CRUD forms), ISnackbar (feedback), MudSkeleton (loading states).
+- **Commit:** `014caf2` — "Redesign UI from Flowbite Blazor to MudBlazor v9"
