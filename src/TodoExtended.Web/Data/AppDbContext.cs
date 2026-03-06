@@ -30,6 +30,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.DisplayName).HasMaxLength(512);
             entity.Property(e => e.DeltaToken).HasMaxLength(2048);
             entity.HasIndex(e => e.LastSyncUtc);
+            entity.HasIndex(e => e.IsArchived);
         });
 
         modelBuilder.Entity<CachedTask>(entity =>

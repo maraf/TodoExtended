@@ -96,6 +96,9 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+
+    // Enable WAL mode for concurrent read/write during parallel sync
+    db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
 }
 
 // Configure the HTTP request pipeline.

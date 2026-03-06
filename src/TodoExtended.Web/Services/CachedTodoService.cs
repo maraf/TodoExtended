@@ -9,6 +9,7 @@ public class CachedTodoService(
     GraphTodoService graphService,
     AppDbContext db,
     GraphServiceClient graphClient,
+    IDbContextFactory<AppDbContext> dbContextFactory,
     IOptions<TodoCacheOptions> options,
     ILogger<CachedTodoService> logger) : ITodoService
 {
@@ -21,9 +22,31 @@ public class CachedTodoService(
         await EnsureCacheValidAsync();
         
         return await db.CachedTaskLists
+            .Where(l => !l.IsArchived)
             .OrderBy(l => l.DisplayName)
-            .Select(l => new TodoTaskList(l.Id, l.DisplayName))
+            .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsArchived))
             .ToListAsync();
+    }
+
+    public async Task<IReadOnlyList<TodoTaskList>> GetArchivedTaskListsAsync()
+    {
+        return await db.CachedTaskLists
+            .Where(l => l.IsArchived)
+            .OrderBy(l => l.DisplayName)
+            .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsArchived))
+            .ToListAsync();
+    }
+
+    public async Task SetTaskListArchivedAsync(string taskListId, bool isArchived)
+    {
+        var cachedList = await db.CachedTaskLists.FindAsync(taskListId)
+            ?? throw new InvalidOperationException($"Task list '{taskListId}' not found in cache.");
+
+        cachedList.IsArchived = isArchived;
+        cachedList.UpdatedUtc = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Task list {ListId} archived={IsArchived}", taskListId, isArchived);
     }
 
     public async Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId)
@@ -51,7 +74,7 @@ public class CachedTodoService(
         
         var tasks = await db.CachedTasks
             .Include(t => t.List)
-            .Where(t => !t.IsDeleted && t.DueDate == today)
+            .Where(t => !t.IsDeleted && t.DueDate == today && !t.List!.IsArchived)
             .ToListAsync();
         
         return tasks
@@ -128,12 +151,13 @@ public class CachedTodoService(
         var now = DateTime.UtcNow;
         
         var oldestSync = await db.CachedTaskLists
+            .Where(l => !l.IsArchived)
             .Select(l => (DateTime?)l.LastSyncUtc)
             .MinAsync();
         
         if (oldestSync == null)
         {
-            logger.LogDebug("Cache is stale: no lists in cache");
+            logger.LogDebug("Cache is stale: no non-archived lists in cache");
             return true;
         }
 
@@ -195,6 +219,7 @@ public class CachedTodoService(
             {
                 Id = list.Id,
                 DisplayName = list.DisplayName,
+                IsArchived = false,
                 DeltaToken = null,
                 LastSyncUtc = now,
                 CreatedUtc = now,
@@ -203,20 +228,46 @@ public class CachedTodoService(
             
             db.CachedTaskLists.Add(cachedList);
             await db.SaveChangesAsync();
-
-            await SyncTasksForListAsync(list.Id, null);
         }
+
+        // Sync tasks for all lists in parallel
+        await SyncTasksForListsInParallelAsync(
+            lists.Select(l => (l.Id, (string?)null)).ToList());
     }
 
     private async Task DeltaSyncAsync()
     {
         await SyncTaskListsAsync();
 
-        var lists = await db.CachedTaskLists.ToListAsync();
-        foreach (var list in lists)
+        var lists = await db.CachedTaskLists
+            .Where(l => !l.IsArchived)
+            .Select(l => new { l.Id, l.DeltaToken })
+            .ToListAsync();
+
+        await SyncTasksForListsInParallelAsync(
+            lists.Select(l => (l.Id, l.DeltaToken)).ToList());
+    }
+
+    private async Task SyncTasksForListsInParallelAsync(List<(string Id, string? DeltaToken)> lists)
+    {
+        if (lists.Count == 0) return;
+
+        using var throttle = new SemaphoreSlim(_options.MaxParallelListSync);
+        var tasks = lists.Select(async list =>
         {
-            await SyncTasksForListAsync(list.Id, list.DeltaToken);
-        }
+            await throttle.WaitAsync();
+            try
+            {
+                await using var scopedDb = await dbContextFactory.CreateDbContextAsync();
+                await SyncTasksForListAsync(scopedDb, list.Id, list.DeltaToken);
+            }
+            finally
+            {
+                throttle.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks);
     }
 
     private async Task SyncTaskListsAsync()
@@ -261,6 +312,7 @@ public class CachedTodoService(
                                 {
                                     Id = graphList.Id!,
                                     DisplayName = graphList.DisplayName ?? "Untitled",
+                                    IsArchived = false,
                                     DeltaToken = null,
                                     LastSyncUtc = now,
                                     CreatedUtc = now,
@@ -320,7 +372,7 @@ public class CachedTodoService(
         }
     }
 
-    private async Task SyncTasksForListAsync(string listId, string? deltaToken)
+    private async Task SyncTasksForListAsync(AppDbContext scopedDb, string listId, string? deltaToken)
     {
         logger.LogDebug("Syncing tasks for list {ListId} with delta token: {HasToken}", listId, !string.IsNullOrEmpty(deltaToken));
 
@@ -340,7 +392,7 @@ public class CachedTodoService(
                     {
                         if (graphTask.AdditionalData?.ContainsKey("@removed") == true)
                         {
-                            var cachedTask = await db.CachedTasks.FindAsync(graphTask.Id);
+                            var cachedTask = await scopedDb.CachedTasks.FindAsync(graphTask.Id);
                             if (cachedTask != null)
                             {
                                 logger.LogDebug("Soft deleting task {TaskId} from cache", graphTask.Id);
@@ -350,7 +402,7 @@ public class CachedTodoService(
                         }
                         else
                         {
-                            var cachedTask = await db.CachedTasks.FindAsync(graphTask.Id);
+                            var cachedTask = await scopedDb.CachedTasks.FindAsync(graphTask.Id);
                             var now = DateTime.UtcNow;
                             var dueDate = ParseDueDate(graphTask.DueDateTime);
                             
@@ -371,7 +423,7 @@ public class CachedTodoService(
                                     CreatedUtc = now,
                                     UpdatedUtc = now,
                                 };
-                                db.CachedTasks.Add(cachedTask);
+                                scopedDb.CachedTasks.Add(cachedTask);
                             }
                             else
                             {
@@ -388,7 +440,7 @@ public class CachedTodoService(
                         }
                     }
                     
-                    await db.SaveChangesAsync();
+                    await scopedDb.SaveChangesAsync();
                 }
 
                 if (!string.IsNullOrEmpty(response.OdataNextLink))
@@ -403,12 +455,12 @@ public class CachedTodoService(
                     if (!string.IsNullOrEmpty(response.OdataDeltaLink))
                     {
                         logger.LogDebug("Storing delta token for list {ListId}", listId);
-                        var cachedList = await db.CachedTaskLists.FindAsync(listId);
+                        var cachedList = await scopedDb.CachedTaskLists.FindAsync(listId);
                         if (cachedList != null)
                         {
                             cachedList.DeltaToken = response.OdataDeltaLink;
                             cachedList.LastSyncUtc = DateTime.UtcNow;
-                            await db.SaveChangesAsync();
+                            await scopedDb.SaveChangesAsync();
                         }
                     }
                     break;

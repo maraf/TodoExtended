@@ -122,6 +122,12 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
         logger.LogDebug("UpdateTaskStatusAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
     }
 
+    public Task SetTaskListArchivedAsync(string taskListId, bool isArchived) =>
+        throw new NotSupportedException("Archiving task lists is only supported with local cache.");
+
+    public Task<IReadOnlyList<TodoTaskList>> GetArchivedTaskListsAsync() =>
+        Task.FromResult<IReadOnlyList<TodoTaskList>>([]);
+
     /// <summary>
     /// Converts Graph's dateTimeTimeZone to a local DateOnly.
     /// Microsoft To Do stores due dates as midnight-local-time converted to UTC
