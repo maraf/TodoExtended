@@ -5,6 +5,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+    <VersionPrefix>1.0.0</VersionPrefix>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsPublishable>true</IsPublishable>
+    <EnableSdkContainerSupport>true</EnableSdkContainerSupport>
+    <ContainerRegistry>ghcr.io</ContainerRegistry>
+    <ContainerRepository>maraf/todo-extended</ContainerRepository>
+    <ContainerImageTag>$(VersionPrefix)-$(RuntimeIdentifier)</ContainerImageTag>
   </PropertyGroup>
 
   <ItemGroup>
