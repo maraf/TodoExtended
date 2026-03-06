@@ -2,6 +2,89 @@
 
 <!-- Session logs appended by Scribe -->
 
+## Core Context
+
+### Framework Evolution: Bootstrap → Flowbite → MudBlazor
+
+The backend infrastructure underwent two major framework migrations between 2025-07-17 and 2026-03-06:
+
+1. **2025-07-17: Bootstrap → Flowbite Blazor (v0.2.6-beta)**
+   - Installed `Flowbite` NuGet package, registered `AddFlowbite()` service
+   - Swapped Bootstrap CDN for Tailwind CSS v4 browser build
+   - Updated `_Imports.razor` with Flowbite namespaces; `App.razor` with CDN + `<ToastHost/>`
+   - Removed Bootstrap scoped CSS (`MainLayout.razor.css`, `NavMenu.razor.css`)
+   - Fixed `System.Diagnostics.Activity` ambiguity in Error.razor (Flowbite also defines `Activity` type)
+   - Build clean, ready for Frontend redesign
+
+2. **2026-03-06: Flowbite → MudBlazor v9.1.0**
+   - Removed Flowbite package, added MudBlazor v9.1.0 via NuGet
+   - Updated `_Imports.razor`: removed 7 Flowbite usings, added single `@using MudBlazor`
+   - Updated `App.razor`: removed Tailwind/Flowbite setup, added Roboto font + 4 MudBlazor providers (MudThemeProvider, MudPopoverProvider, MudDialogProvider, MudSnackbarProvider)
+   - `AddMudServices()` registered in `Program.cs`
+   - Build clean
+
+### Service Layer Enhancements
+
+- **`GetTodayTasksAsync(CancellationToken)`:** Aggregates tasks from all lists with due date matching today. Uses OData `$filter` on `dueDateTime` for server-side filtering (reduces payload). Returns `IEnumerable<TodoTaskWithList>` record with list context (ListId, ListName).
+- **`CreateTaskAsync(TodoTask, DateOnly?)`:** POSTs tasks to Graph with optional DueDateTime (UTC midnight of given date).
+- **`UpdateTaskStatusAsync(listId, taskId, completed)`:** Patches task status via `Me.Todo.Lists[].Tasks[]` with `TaskStatus.Completed` or `NotStarted`.
+- **Task Sorting:** Applied consistently across methods — incomplete first → by importance (high/normal/low) → alphabetical fallback. Matches official Microsoft To Do app.
+- **Error Handling:** MSAL consent errors (`MicrosoftIdentityWebChallengeUserException`) caught before generic `Exception`. Redirect uses `NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true)` to break SignalR circuit + force HTTP redirect.
+
+### Delta Query Caching Implementation
+
+Replaces real-time per-call Graph API hits with local SQLite cache + delta sync:
+
+- **Entities:** `CachedTaskList`, `CachedTask`, `SyncMetadata` (in `AppDbContext`)
+- **Cache-First Reads:** `CachedTodoService` decorates `GraphTodoService`, routes `GetTasksAsync()` / `GetTodayTasksAsync()` to local cache
+- **Delta Sync:** Tracks delta tokens per list, handles pagination (`@odata.nextLink`), detects deletions via `@removed` annotation (soft delete via `IsDeleted` flag), rebuilds cache on 410 Gone
+- **Optimistic Writes:** `CreateTaskAsync` / `UpdateTaskStatusAsync` update cache immediately after Graph API success
+- **Staleness Threshold:** Configurable via `TodoCacheOptions.CacheStalenessDurationMinutes` (default 5 min)
+- **DI Pattern:** `GraphTodoService` registered directly (not via interface), `ITodoService` → `CachedTodoService`
+- **EF Core Indexes:** `ListId`, `(IsDeleted, DueDate)`, `(ListId, IsDeleted)` for efficient filtering + cascade delete on list removal
+
+### API Key Authentication System
+
+Complete implementation with SHA256 hashing + token caching:
+
+- **Entities:** `User`, `ApiKey` (hash + revocation), `UserToken` (encrypted MSAL cache)
+- **ApiKeyAuthenticationHandler:** Validates keys via SHA256 comparison, creates claims (OID, email), updates last-used timestamp
+- **UserSyncMiddleware:** Auto-creates/updates User records on OIDC sign-in, captures `tid` claim for `homeAccountId` computation (`{oid}.{tid}`)
+- **ApiKeyService:** Generates 32-byte base64url keys prefixed `tek_`, manages CRUD, returns plain key only at creation
+- **Key Routing:** Authorization policy accepts both OIDC and API key schemes
+- **Minimal APIs:** `/api/templates`, `/api/templates/{id}/execute`, `/api/today`, `/api/keys` secured with `RequireAuthorization()`
+- **V2 - Persistent Token Cache:** `SqliteDistributedCache` (IDistributedCache impl) + `ApiKeyGraphClientFactory` enable API key-authenticated requests to call MS Graph via cached MSAL tokens
+- **IDbContextFactory Pattern:** `SimpleDbContextFactory` singleton provides DbContext to singleton services (cache) without scope conflicts
+
+### Task List Archiving
+
+- **Entity:** `IsArchived` bool added to `CachedTaskList`
+- **Filtering:** `GetTaskListsAsync`, `IsCacheStaleAsync`, `DeltaSyncAsync` all filter archived lists
+- **CRUD:** New `SetTaskListArchivedAsync` / `GetArchivedTaskListsAsync` methods on `ITodoService`
+- **DTO:** `TodoTaskList` record carries `IsArchived` (default false, backward compatible)
+
+### Parallel List Sync & Performance
+
+- **`SyncTasksForListsInParallelAsync`:** Uses `Task.WhenAll` + `SemaphoreSlim` throttle (configurable via `MaxParallelListSync`, default 4)
+- **SQLite WAL Mode:** Enabled programmatically at startup (`PRAGMA journal_mode=WAL`) for concurrent read/write support needed by parallel sync
+- **DbContext Factory:** Each parallel task creates its own DbContext via `IDbContextFactory<AppDbContext>` to avoid thread-safety issues
+
+### Key Technical Patterns
+
+- **Due Date Handling:** Graph API `dueDateTime` is `dateTimeTimeZone` with `dateTime` (string) + `timeZone` fields. Parsed to `DateOnly` via `DateTimeStyles.RoundtripKind` + `DateOnly.FromDateTime()` to prevent timezone-induced date shifts. Helper `ParseDueDate` available in both `GraphTodoService` and `CachedTodoService`.
+- **OData Filtering:** Slash notation for complex type properties (`dueDateTime/dateTime ge '2024-01-15T00:00:00'`). Complex `$filter` with parentheses/`or` unreliable; simple `and` conditions work.
+- **Error Responses:** REST API uses Results.Ok/BadRequest/NotFound/Unauthorized/NoContent consistent with minimal API conventions.
+- **Request DTOs:** Records at bottom of `Program.cs`
+
+### Key Files
+
+- Service: `ITodoService.cs`, `GraphTodoService.cs`, `CachedTodoService.cs`, `ITemplateService.cs`, `TemplateService.cs`
+- Data: `AppDbContext.cs`, `CachedTaskList.cs`, `CachedTask.cs`, `TodoCacheOptions.cs`
+- Auth: `ApiKeyAuthenticationHandler.cs`, `UserSyncMiddleware.cs`, `ApiKeyService.cs`
+- DI/Infrastructure: `Program.cs`, `SimpleDbContextFactory.cs`
+
+---
+
 ## 2026-03-06: Flowbite Blazor Migration Complete
 
 **Session:** Flowbite Blazor Setup (2026-03-06T09:33Z)
@@ -153,46 +236,7 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
 
 ✅ Infrastructure builds clean. Remaining changes are all in page/layout Razor files (Frontend responsibility).
 
-## 2025-07-17: Flowbite Blazor Infrastructure Setup
 
-### Completed Tasks
+---
 
-1. **Installed Flowbite NuGet package** (v0.2.6-beta prerelease) to TodoExtended.Web.csproj
-2. **Registered Flowbite services** in Program.cs via `builder.Services.AddFlowbite()`
-3. **Updated App. removed Bootstrap CSS + Icons CDN, added Tailwind CSS v4 CDN (`@@tailwindcss/browser@@4` escaped for Razor), added `<ToastHost />` componentrazor** 
-4. **Updated _Imports. added `@using Flowbite`, `@using Flowbite.Components`, `@using Flowbite.Icons`razor** 
-5. **Cleaned up app. removed all Bootstrap-specific rules, kept blazor-error-boundary and validation stylescss** 
-6. **Deleted Bootstrap scoped  removed `MainLayout.razor.css` and `NavMenu.razor.css`CSS** 
-7. **Fixed build  escaped `@` in Tailwind CDN URL, fully qualified `System.Diagnostics.Activity` in Error.razor to resolve ambiguity with `Flowbite.Components.Activity`errors** 
-
-### Learnings
-
-- Flowbite.Blazor v0.2.6-beta targets net10.0 and installs cleanly
-- `@using Flowbite.Components` introduces `Activity` type that conflicts with `System.Diagnostics. must fully qualify in Error.razorActivity` 
-- Tailwind CDN URL contains `@` characters that Razor interprets as  must escape as `@@`code 
-- `AddFlowbite()` extension method lives in `Flowbite.Services` namespace
-- RZ10012 warning on `<ToastHost />` in App.razor is  component resolves at runtime despite Razor analyzer not finding it at design timeharmless 
-- Key files: `Program.cs` (service registration), `App.razor` (Tailwind CDN + ToastHost), `_Imports.razor` (Flowbite usings), `app.css` (cleaned)
-
- MudBlazor Infrastructure Swap
-
-### Completed Tasks
-
-1. **Removed Flowbite package** (`Flowbite` v0.2.6-beta) and **added MudBlazor** (v9.1.0) via `dotnet remove/add package`
- `AddMudServices()`
-3. **Updated _Imports.razor**: Removed all 7 Flowbite `@using` lines, added single `@using MudBlazor`
-4. **Updated App.razor**: Removed Tailwind CDN, Flowbite `@using`, `<ResourcePreloader/>`, `<ImportMap/>`, `<ToastHost/>`, `<ReconnectModal/>`. Added Roboto font, MudBlazor CSS, MudBlazor JS, and MudBlazor provider components (`MudThemeProvider`, `MudPopoverProvider`, `MudDialogProvider`, `MudSnackbarProvider`)
-5. **app.css**: Already  no Flowbite/Tailwind-specific CSS to removeclean 
-
-### Build Status
-
- Infrastructure builds clean. Remaining errors are all in page/layout Razor files (Flowbite icons, `AlertColor`  Frontend agent's responsibility.enum) 
-
-### Learnings
-
-- MudBlazor v9.1.0 is latest stable, targets net10.0 cleanly
-- MudBlazor requires 4 provider components in App.razor body: `MudThemeProvider`, `MudPopoverProvider`, `MudDialogProvider`, `MudSnackbarProvider`
-- Single `@using MudBlazor` replaces all 7 Flowbite namespace imports
-- `AddMudServices()` lives in `MudBlazor.Services` namespace (mirrors Flowbite pattern)
-- Flowbite's `<ResourcePreloader/>`, `<ImportMap/>`, `<ReconnectModal/>` have no MudBlazor  removedequivalents 
-- MudBlazor CSS/JS are served from `_content/MudBlazor/` static web assets
+[2025-07-17 Flowbite setup and MudBlazor swap details consolidated into ## Core Context section above]
