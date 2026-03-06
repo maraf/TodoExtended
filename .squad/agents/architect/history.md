@@ -43,3 +43,13 @@
 - **Theme applied:** Custom MudTheme with blue primary (#1976D2), purple secondary (#7C4DFF), teal tertiary (#00BFA5). Dark mode toggle in AppBar.
 - **Key patterns:** MudLayout + MudAppBar (responsive header), MudDrawer (collapsible sidebar), MudList (task display), MudDataGrid (templates/API keys), MudDialog (CRUD forms), ISnackbar (feedback), MudSkeleton (loading states).
 - **Commit:** `014caf2` — "Redesign UI from Flowbite Blazor to MudBlazor v9"
+
+### 2025-07-25 — Garmin Watch Companion App Architecture
+- Designed Garmin Connect IQ companion app for TodoExtended. Selected **Device App** type (not widget/watchface) for full interaction support.
+- **Communication path:** Watch → Bluetooth → Garmin Connect Mobile (phone) → HTTPS → TodoExtended REST API. No direct HTTP from watch; phone acts as transparent proxy via `Communications.makeWebRequest()`.
+- **Authentication:** Existing API key system (`X-Api-Key` header). Key entered via Garmin app settings on phone — no OAuth needed on watch.
+- **v1 scope:** View today's tasks, mark tasks complete, quick-create from templates. No free-text input, no background sync, no offline cache.
+- **Project structure:** Monkey C project lives in `garmin/TodoExtended.Watch/` separate from the .NET `src/` folder. Different toolchain (VS Code + Connect IQ SDK + Java), different build system (`monkey.jungle` not MSBuild).
+- **Key constraints:** Phone must be paired for any API call; 28-128 KB memory limits; ~8-16 KB response size cap; 1-5s latency per request; 240-454px round screens showing 3-5 list items.
+- **No API changes needed for v1** — existing `/api/today`, `/api/templates`, `/api/templates/{id}/execute`, `/api/tasks/{listId}/{taskId}/complete` endpoints are sufficient.
+- **Tooling:** Connect IQ SDK, VS Code Monkey C extension (`garmin.monkey-c`), Java JDK 8+.

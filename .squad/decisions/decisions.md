@@ -1076,3 +1076,279 @@ Redesigned ApiKeys.razor from MudDataGrid + always-visible form to card-based la
 ## MainLayout Fix
 
 Added `margin-top: var(--mud-appbar-height)` to MudMainContent to prevent page headings from being hidden behind the sticky MudAppBar.
+
+---
+
+# Architecture Decision: Garmin Watch Companion App for TodoExtended
+
+**Author:** Architect  
+**Date:** 2025-07-25  
+**Status:** Proposed  
+**Requested by:** Marek Fišera
+
+---
+
+## 1. Context
+
+TodoExtended is a Blazor Server app backed by Microsoft Graph (Microsoft To Do) with local SQLite caching, task templates, and an API key–authenticated REST API. Marek wants to add a Garmin watch companion app so he can view and manage tasks from his wrist.
+
+The watch app will be built in **Monkey C** using the **Garmin Connect IQ SDK** — a completely separate technology stack from .NET. This decision covers how the two worlds connect and what the Garmin app should do.
+
+---
+
+## 2. App Type Recommendation: **Device App**
+
+| Option | Verdict | Rationale |
+|--------|---------|-----------|
+| **Widget** | ❌ Rejected | Lower memory limits (~16-20 KB), no persistent interaction, quick-glance only. Cannot support scrollable task lists or task completion actions reliably. |
+| **Watch Face** | ❌ Rejected | Only shows time + complications. Cannot accept user input for task management. |
+| **Data Field** | ❌ Rejected | Designed for activity metrics during workouts. Not relevant. |
+| **Device App** | ✅ Selected | Higher memory (~28-128 KB+ depending on device), full user interaction (scrolling, tapping, buttons), supports `Communications.makeWebRequest()` for REST calls, can run as a standalone experience. |
+
+A Device App gives us the interaction depth needed for browsing tasks, checking them off, and executing templates — while keeping battery impact manageable since users launch it on-demand rather than running it persistently.
+
+---
+
+## 3. Project Structure
+
+The Monkey C project lives **alongside** the .NET solution, not inside it. These are entirely different build systems (VS Code + Connect IQ SDK vs. MSBuild).
+
+```
+TodoExtended/                          ← repo root
+├── TodoExtended.sln                   ← .NET solution (unchanged)
+├── src/
+│   └── TodoExtended.Web/              ← existing Blazor app
+├── garmin/                            ← NEW: Garmin companion
+│   └── TodoExtended.Watch/
+│       ├── manifest.xml               ← app metadata, permissions, supported devices
+│       ├── monkey.jungle              ← build configuration
+│       ├── source/                    ← Monkey C source files
+│       │   ├── TodoExtendedApp.mc     ← AppBase entry point
+│       │   ├── TodayView.mc           ← main view: today's tasks
+│       │   ├── TodayDelegate.mc       ← input handler for today view
+│       │   ├── TemplatesView.mc       ← template quick-create view
+│       │   ├── TemplatesDelegate.mc   ← input handler for templates
+│       │   ├── TaskDetailView.mc      ← single task detail/completion
+│       │   ├── ApiClient.mc           ← HTTP client wrapper
+│       │   ├── Settings.mc            ← API URL + key from app settings
+│       │   └── Models.mc              ← data classes
+│       ├── resources/
+│       │   ├── layouts/               ← XML UI layouts
+│       │   ├── strings/               ← localized strings
+│       │   ├── images/                ← icons (check, todo, template)
+│       │   └── settings/
+│       │       └── settings.xml       ← user-configurable settings (API URL, key)
+│       └── .gitignore                 ← exclude bin/ output
+└── .squad/                            ← team docs (unchanged)
+```
+
+### Why separate `garmin/` folder (not under `src/`)?
+- The `src/` solution folder in `TodoExtended.sln` is for MSBuild projects. Monkey C uses a completely different toolchain.
+- VS Code opens `garmin/TodoExtended.Watch/` as its own workspace for Monkey C development.
+- Clear separation avoids confusion — .NET devs stay in `src/`, Garmin dev stays in `garmin/`.
+
+---
+
+## 4. Communication Architecture
+
+```
+┌──────────────┐     Bluetooth     ┌─────────────────────┐     HTTPS      ┌────────────────────┐
+│  Garmin Watch │ ◄──────────────► │  Phone               │ ◄────────────► │  TodoExtended.Web  │
+│  (Monkey C)   │                  │  (Garmin Connect     │                │  (REST API)        │
+│               │  makeWebRequest  │   Mobile app)        │                │                    │
+│  Device App   │ ─────────────────│  Acts as HTTP proxy  │ ──────────────►│  /api/today        │
+│               │                  │                      │                │  /api/templates    │
+│               │ ◄────────────────│  Returns JSON        │ ◄──────────────│  /api/.../complete │
+└──────────────┘                  └─────────────────────┘                └────────────────────┘
+```
+
+### How it works:
+1. **Watch calls `Communications.makeWebRequest()`** with the TodoExtended API URL, API key in headers, and desired endpoint.
+2. **Garmin Connect Mobile** (on the paired phone) acts as an invisible HTTP proxy — it receives the request over Bluetooth and makes the actual HTTPS call.
+3. **TodoExtended.Web** receives a normal REST request authenticated by API key, processes it, and returns JSON.
+4. **Response flows back** through the phone to the watch.
+
+### Key implications:
+- **Phone must be paired and nearby** for any API calls. The watch has no direct Wi-Fi HTTP capability via Connect IQ.
+- **Latency is noticeable** — Bluetooth + HTTP round-trip can take 1-5 seconds. UI must show loading states.
+- **Offline tolerance** — the watch app must gracefully handle `-104` (no phone connection) and `-300`/`-400` error codes.
+- **No custom phone app needed** — Garmin Connect Mobile handles the bridging transparently. This is a major simplification.
+
+---
+
+## 5. Authentication: API Key via App Settings
+
+The watch app authenticates using the **existing API key system** designed in the earlier architecture decision.
+
+### Setup flow:
+1. User generates an API key in TodoExtended.Web (Settings → API Keys → Create).
+2. User enters the **API base URL** and **API key** into the Garmin app's settings via Garmin Connect Mobile or Garmin Express.
+3. The watch app reads these from `Application.Properties` and includes the key in every request as an `X-Api-Key` header.
+
+### Why this works well:
+- API keys are already implemented and designed for programmatic access.
+- No OAuth dance needed on a tiny watch screen.
+- Settings are configured once on the phone, stored persistently on the watch.
+
+### settings.xml (Garmin app settings definition):
+```xml
+<settings>
+  <setting propertyKey="@Properties.apiBaseUrl" title="@Strings.SettingApiUrl">
+    <settingConfig type="alphaNumeric" />
+  </setting>
+  <setting propertyKey="@Properties.apiKey" title="@Strings.SettingApiKey">
+    <settingConfig type="alphaNumeric" />
+  </setting>
+</settings>
+```
+
+---
+
+## 6. Feature Scope — v1
+
+Designed for a **240-454px round screen** with 2-4 physical buttons or touchscreen.
+
+### 6.1 Today's Tasks (Primary Screen)
+
+- **View:** Scrollable list of tasks due today, showing title + list name + completion status.
+- **Action:** Select a task → mark it complete (calls `POST /api/tasks/{listId}/{taskId}/complete`).
+- **Sort:** Matches server sort order (incomplete first → importance → alpha).
+- **Empty state:** "No tasks today ✓" message.
+
+### 6.2 Quick-Create from Templates
+
+- **View:** List of templates (ordered by `SortOrder`).
+- **Action:** Select a template → confirm → creates task (calls `POST /api/templates/{id}/execute`).
+- **Feedback:** "Task created ✓" confirmation, then returns to today view.
+
+### 6.3 Sync Status
+
+- **Loading indicator** during API calls (spinner or progress bar).
+- **Error states:** "Phone not connected", "API error", "Check settings" — clear, actionable messages.
+- **Manual refresh** via button/gesture (no automatic background polling in v1).
+
+### What's NOT in v1:
+- ❌ Creating arbitrary tasks (too much text input for a watch)
+- ❌ Browsing all task lists (screen too small, today view is the high-value use case)
+- ❌ Background sync / complications / glance view (add in v2)
+- ❌ Editing task details (body, due date, importance)
+- ❌ Offline caching of tasks (add in v2 if needed)
+
+---
+
+## 7. Data Model — Watch Subset
+
+The watch receives minimal JSON payloads. Bandwidth and memory are constrained.
+
+### GET /api/today → Watch
+```json
+[
+  {
+    "id": "AAkALgAAAAAAHYQD",
+    "title": "Buy groceries",
+    "isCompleted": false,
+    "importance": "high",
+    "listId": "AQMkADAwATM...",
+    "listName": "Shopping"
+  }
+]
+```
+**Excluded from watch payload:** `body`, `dueDate` (all are today by definition).
+
+### GET /api/templates → Watch
+```json
+[
+  {
+    "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    "title": "Morning workout log",
+    "sortOrder": 1
+  }
+]
+```
+**Excluded:** `taskListId`, `taskListName`, `dueDateToday`, `reminderTime` (server handles these on execute).
+
+### API Response Size Consideration
+- Today's tasks: typically 5-15 items × ~100 bytes = **~1.5 KB** — well within limits.
+- Templates: typically 5-10 items × ~80 bytes = **~0.8 KB**.
+- Garmin's `makeWebRequest` response size limit is **~8-16 KB** depending on device. Our payloads are comfortably under this.
+
+### Potential API Enhancement
+Consider adding a **`GET /api/watch/today`** endpoint that returns the minimal watch-specific payload (without `body` and `dueDate`) to keep response sizes small and avoid sending data the watch will ignore. This is optional — the existing `/api/today` works fine for v1 given the small payload sizes.
+
+---
+
+## 8. SDK & Tooling Requirements
+
+### What Marek needs to install:
+
+| Tool | Purpose | Install |
+|------|---------|---------|
+| **Connect IQ SDK** | Compiler, simulator, device support | [developer.garmin.com/connect-iq/sdk/](https://developer.garmin.com/connect-iq/sdk/) |
+| **VS Code** | IDE (already likely installed) | — |
+| **Monkey C VS Code Extension** | Syntax highlighting, build, simulate, deploy | VS Code Marketplace: `garmin.monkey-c` |
+| **Java JDK 8+** | Required by Connect IQ SDK | Oracle or OpenJDK |
+
+### Development workflow:
+1. Open `garmin/TodoExtended.Watch/` folder in VS Code.
+2. Use Monkey C extension to build (`Ctrl+Shift+B`).
+3. Run in Connect IQ Simulator (select target device).
+4. For real-device testing: sideload via USB or Garmin Express.
+5. For API testing: run TodoExtended.Web locally and use a tunnel (e.g., ngrok) or deploy to a reachable host.
+
+### Target devices (recommended starting set):
+- **Venu 3 / Venu 3S** — AMOLED touchscreen, popular mainstream watches
+- **Fenix 8 / Fenix 7 Pro** — button-based, outdoor/adventure
+- **Forerunner 265 / 965** — AMOLED, fitness-focused
+
+Start with 2-3 devices in `manifest.xml` and expand after testing.
+
+---
+
+## 9. Key Constraints & Risks
+
+| Constraint | Impact | Mitigation |
+|------------|--------|------------|
+| **Phone must be nearby** | No API calls without Bluetooth connection to phone running Garmin Connect Mobile | Clear error messaging; consider offline cache in v2 |
+| **Memory limits** | Device apps get 28-128 KB depending on model | Keep data structures minimal; load one view's data at a time |
+| **Response size limit** | `makeWebRequest` caps at ~8-16 KB per response | Today's tasks payload is <2 KB; templates <1 KB. Safe margin. |
+| **Latency** | 1-5 second round-trip via Bluetooth→phone→API→phone→watch | Loading indicators; optimistic UI for task completion |
+| **No background sync** | Device apps don't run in background like widgets | Manual refresh only in v1; explore `Background` module in v2 |
+| **Small screen** | 240-454px round display, often 3-5 visible list items | Title-only list items; truncate at ~20 chars with ellipsis |
+| **Input limitations** | Physical buttons or basic touch; no keyboard | Template-based creation only; no free-text task creation |
+| **API key security** | Key stored in app properties on watch (not encrypted by Garmin) | Acceptable for personal-use app; key can be revoked if watch is lost |
+| **Build tooling** | Completely separate from .NET (Java-based SDK) | Separate VS Code workspace; CI can be added later |
+
+---
+
+## 10. Future Roadmap (v2+)
+
+- **Glance view:** Quick widget-style peek at today's task count without opening the full app.
+- **Background sync:** Use `Background.registerForTemporalEvent()` to periodically refresh task cache.
+- **Offline mode:** Cache last-known today tasks in `Application.Storage` for viewing without phone.
+- **Complications:** Show task count on watch face.
+- **Haptic feedback:** Vibrate on successful task completion.
+- **Watch-specific API endpoint:** `GET /api/watch/today` returning minimal payload.
+
+---
+
+## 11. Decision Summary
+
+| Aspect | Decision |
+|--------|----------|
+| App type | **Connect IQ Device App** |
+| Language | **Monkey C** |
+| Project location | **`garmin/TodoExtended.Watch/`** (separate from .NET solution) |
+| Communication | **`Communications.makeWebRequest()`** via Garmin Connect Mobile phone bridge |
+| Authentication | **API key** in `X-Api-Key` header, configured via Garmin app settings |
+| v1 features | View today's tasks, complete tasks, quick-create from templates |
+| IDE | **VS Code** with Monkey C extension |
+| API changes needed | None for v1 — existing endpoints sufficient |
+
+
+---
+
+### 2026-03-06T13:02: New development direction - Garmin Watch Companion App
+**By:** Marek Fisera (via Copilot)
+**What:** Adding a Monkey C companion app for Garmin watch to TodoExtended - tasks on the wrist
+**Why:** User request - extending TodoExtended to Garmin wearables via Connect IQ
+
