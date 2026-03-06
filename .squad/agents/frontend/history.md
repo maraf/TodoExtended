@@ -2,6 +2,40 @@
 
 <!-- Session logs appended by Scribe -->
 
+## Core Context
+
+### Bootstrap → Flowbite → MudBlazor Evolution
+
+The codebase underwent two major UI framework migrations:
+
+1. **2025-07-22: Bootstrap → Flowbite Blazor + Tailwind CSS**
+   - 8 components redesigned (MainLayout, NavMenu, Home, Today, Tasks, Templates, ApiKeys, TaskStatusCheckbox)
+   - Flowbite v0.2.6-beta components with Tailwind styling and dark mode support
+   - Key learnings: Use native HTML inputs for reliable `@bind`, static imports for nested enums, `<Alert>` with custom content for dismissible alerts
+
+2. **2026-03-06: Flowbite → MudBlazor v9**
+   - All 8 components redesigned to Material Design using MudBlazor v9
+   - Key patterns: `MudLayout` + `MudDrawer` (responsive), `MudDataGrid`/`MudTable` for lists, `ISnackbar` for non-intrusive feedback, custom `MudTheme` with blue/purple/teal palette
+   - MudBlazor v9 specifics: `MudList<T>`, `MudDataGrid<T>`, `MudCheckBox<bool>` require type parameters; `ShowMessageBoxAsync` (not `ShowMessageBox`); `MudTabs` use `Class` not `PanelClass`
+
+### Archive/Unarchive & Collapsible Sections
+
+Added in parallel with sync performance improvements (2026-03-06):
+- Archive/unarchive buttons on list items with spinner feedback
+- Collapsible "Archived" section in sidebar with lazy-load via `GetArchivedTaskListsAsync()`
+- Bootstrap Icons integration (11.11.3) from jsDelivr CDN
+
+### Established Patterns
+
+- Pages use `@page`, `@attribute [Authorize]`, `@rendermode InteractiveServer`, `@inject ITodoService`
+- Loading/error/empty states via `_loading`, `_error` bools with conditional rendering
+- Auth redirects on MSAL challenge via `NavigationManager.NavigateTo()`
+- Optimistic UI updates with rollback on error (e.g. task toggle, list operations)
+- `PersistentComponentState` for avoiding double-fetch during prerender→interactive transition
+- `TaskStatusCheckbox` shared component encapsulates checkbox/spinner UI + API call + error handling
+
+---
+
 ## 2026-03-06: Flowbite Blazor Migration Complete
 
 **Session:** Flowbite Blazor UI Redesign (2026-03-06T09:33Z)
@@ -83,41 +117,7 @@ All 8 UI component files redesigned from Flowbite Blazor + Tailwind CSS to MudBl
 
 ## Learnings
 
-- Pages follow pattern: `@page`, `@attribute [Authorize]`, `@rendermode InteractiveServer`, `@inject ITodoService`
-- Loading/error/empty states use `_loading` bool, `_error` string, and conditional rendering
-- Nav links go inside `<AuthorizeView><Authorized>` block in `NavMenu.razor`
-- Nav icons use inline SVG data URIs as CSS background images in `NavMenu.razor.css` with `.bi-*-nav-menu` class names
-- Task display uses Bootstrap list-group with checkboxes, strikethrough for completed, badge for high importance
-- Backend's `TodoTaskWithList` record carries ListId and ListName for subtitle context in task display
-- Key file paths: `Components/Pages/Today.razor`, `Components/Layout/NavMenu.razor`, `Services/ITodoService.cs`
-- Today page route: `/today`, placed above "My Tasks" in nav for prominence
-- PersistentComponentState pattern used on Tasks.razor (key: "taskLists") and Today.razor (key: "todayTasks") to avoid double-fetch during prerender→interactive transition
-- Pattern: inject PersistentComponentState, TryTakeFromJson in OnInitializedAsync, RegisterOnPersisting callback, IDisposable for subscription cleanup
-- Only persist data fetched during initial load; on-demand data (e.g. tasks for a selected list) is not persisted
-- Home.razor uses `<AuthorizeView>` (not `@attribute [Authorize]`) since it serves both auth and non-auth users; uses `[CascadingParameter] Task<AuthenticationState>` to gate template loading
-- Template quick-create buttons on Home page show spinner on the clicked button via `_executingTemplateId` tracking, with dismissible alert feedback
-- Templates.razor CRUD page uses inline form fields (not EditForm) with manual validation, matching the project's lightweight approach
-- Delete confirmation pattern: track `_deleteConfirmId` to swap the Delete button with Confirm/Cancel pair inline
-- Nav icon SVG data URIs must be URL-encoded; lightning-fill icon added as `.bi-lightning-fill-nav-menu` in NavMenu.razor.css
-- Task completion toggle pattern: optimistic UI update with rollback on error, `_togglingTaskId` prevents double-clicks, spinner replaces checkbox during API call, dismissible `_toggleError` alert for failures
-- Since DTOs are records (immutable), toggling requires rebuilding the list via LINQ `.Select(t => t with { IsCompleted = newStatus })` and reassigning
-- Shared `TaskStatusCheckbox` component (`Components/Shared/TaskStatusCheckbox.razor`) encapsulates checkbox/spinner toggle UI, API call, auth redirect, and error handling
-- Component uses double-invoke pattern on `OnStatusChanged`: first call for optimistic update, second call (with original status) for rollback on error
-- `OnError` EventCallback<string> communicates error messages back to parent pages for page-level alert display
-- Razor attribute expressions with null-forgiving operator need parentheses: `@(_selectedListId!)` not `@_selectedListId!`
-- Archive/unarchive pattern: track `_archivingListId` to show spinner on the specific list being processed, guard with `if (_archivingListId is not null) return` to prevent double-clicks
-- Collapsible section pattern: `_showArchived` bool toggles visibility, `_archivedListsLoaded` bool ensures API is only called on first expand (lazy load)
-- When modifying `IReadOnlyList` properties (like `TaskLists`), create new lists via LINQ `.Where().ToList()` or collection expressions `[.. existing, newItem]`
-- Bootstrap Icons CSS added via CDN in App.razor (`bootstrap-icons@1.11.3`), enabling `<i class="bi bi-archive">` icon usage throughout the app
-- Use `@onclick:stopPropagation="true"` on nested buttons inside clickable list items to prevent parent click handler from firing
-- MudBlazor v9 uses `ShowMessageBoxAsync` (not `ShowMessageBox`) on `IDialogService`
-- MudBlazor v9: `MudList` requires explicit `T` type parameter; `@bind-SelectedValue` expects matching type
-- MudBlazor v9: `MudTabs` no longer supports `PanelClass` attribute — use `Class` on individual `MudTabPanel` instead
-- MudBlazor v9: `MudCheckBox` requires `T` type parameter (`MudCheckBox<bool>`) and uses `ValueChanged` event
-- MudBlazor v9: Use `ISnackbar` (injected) for toast notifications instead of inline dismissible alerts
-- MudBlazor v9: `MudDataGrid<T>` with `Items` binding for in-memory data; use `PropertyColumn` and `TemplateColumn`
-- MudBlazor v9: `MudChip` requires `T` type parameter
-- Dark/light theme toggle via `MudThemeProvider @bind-IsDarkMode` with custom `MudTheme` palette
+[Consolidated into ## Core Context section above]
 
 ## 2026-03-06: Sync Performance Improvements
 
@@ -169,27 +169,7 @@ Layout: `Components/App.razor`
 
 ## 2025-07-22: Flowbite Blazor UI Redesign
 
-**Session:** Full UI migration from Bootstrap to Flowbite Blazor + Tailwind CSS
-
-### Completed Tasks
-
-1. **MainLayout.razor** — Replaced Bootstrap layout with Tailwind `flex min-h-screen`. Sticky sidebar + sticky header bar with auth links.
-2. **NavMenu.razor** — Flowbite `<Sidebar>`, `<SidebarLogo>`, `<SidebarItem>` with icons (HomeIcon, CalendarMonthIcon, ListIcon, StarIcon, LockIcon).
-3. **Home.razor** — Flowbite `<Heading>`, `<Paragraph>`, `<Alert>`, `<Button>` (with `Loading` prop), `<Spinner>`.
-4. **Today.razor** — Card-styled div with divide-y items. `<Badge>` for importance, `<Spinner>` for loading.
-5. **Tasks.razor** — Tailwind `grid grid-cols-1 md:grid-cols-3` two-panel layout. Archive/restore text buttons. Collapsible archived section.
-6. **Templates.razor** — Flowbite `<Card>`, `<Table>` family, `<Button>`, `<Badge>`, `<Alert>`. Native inputs with Tailwind styling.
-7. **ApiKeys.razor** — Same pattern as Templates with warning alert for new key display.
-8. **TaskStatusCheckbox.razor** — Flowbite `<Spinner>` + Tailwind-styled native checkbox.
-
-### Learnings
-
-- Flowbite Blazor v0.2.6-beta: `Badge`, `Button` are types with nested enums; `Table`, `Typography` are namespaces
-- Use `@using static Flowbite.Components.Button` to import `ButtonColor`, `ButtonSize` as nested types
-- Use `@using Flowbite.Components.Table` for Table sub-components
-- Use native HTML inputs with Tailwind classes for reliable `@bind` behavior
-- `<Alert>` uses `<CustomContent>` for rich content; manual close button for dismissibility
-- Dark mode: use `dark:` Tailwind variants throughout
+[Consolidated into ## Core Context section — Flowbite Blazor v0.2.6-beta patterns and learnings documented there]
 
 ## 2026-03-06: Templates Page Card-Based Redesign
 
