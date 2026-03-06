@@ -91,6 +91,11 @@ else
                                          Size="Size.Small"
                                          AnchorOrigin="Origin.BottomRight"
                                          TransformOrigin="Origin.TopRight">
+                                    <MudMenuItem Icon="@Icons.Material.Filled.AddTask"
+                                                 IconColor="Color.Primary"
+                                                 OnClick="() => CreateTaskFromTemplate(template)">
+                                        Create Task
+                                    </MudMenuItem>
                                     <MudMenuItem Icon="@Icons.Material.Filled.Edit"
                                                  OnClick="() => OpenEditDialog(template)">
                                         Edit
@@ -352,6 +357,25 @@ else
         finally
         {
             _saving = false;
+        }
+    }
+
+    private async Task CreateTaskFromTemplate(TaskTemplate template)
+    {
+        try
+        {
+            DateOnly? dueDate = template.DueDateToday ? DateOnly.FromDateTime(DateTime.Today) : null;
+            await TodoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate);
+            Snackbar.Add($"Task \"{template.Title}\" created.", Severity.Success);
+        }
+        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+            return;
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to create task: {ex.Message}", Severity.Error);
         }
     }
 
