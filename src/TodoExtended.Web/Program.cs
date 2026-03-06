@@ -153,4 +153,11 @@ api.MapGet("/today", async (ITodoService todoService) =>
     return Results.Ok(tasks);
 });
 
+// Mark task as completed
+api.MapPost("/tasks/{taskListId}/{taskId}/complete", async (string taskListId, string taskId, ITodoService todoService) =>
+{
+    await todoService.UpdateTaskStatusAsync(taskListId, taskId, completed: true);
+    return Results.Ok(new { status = "completed" });
+});
+
 app.Run();

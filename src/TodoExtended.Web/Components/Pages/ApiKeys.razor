@@ -6,6 +6,7 @@
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject IJSRuntime JS
 
 <PageTitle>API Keys</PageTitle>
 
@@ -310,8 +311,12 @@ else
         _apiKeys = await ApiKeyService.GetUserKeysAsync(_userId!);
     }
 
-    private void CopyKeyToClipboard()
+    private async Task CopyKeyToClipboard()
     {
-        Snackbar.Add("Key copied to clipboard! (Use Ctrl+C to copy from the field)", Severity.Info);
+        if (_newlyCreatedKey is not null)
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", _newlyCreatedKey);
+            Snackbar.Add("Key copied to clipboard!", Severity.Success);
+        }
     }
 }
