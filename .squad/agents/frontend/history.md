@@ -2,6 +2,33 @@
 
 <!-- Session logs appended by Scribe -->
 
+## 2026-03-06: API Keys Card Redesign + MainLayout Fix
+
+**Session:** API Keys Redesign (2026-03-06T10:14:01Z)
+
+### Completed Tasks
+
+- ✅ **ApiKeys.razor** — Card-based layout with MudDialog CRUD, responsive grid (3 cols desktop, 1 mobile)
+- ✅ **MainLayout.razor** — Added `margin-top: var(--mud-appbar-height)` to MudMainContent to prevent heading overlap under sticky appbar
+
+### Key Design Patterns
+
+- **Responsive Card Grid:** MudGrid with breakpoint-based column counts
+- **Dialog-driven CRUD:** "New API Key" button opens MudDialog for creation
+- **Empty State:** Dashed border with VpnKey icon + CTA button (matches Templates pattern)
+- **Card Actions:** Three-dot MudMenu for revoke action
+- **Snackbar Feedback:** Success notification on key creation
+- **Alert Positioning:** New-key alert moved outside loading/error conditional (always visible)
+
+### Files Modified
+
+- `src/TodoExtended.Web/Components/Pages/ApiKeys.razor`
+- `src/TodoExtended.Web/Components/Layout/MainLayout.razor`
+
+### Build Status
+
+✅ Zero errors, zero warnings
+
 ## Core Context
 
 ### Bootstrap → Flowbite → MudBlazor Evolution
