@@ -77,6 +77,35 @@ Users can define task templates locally (SQLite + EF Core) with Title, TaskListI
 - UI: Templates.razor (full CRUD), Home.razor (quick-create buttons), NavMenu.razor (Templates link)
 - No breaking changes; database file (todoextended.db) excluded via .gitignore
 
+### Flowbite Blazor Infrastructure Setup
+
+**Author:** Backend  
+**Date:** 2025-07-17  
+**Status:** Implemented
+
+Migrated from Bootstrap to Flowbite Blazor component library with Tailwind CSS for the UI layer.
+
+**Key Decisions:**
+1. **Type ambiguity resolution:** Fully qualified `System.Diagnostics.Activity` in Error.razor rather than removing global `@using Flowbite.Components` import (benefits all other pages)
+2. **Tailwind CSS v4 via CDN:** Using `https://cdn.jsdelivr.net/npm/@@tailwindcss/browser@@4` (browser build) for development; must be replaced with build pipeline for production
+3. **Bootstrap removal is breaking:** All existing Bootstrap CSS classes stopped rendering; Frontend redesign must land alongside or after this change
+
+### Flowbite Blazor UI Redesign
+
+**Date:** 2025-07-22  
+**Author:** Frontend  
+**Status:** Implemented
+
+Migrated all UI from Bootstrap to Flowbite Blazor components + Tailwind CSS utility classes.
+
+**Key Decisions:**
+1. **Native HTML inputs over Flowbite form components** — Used native `<input>`, `<select>`, `<checkbox>` styled with Tailwind classes (matching Flowbite's visual design) instead of form components; provides more reliable `@bind` behavior
+2. **`@using static` for nested enums** — Added `@using static Flowbite.Components.Badge` and `@using static Flowbite.Components.Button` to _Imports.razor to bring nested enum types into scope
+3. **Card-styled divs for task lists** — Used raw Tailwind card styling for list containers rather than `<Card>` component; gives finer control over padding and item separation
+4. **All dark mode compatible** — Every custom Tailwind class includes `dark:` variants
+
+**Impact:** All 8 UI files redesigned, _Imports.razor updated with 4 new Flowbite imports, zero Bootstrap classes remain, build clean (zero errors, zero warnings)
+
 ## Governance
 
 - All meaningful changes require team consensus

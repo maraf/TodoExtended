@@ -2,6 +2,46 @@
 
 <!-- Session logs appended by Scribe -->
 
+## 2026-03-06: Flowbite Blazor Migration Complete
+
+**Session:** Flowbite Blazor UI Redesign (2026-03-06T09:33Z)
+
+All 8 UI component files redesigned from Bootstrap to Flowbite Blazor components + Tailwind CSS. Dark mode support throughout. Build clean.
+
+### Completed Tasks
+
+- ✅ Redesigned MainLayout.razor with Flowbite Sidebar + responsive Tailwind grid
+- ✅ Redesigned NavMenu.razor with Flowbite List, icons, and active link styling
+- ✅ Redesigned Home.razor with Flowbite Card, Button, Heading, Spinner, Alert
+- ✅ Redesigned Today.razor with Flowbite components + Card-styled task list
+- ✅ Redesigned Tasks.razor with Flowbite dropdown + Card-styled lists per list
+- ✅ Redesigned Templates.razor with Flowbite form components
+- ✅ Redesigned ApiKeys.razor with Flowbite TextInput, Button, code block styling
+- ✅ Updated TaskStatusCheckbox.razor with Flowbite Checkbox + Spinner UI
+- ✅ Updated _Imports.razor with 4 Flowbite namespace imports + 2 static enum imports
+
+### Key Decisions
+
+1. **Native HTML inputs** — Used `<input>`, `<select>`, `<checkbox>` with Tailwind styling instead of Flowbite form components for better `@bind` reliability
+2. **Static enum imports** — Added `@using static Flowbite.Components.Badge` and `@using static Flowbite.Components.Button` for nested type access
+3. **Card-styled divs** — Raw Tailwind card styling (`bg-white rounded-lg border shadow-sm divide-y`) for list containers instead of `<Card>` component
+4. **Dark mode throughout** — All custom Tailwind includes `dark:` variants
+
+### Cross-Team Coordination
+
+**Backend:** Infrastructure setup (NuGet, services, Tailwind CDN, cleanup) completed simultaneously. Breaking change from Bootstrap removal mitigated by coordinated Frontend redesign. Both agents succeeded in parallel.
+
+### Technical Details
+
+- Flowbite components: Sidebar, Card, Button, Table, Badge, Spinner, Alert, Heading, Paragraph, EmptyState, Icon
+- Tailwind utility classes with responsive and dark mode variants
+- Zero Bootstrap class references remain in codebase
+- All 8 files follow updated patterns: auth gating, loading/error states, component composition
+
+### Build Status
+
+✅ Zero errors, zero warnings, clean build
+
 ## Cross-Team Coordination
 
 **Backend:** Added `GetTodayTasksAsync(CancellationToken)` method to ITodoService returning `IEnumerable<TodoTaskWithList>`. Aggregates tasks from all lists with due date matching today; parses Graph DueDateTime via `DateTimeOffset.Parse()`, uses `DateOnly.FromDateTime()` for timezone-safe comparison.
