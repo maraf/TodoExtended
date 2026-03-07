@@ -53,7 +53,7 @@ public class CachedTodoService(
 
     public async Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId)
     {
-        await EnsureCacheValidAsync();
+        await EnsureListCacheValidAsync(taskListId);
         
         var tasks = await db.CachedTasks
             .Where(t => t.ListId == taskListId && !t.IsDeleted)
@@ -164,6 +164,57 @@ public class CachedTodoService(
         {
             _syncLock.Release();
         }
+    }
+
+    private async Task EnsureListCacheValidAsync(string taskListId)
+    {
+        if (!await IsListCacheStaleAsync(taskListId))
+            return;
+
+        await _syncLock.WaitAsync();
+        try
+        {
+            if (!await IsListCacheStaleAsync(taskListId))
+                return;
+
+            var list = await db.CachedTaskLists.FindAsync(taskListId);
+            if (list == null)
+            {
+                logger.LogInformation("List {ListId} not in cache, performing full sync", taskListId);
+                await SyncAsync();
+                return;
+            }
+
+            await SyncTasksForListAsync(db, list.Id, list.DeltaToken);
+            list.LastSyncUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Single-list sync failed for {ListId}, falling back to full sync", taskListId);
+            if (ShouldRebuildCache(ex))
+                await ClearCacheAndInitialSyncAsync();
+            else
+                throw;
+        }
+        finally
+        {
+            _syncLock.Release();
+        }
+    }
+
+    private async Task<bool> IsListCacheStaleAsync(string taskListId)
+    {
+        var cacheMaxAge = TimeSpan.FromMinutes(_options.StalenessThresholdMinutes);
+        var lastSync = await db.CachedTaskLists
+            .Where(l => l.Id == taskListId)
+            .Select(l => (DateTime?)l.LastSyncUtc)
+            .FirstOrDefaultAsync();
+
+        if (lastSync == null)
+            return true;
+
+        return (DateTime.UtcNow - lastSync.Value) > cacheMaxAge;
     }
 
     private async Task<bool> IsCacheStaleAsync()
