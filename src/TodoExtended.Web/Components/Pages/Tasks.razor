@@ -1,278 +1,97 @@
-@page "/tasks"
+@page "/tasks/{ListId?}"
 @attribute [Authorize]
 @using Microsoft.Identity.Web
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
 
-<PageTitle>My Tasks</PageTitle>
+<PageTitle>Tasks</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">My Tasks</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">Tasks</MudText>
 
-@if (_loading)
-{
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
-    <MudGrid>
-        <MudItem xs="12" md="4">
-            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
-        </MudItem>
-        <MudItem xs="12" md="8">
-            <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
-        </MudItem>
-    </MudGrid>
-}
-else if (_error is not null)
+@if (_error is not null)
 {
     <MudAlert Severity="Severity.Error">@_error</MudAlert>
 }
 else
 {
-    <MudGrid>
-        <MudItem xs="12" md="4">
-            <MudPaper Elevation="2" Class="pa-2">
-                <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true">
-                    <MudTabPanel Text="Synced">
-                        @if (_selectionMode)
-                        {
-                            <div class="d-flex align-center pa-1">
-                                <MudCheckBox T="bool"
-                                             Value="@(TaskLists!.Count > 0 && _selectedListIds.SetEquals(TaskLists!.Select(l => l.Id)))"
-                                             ValueChanged="v => SelectAllSynced(v)"
-                                             Label="Select all"
-                                             Size="Size.Small"
-                                             Dense="true" />
-                                <MudSpacer />
-                                @if (_selectedListIds.Any(id => TaskLists!.Any(l => l.Id == id)))
-                                {
-                                    <MudButton Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled"
-                                               OnClick="BulkRemoveFromSync" Disabled="_syncingListId is not null">
-                                        Remove from Sync
-                                    </MudButton>
-                                }
-                            </div>
-                        }
-                        <MudList T="string" @bind-SelectedValue="_selectedListId" Dense="true">
-                            @foreach (var list in TaskLists!)
-                            {
-                                <MudListItem T="string" Value="@list.Id" OnClick="() => SelectList(list.Id)">
-                                    <div class="d-flex align-center" style="width:100%">
-                                        @if (_selectionMode)
-                                        {
-                                            <MudCheckBox T="bool"
-                                                         Value="@_selectedListIds.Contains(list.Id)"
-                                                         ValueChanged="v => ToggleListSelection(list.Id, v)"
-                                                         Size="Size.Small"
-                                                         Dense="true"
-                                                         StopClickPropagation="true"
-                                                         Class="mr-1" />
-                                        }
-                                        <MudText Style="@(_selectedListId == list.Id ? "font-weight:600;" : "")">@list.DisplayName</MudText>
-                                        <MudSpacer />
-                                        @if (_syncingListId == list.Id)
-                                        {
-                                            <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                                        }
-                                        else if (!_selectionMode)
-                                        {
-                                            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight">
-                                                <MudMenuItem Icon="@Icons.Material.Filled.SyncDisabled" OnClick="() => RemoveFromSync(list.Id)">Remove from Sync</MudMenuItem>
-                                            </MudMenu>
-                                        }
-                                    </div>
-                                </MudListItem>
-                            }
-                        </MudList>
-                    </MudTabPanel>
-                    <MudTabPanel Text="Not Synced" OnClick="EnsureNotSyncedLoaded">
-                        @if (_loadingNotSynced)
-                        {
-                            <MudProgressLinear Indeterminate="true" Color="Color.Secondary" />
-                        }
-                        else if (_notSyncedLists.Count == 0)
-                        {
-                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-2">All lists are synced.</MudText>
-                        }
-                        else
-                        {
-                            @if (_selectionMode)
-                            {
-                                <div class="d-flex align-center pa-1">
-                                    <MudCheckBox T="bool"
-                                                 Value="@(_notSyncedLists.Count > 0 && _selectedListIds.SetEquals(_notSyncedLists.Select(l => l.Id)))"
-                                                 ValueChanged="v => SelectAllNotSynced(v)"
-                                                 Label="Select all"
-                                                 Size="Size.Small"
-                                                 Dense="true" />
-                                    <MudSpacer />
-                                    @if (_selectedListIds.Any(id => _notSyncedLists.Any(l => l.Id == id)))
-                                    {
-                                        <MudButton Size="Size.Small" Color="Color.Success" Variant="Variant.Filled"
-                                                   OnClick="BulkAddToSync" Disabled="_syncingListId is not null">
-                                            Add to Sync
-                                        </MudButton>
-                                    }
-                                </div>
-                            }
-                            <MudList T="string" Dense="true">
-                                @foreach (var list in _notSyncedLists)
-                                {
-                                    <MudListItem T="string">
-                                        <div class="d-flex align-center" style="width:100%">
-                                            @if (_selectionMode)
-                                            {
-                                                <MudCheckBox T="bool"
-                                                             Value="@_selectedListIds.Contains(list.Id)"
-                                                             ValueChanged="v => ToggleListSelection(list.Id, v)"
-                                                             Size="Size.Small"
-                                                             Dense="true"
-                                                             StopClickPropagation="true"
-                                                             Class="mr-1" />
-                                            }
-                                            <MudText Color="Color.Secondary">@list.DisplayName</MudText>
-                                            <MudSpacer />
-                                            @if (_syncingListId == list.Id)
-                                            {
-                                                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                                            }
-                                            else if (!_selectionMode)
-                                            {
-                                                <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight">
-                                                    <MudMenuItem Icon="@Icons.Material.Filled.Sync" OnClick="() => AddToSync(list.Id)">Add to Sync</MudMenuItem>
-                                                </MudMenu>
-                                            }
-                                        </div>
-                                    </MudListItem>
-                                }
-                            </MudList>
-                        }
-                    </MudTabPanel>
-                </MudTabs>
-                <div class="d-flex justify-end pa-1">
-                    <MudTooltip Text="@(_selectionMode ? "Exit selection" : "Select multiple lists")">
-                        <MudToggleIconButton Toggled="_selectionMode"
-                                             Icon="@Icons.Material.Filled.CheckBox"
-                                             ToggledIcon="@Icons.Material.Filled.CheckBoxOutlineBlank"
-                                             Size="Size.Small"
-                                             ToggledChanged="OnSelectionModeChanged" />
-                    </MudTooltip>
-                </div>
-            </MudPaper>
-        </MudItem>
-
-        <MudItem xs="12" md="8">
-            <MudPaper Elevation="2" Class="pa-4">
-                @if (_selectedListId is not null)
+    <MudPaper Elevation="2" Class="pa-4">
+        @if (ListId is not null)
+        {
+            @if (_loadingTasks)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+            }
+            else
+            {
+                @if (_tasks.Count == 0)
                 {
-                    @if (_loadingTasks)
-                    {
-                        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
-                    }
-                    else
-                    {
-                        <MudText Typo="Typo.h5" Class="mb-2">@TaskLists!.FirstOrDefault(l => l.Id == _selectedListId)?.DisplayName</MudText>
-                        <MudDivider Class="mb-4" />
-
-                        @if (_tasks.Count == 0)
-                        {
-                            <MudAlert Severity="Severity.Info">No tasks in this list.</MudAlert>
-                        }
-                        else
-                        {
-                            <MudList T="string" Dense="true">
-                                @foreach (var task in _tasks)
-                                {
-                                    <MudListItem T="string">
-                                        <div class="d-flex align-center" style="width:100%">
-                                            <TaskStatusCheckbox TaskId="@task.Id"
-                                                                ListId="@(_selectedListId ?? "")"
-                                                                IsCompleted="@task.IsCompleted"
-                                                                TaskTitle="@task.Title"
-                                                                OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
-                                                                OnError="(msg) => Snackbar.Add(msg, Severity.Warning)" />
-                                            <div>
-                                                <MudText Style="@(task.IsCompleted ? "text-decoration: line-through; opacity: 0.5;" : "")">
-                                                    @task.Title
-                                                </MudText>
-                                                @if (task.DueDate is not null)
-                                                {
-                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Due: @task.DueDate.Value.ToString("MMM d, yyyy")</MudText>
-                                                }
-                                            </div>
-                                            <MudSpacer />
-                                            @if (task.Importance == "High")
-                                            {
-                                                <MudChip T="string" Size="Size.Small" Color="Color.Error">!</MudChip>
-                                            }
-                                        </div>
-                                    </MudListItem>
-                                }
-                            </MudList>
-                        }
-                    }
+                    <MudAlert Severity="Severity.Info">No tasks in this list.</MudAlert>
                 }
                 else
                 {
-                    <MudAlert Severity="Severity.Info">Select a task list to view tasks.</MudAlert>
+                    <MudList T="string" Dense="true">
+                        @foreach (var task in _tasks)
+                        {
+                            <MudListItem T="string">
+                                <div class="d-flex align-center" style="width:100%">
+                                    <TaskStatusCheckbox TaskId="@task.Id"
+                                                        ListId="@ListId"
+                                                        IsCompleted="@task.IsCompleted"
+                                                        TaskTitle="@task.Title"
+                                                        OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                                        OnError="(msg) => Snackbar.Add(msg, Severity.Warning)" />
+                                    <div>
+                                        <MudText Style="@(task.IsCompleted ? "text-decoration: line-through; opacity: 0.5;" : "")">
+                                            @task.Title
+                                        </MudText>
+                                        @if (task.DueDate is not null)
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Due: @task.DueDate.Value.ToString("MMM d, yyyy")</MudText>
+                                        }
+                                    </div>
+                                    <MudSpacer />
+                                    @if (task.Importance == "High")
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Error">!</MudChip>
+                                    }
+                                </div>
+                            </MudListItem>
+                        }
+                    </MudList>
                 }
-            </MudPaper>
-        </MudItem>
-    </MudGrid>
+            }
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Info">Select a task list from the menu to view tasks.</MudAlert>
+        }
+    </MudPaper>
 }
 
 @code {
-    [PersistentState]
-    public IReadOnlyList<TodoTaskList>? TaskLists { get; set; }
+    [Parameter]
+    public string? ListId { get; set; }
 
     private IReadOnlyList<TodoTask> _tasks = [];
-    private string? _selectedListId;
-    private bool _loading = true;
     private bool _loadingTasks;
     private string? _error;
 
-    private IReadOnlyList<TodoTaskList> _notSyncedLists = [];
-    private bool _loadingNotSynced;
-    private bool _notSyncedListsLoaded;
-    private string? _syncingListId;
-
-    private bool _selectionMode;
-    private HashSet<string> _selectedListIds = [];
-
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        if (TaskLists is not null)
+        if (ListId is null)
         {
-            _loading = false;
+            _tasks = [];
             return;
         }
 
-        try
-        {
-            TaskLists = await TodoService.GetTaskListsAsync();
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
-        {
-            _error = $"Failed to load task lists: {ex.Message}";
-        }
-        finally
-        {
-            _loading = false;
-        }
-    }
-
-    private async Task SelectList(string listId)
-    {
-        _selectedListId = listId;
         _loadingTasks = true;
+        _error = null;
         _tasks = [];
 
         try
         {
-            _tasks = await TodoService.GetTasksAsync(listId);
+            _tasks = await TodoService.GetTasksAsync(ListId);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -292,207 +111,5 @@ else
     private void HandleTaskStatusChanged(string taskId, bool newStatus)
     {
         _tasks = _tasks.Select(t => t.Id == taskId ? t with { IsCompleted = newStatus } : t).ToList();
-    }
-
-    private async Task EnsureNotSyncedLoaded()
-    {
-        if (!_notSyncedListsLoaded)
-        {
-            await LoadNotSyncedLists();
-        }
-    }
-
-    private async Task LoadNotSyncedLists()
-    {
-        _loadingNotSynced = true;
-        try
-        {
-            _notSyncedLists = await TodoService.GetNotSyncedTaskListsAsync();
-            _notSyncedListsLoaded = true;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
-        {
-            _error = $"Failed to load not-synced lists: {ex.Message}";
-        }
-        finally
-        {
-            _loadingNotSynced = false;
-        }
-    }
-
-    private async Task RemoveFromSync(string listId)
-    {
-        if (_syncingListId is not null) return;
-        _syncingListId = listId;
-
-        try
-        {
-            await TodoService.SetTaskListSyncedAsync(listId, false);
-
-            var list = TaskLists!.First(l => l.Id == listId);
-            TaskLists = TaskLists!.Where(l => l.Id != listId).ToList();
-            _notSyncedLists = [.. _notSyncedLists, list with { IsSynced = false }];
-
-            if (_selectedListId == listId)
-            {
-                _selectedListId = null;
-                _tasks = [];
-            }
-
-            Snackbar.Add($"List \"{list.DisplayName}\" removed from sync.", Severity.Success);
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Failed to remove list from sync: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _syncingListId = null;
-        }
-    }
-
-    private async Task AddToSync(string listId)
-    {
-        if (_syncingListId is not null) return;
-        _syncingListId = listId;
-
-        try
-        {
-            await TodoService.SetTaskListSyncedAsync(listId, true);
-
-            var list = _notSyncedLists.First(l => l.Id == listId);
-            _notSyncedLists = _notSyncedLists.Where(l => l.Id != listId).ToList();
-            TaskLists = [.. TaskLists!, list with { IsSynced = true }];
-
-            Snackbar.Add($"List \"{list.DisplayName}\" added to sync.", Severity.Success);
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Failed to add list to sync: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _syncingListId = null;
-        }
-    }
-
-    private void ToggleListSelection(string listId, bool selected)
-    {
-        if (selected)
-            _selectedListIds.Add(listId);
-        else
-            _selectedListIds.Remove(listId);
-    }
-
-    private void SelectAllSynced(bool selectAll)
-    {
-        if (selectAll)
-            foreach (var list in TaskLists!)
-                _selectedListIds.Add(list.Id);
-        else
-            foreach (var list in TaskLists!)
-                _selectedListIds.Remove(list.Id);
-    }
-
-    private void SelectAllNotSynced(bool selectAll)
-    {
-        if (selectAll)
-            foreach (var list in _notSyncedLists)
-                _selectedListIds.Add(list.Id);
-        else
-            foreach (var list in _notSyncedLists)
-                _selectedListIds.Remove(list.Id);
-    }
-
-    private void OnSelectionModeChanged(bool toggled)
-    {
-        _selectionMode = toggled;
-        if (!toggled)
-            _selectedListIds.Clear();
-    }
-
-    private async Task BulkRemoveFromSync()
-    {
-        var ids = _selectedListIds.Where(id => TaskLists!.Any(l => l.Id == id)).ToList();
-        if (ids.Count == 0) return;
-
-        _syncingListId = "bulk";
-        try
-        {
-            await Task.WhenAll(ids.Select(id => TodoService.SetTaskListSyncedAsync(id, false)));
-
-            var listsToMove = TaskLists!.Where(l => ids.Contains(l.Id)).ToList();
-            TaskLists = TaskLists!.Where(l => !ids.Contains(l.Id)).ToList();
-            _notSyncedLists = [.. _notSyncedLists, .. listsToMove.Select(l => l with { IsSynced = false })];
-
-            if (_selectedListId is not null && ids.Contains(_selectedListId))
-            {
-                _selectedListId = null;
-                _tasks = [];
-            }
-
-            _selectedListIds.ExceptWith(ids);
-            Snackbar.Add($"{listsToMove.Count} list(s) removed from sync.", Severity.Success);
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Failed to update sync: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _syncingListId = null;
-        }
-    }
-
-    private async Task BulkAddToSync()
-    {
-        var ids = _selectedListIds.Where(id => _notSyncedLists.Any(l => l.Id == id)).ToList();
-        if (ids.Count == 0) return;
-
-        _syncingListId = "bulk";
-        try
-        {
-            await Task.WhenAll(ids.Select(id => TodoService.SetTaskListSyncedAsync(id, true)));
-
-            var listsToMove = _notSyncedLists.Where(l => ids.Contains(l.Id)).ToList();
-            _notSyncedLists = _notSyncedLists.Where(l => !ids.Contains(l.Id)).ToList();
-            TaskLists = [.. TaskLists!, .. listsToMove.Select(l => l with { IsSynced = true })];
-
-            _selectedListIds.ExceptWith(ids);
-            Snackbar.Add($"{listsToMove.Count} list(s) added to sync.", Severity.Success);
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Failed to update sync: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _syncingListId = null;
-        }
     }
 }

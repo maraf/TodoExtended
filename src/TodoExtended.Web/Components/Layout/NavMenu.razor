@@ -1,13 +1,53 @@
-﻿<MudNavMenu>
-    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+@using Microsoft.Identity.Web
+@using Microsoft.Extensions.Logging
+@inject ITodoService TodoService
+@inject NavigationManager NavigationManager
+@inject ILogger<NavMenu> Logger
+
+<MudNavMenu>
     <AuthorizeView>
         <Authorized>
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
             <MudNavLink Href="/today" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Today">Today</MudNavLink>
-            <MudNavLink Href="/tasks" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.CheckBox">My Tasks</MudNavLink>
             <MudDivider Class="my-2" />
             <MudNavLink Href="/templates" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ContentCopy">Templates</MudNavLink>
             <MudNavLink Href="/api-keys" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.VpnKey">API Keys</MudNavLink>
+            <MudDivider Class="my-2" />
+            @foreach (var list in _taskLists)
+            {
+                var (emoji, name) = list.Emoji();
+                var icon = emoji == null ? Icons.Material.Filled.List : null;
+                <MudNavLink Href="@($"/tasks/{list.Id}")" Match="NavLinkMatch.Prefix" Icon="@icon">
+                    @if (emoji != null)
+                    {
+                        <span class="nav-emoji-icon" style="margin-left: -12px;margin-right: 12px;">@emoji</span>
+                    }
+                    @name
+                </MudNavLink>
+            }
+            <MudNavLink Href="/sync-settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SyncAlt">Sync Settings</MudNavLink>
         </Authorized>
     </AuthorizeView>
 </MudNavMenu>
 
+@code {
+    private IReadOnlyList<TodoTaskList> _taskLists = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _taskLists = await TodoService.GetTaskListsAsync();
+        }
+        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            // Nav menu loads best-effort; a failure here should not break the layout.
+            // Errors surface on the individual task pages when the user navigates there.
+            Logger.LogWarning(ex, "NavMenu: failed to load task lists");
+        }
+    }
+}

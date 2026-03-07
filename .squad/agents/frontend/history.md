@@ -146,6 +146,14 @@ All 8 UI component files redesigned from Flowbite Blazor + Tailwind CSS to MudBl
 
 [Consolidated into ## Core Context section above]
 
+### NavMenu Emoji Icon Extraction (2026)
+
+- **Pattern:** Use `StringInfo.GetTextElementEnumerator()` + `Rune` for Unicode-safe leading emoji extraction from display names
+- **MudBlazor constraint:** `MudNavLink.Icon` only accepts SVG path strings (from `Icons.Material.*`), not Unicode text — render emoji as styled `<span>` in child content instead
+- **CSS isolation:** Created `NavMenu.razor.css` with `.nav-emoji-icon` class (24px box, inline-flex, 1.25rem font) to visually match Material icon slot
+- **Key files:** `NavMenu.razor`, `NavMenu.razor.css`
+- **Emoji ranges covered:** SMP blocks (≥ U+1F000), Misc Symbols, Dingbats, Misc Technical, Geometric Shapes, Arrows
+
 ## 2026-03-06 → 2026-03-07: Unauthenticated Landing Page
 
 **Session:** Landing Page Experience (2026-03-06)  
