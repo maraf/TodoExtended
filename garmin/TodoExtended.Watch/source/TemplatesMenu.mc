@@ -49,7 +49,6 @@ class TemplatesMenuFooter extends WatchUi.Drawable {
 class TemplateItem extends WatchUi.CustomMenuItem {
     private var _label as String;
 
-    var loading as Loading?;
     var isLoading = false;
     var loadingValue = 0;
 
@@ -65,27 +64,13 @@ class TemplateItem extends WatchUi.CustomMenuItem {
         }
 
         var spacing = 8;
-
-        if (isFocused() && isLoading) {
-            dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
-            if (loading == null) {
-                loading = new Loading({
-                    :locX => spacing + 16,
-                    :locY => dc.getHeight() / 2,
-                    :width => 28
-                });
-            }
-
-            loading.start = loadingValue;
-            loading.draw(dc);
-        }
-
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
 
         // Draw label with truncation
         var labelX = spacing * 2;
         var labelY = dc.getHeight() / 2 - 2;
-        var labelAvailableWidth = dc.getWidth() - spacing * 3;
+        var dotsWidth = isLoading ? dc.getTextWidthInPixels(" ...", font) : 0;
+        var labelAvailableWidth = dc.getWidth() - spacing * 3 - dotsWidth;
         var numberOfSkippedChars = 0;
         var label = _label;
         var labelWidth = dc.getTextWidthInPixels(label, font);
@@ -93,6 +78,13 @@ class TemplateItem extends WatchUi.CustomMenuItem {
             numberOfSkippedChars++;
             label = _label.substring(0, _label.length() - numberOfSkippedChars) + "..";
             labelWidth = dc.getTextWidthInPixels(label, font);
+        }
+
+        if (isLoading) {
+            var dotCount = 3 - (loadingValue.toNumber() / 1000) % 3;
+            if (dotCount == 1) { label = label + " ."; }
+            else if (dotCount == 2) { label = label + " .."; }
+            else { label = label + " ..."; }
         }
 
         dc.drawText(labelX, labelY, font, label, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
@@ -112,7 +104,7 @@ class TemplatesDelegate extends WatchUi.Menu2InputDelegate {
     function onSelect(item as WatchUi.MenuItem) as Void {
         var custom = item as TemplateItem;
         custom.isLoading = true;
-        WatchUi.animate(custom, :loadingValue, WatchUi.ANIM_TYPE_LINEAR, 1440, 0, 4, null);
+        WatchUi.animate(custom, :loadingValue, WatchUi.ANIM_TYPE_LINEAR, 0, 9000, 9, null);
 
         var templateId = custom.getId() as String;
         ApiClient.executeTemplate(templateId, new ExecuteTemplateCallback(custom).method(:onResult));
