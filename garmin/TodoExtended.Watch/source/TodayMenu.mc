@@ -5,7 +5,7 @@ import Toybox.WatchUi;
 
 function switchToTodayMenu(tasks as Array<Models.TodoTask>) as Void {
     var settings = System.getDeviceSettings();
-    var titleHeight = 78;
+    var titleHeight = 55;
 
     var customMenu = new WatchUi.CustomMenu(titleHeight, Graphics.COLOR_WHITE, {
         :focusItemHeight => settings.screenHeight - (2 * titleHeight),
@@ -18,8 +18,6 @@ function switchToTodayMenu(tasks as Array<Models.TodoTask>) as Void {
         customMenu.addItem(new TodayItem(task.id, task.listId, task.title, task.isCompleted));
     }
 
-    customMenu.addItem(new NavItem("nav-templates", "Templates \u00BB"));
-
     WatchUi.switchToView(customMenu, new TodayDelegate(), WatchUi.SLIDE_UP);
 }
 
@@ -29,29 +27,10 @@ class TodayMenuTitle extends WatchUi.Drawable {
     }
 
     function draw(dc as Graphics.Dc) as Void {
-        var spacing = 4;
-
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
-
-        // App name
-        var appLabelY = dc.getHeight() / 2 - spacing;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(dc.getWidth() / 2, appLabelY, Graphics.FONT_SMALL, "TodoExtended",
-            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        // Tab indicators
-        var tabY = dc.getHeight() - spacing - dc.getTextDimensions("Today", Graphics.FONT_XTINY)[1] / 2;
-        var centerX = dc.getWidth() / 2;
-
-        // Active: Today
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(centerX - 30, tabY, Graphics.FONT_XTINY, "\u25B8 Today",
-            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        // Inactive: Templates
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(centerX + 40, tabY, Graphics.FONT_XTINY, "Templates",
+        dc.drawText(dc.getWidth() / 2, dc.getHeight() / 2, Graphics.FONT_SMALL, "Today",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 }
@@ -159,13 +138,6 @@ class TodayDelegate extends WatchUi.Menu2InputDelegate {
     }
 
     function onSelect(item as WatchUi.MenuItem) as Void {
-        if (item instanceof NavItem) {
-            // Navigate to Templates tab
-            WatchUi.switchToView(new WatchUi.ProgressBar("Loading...", null), new WatchUi.BehaviorDelegate(), WatchUi.SLIDE_UP);
-            ApiClient.getTemplates(method(:onTemplatesReceived));
-            return;
-        }
-
         var custom = item as TodayItem;
         if (custom.isCompleted()) {
             return;
@@ -177,16 +149,6 @@ class TodayDelegate extends WatchUi.Menu2InputDelegate {
         var taskId = custom.getId() as String;
         var listId = custom.getListId();
         ApiClient.completeTask(listId, taskId, new CompleteTaskCallback(custom).method(:onResult));
-    }
-
-    function onTemplatesReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
-        if (responseCode == 200 && data != null) {
-            var templates = Models.parseTemplates(data as Array);
-            switchToTemplatesMenu(templates);
-        } else {
-            var message = ApiClient.getErrorMessage(responseCode);
-            WatchUi.showToast(message, {});
-        }
     }
 }
 
@@ -227,30 +189,5 @@ class Loading extends WatchUi.Drawable {
 
         dc.drawArc(locX, locY, width / 2 - penWidth - 6, Graphics.ARC_COUNTER_CLOCKWISE, currentStart, currentEnd);
         dc.setPenWidth(1);
-    }
-}
-
-class NavItem extends WatchUi.CustomMenuItem {
-    private var _label as String;
-
-    function initialize(id as String, text as String) {
-        CustomMenuItem.initialize(id, {});
-        _label = text;
-    }
-
-    function draw(dc as Graphics.Dc) as Void {
-        var font = Graphics.FONT_TINY;
-        if (isFocused()) {
-            font = Graphics.FONT_MEDIUM;
-        }
-
-        dc.setColor(Graphics.COLOR_BLUE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(dc.getWidth() / 2, dc.getHeight() / 2, font, _label,
-            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        // Separator lines
-        dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
-        dc.drawLine(0, 0, dc.getWidth(), 0);
-        dc.drawLine(0, dc.getHeight(), dc.getWidth(), dc.getHeight());
     }
 }

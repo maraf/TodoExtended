@@ -5,7 +5,7 @@ import Toybox.WatchUi;
 
 function switchToTemplatesMenu(templates as Array<Models.Template>) as Void {
     var settings = System.getDeviceSettings();
-    var titleHeight = 78;
+    var titleHeight = 55;
 
     var customMenu = new WatchUi.CustomMenu(titleHeight, Graphics.COLOR_WHITE, {
         :focusItemHeight => settings.screenHeight - (2 * titleHeight),
@@ -13,14 +13,12 @@ function switchToTemplatesMenu(templates as Array<Models.Template>) as Void {
         :footer => new TemplatesMenuFooter()
     });
 
-    customMenu.addItem(new NavItem("nav-today", "\u00AB Today"));
-
     for (var i = 0; i < templates.size(); i++) {
         var template = templates[i];
         customMenu.addItem(new TemplateItem(template.id, template.title));
     }
 
-    WatchUi.switchToView(customMenu, new TemplatesDelegate(), WatchUi.SLIDE_DOWN);
+    WatchUi.switchToView(customMenu, new TemplatesDelegate(), WatchUi.SLIDE_UP);
 }
 
 class TemplatesMenuTitle extends WatchUi.Drawable {
@@ -29,29 +27,10 @@ class TemplatesMenuTitle extends WatchUi.Drawable {
     }
 
     function draw(dc as Graphics.Dc) as Void {
-        var spacing = 4;
-
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_BLACK);
         dc.clear();
-
-        // App name
-        var appLabelY = dc.getHeight() / 2 - spacing;
         dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(dc.getWidth() / 2, appLabelY, Graphics.FONT_SMALL, "TodoExtended",
-            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        // Tab indicators
-        var tabY = dc.getHeight() - spacing - dc.getTextDimensions("Templates", Graphics.FONT_XTINY)[1] / 2;
-        var centerX = dc.getWidth() / 2;
-
-        // Inactive: Today
-        dc.setColor(Graphics.COLOR_DK_GRAY, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(centerX - 30, tabY, Graphics.FONT_XTINY, "Today",
-            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        // Active: Templates
-        dc.setColor(Graphics.COLOR_WHITE, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(centerX + 40, tabY, Graphics.FONT_XTINY, "\u25B8 Templates",
+        dc.drawText(dc.getWidth() / 2, dc.getHeight() / 2, Graphics.FONT_SMALL, "Templates",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 }
@@ -131,38 +110,29 @@ class TemplatesDelegate extends WatchUi.Menu2InputDelegate {
     }
 
     function onSelect(item as WatchUi.MenuItem) as Void {
-        if (item instanceof NavItem) {
-            // Navigate to Today tab
-            WatchUi.switchToView(new WatchUi.ProgressBar("Loading...", null), new WatchUi.BehaviorDelegate(), WatchUi.SLIDE_DOWN);
-            ApiClient.getTodayTasks(method(:onTodayReceived));
-            return;
-        }
-
         var custom = item as TemplateItem;
         custom.isLoading = true;
         WatchUi.animate(custom, :loadingValue, WatchUi.ANIM_TYPE_LINEAR, 1440, 0, 4, null);
 
         var templateId = custom.getId() as String;
-        ApiClient.executeTemplate(templateId, method(:onExecuteResult));
+        ApiClient.executeTemplate(templateId, new ExecuteTemplateCallback(custom).method(:onResult));
+    }
+}
+
+class ExecuteTemplateCallback {
+    private var _item as TemplateItem;
+
+    function initialize(item as TemplateItem) {
+        _item = item;
     }
 
-    function onExecuteResult(responseCode as Number, data as Dictionary or String or Null) as Void {
+    function onResult(responseCode as Number, data as Dictionary or String or Null) as Void {
+        _item.isLoading = false;
+        WatchUi.requestUpdate();
         if (responseCode == 200) {
-            // After executing template, load and show today tasks
-            WatchUi.switchToView(new WatchUi.ProgressBar("Loading...", null), new WatchUi.BehaviorDelegate(), WatchUi.SLIDE_UP);
-            ApiClient.getTodayTasks(method(:onTodayReceived));
+            WatchUi.showToast("Task created", {});
         } else {
             WatchUi.showToast("Failed (" + responseCode + ")", {});
-        }
-    }
-
-    function onTodayReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
-        if (responseCode == 200 && data != null) {
-            var tasks = Models.parseTasks(data as Array);
-            switchToTodayMenu(tasks);
-        } else {
-            var message = ApiClient.getErrorMessage(responseCode);
-            WatchUi.showToast(message, {});
         }
     }
 }
