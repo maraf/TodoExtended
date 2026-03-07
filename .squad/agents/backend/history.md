@@ -263,3 +263,10 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
 - **UI pattern:** `WatchUi.Menu2` with `Menu2InputDelegate` for scrollable lists (auto-scrolls, memory-efficient). Views extend `WatchUi.View`, delegates extend `WatchUi.BehaviorDelegate`.
 - **Memory:** 28-128 KB budget depending on device; keep response payloads under 8-16 KB.
 - **Launcher icon:** Referenced in `drawables.xml` as `<bitmap id="LauncherIcon">`, must match `launcherIcon="@Drawables.LauncherIcon"` in manifest.
+
+### DbContext Lifetime in Blazor Server (2026-03-xx)
+
+- **Problem:** `CachedTodoService` held a constructor-injected `AppDbContext` as a primary constructor parameter. During Blazor Server prerendering, the DI scope (and its DbContext) is disposed after prerender completes. When the SignalR circuit connects, any code touching the disposed DbContext throws `ObjectDisposedException`, killing the circuit.
+- **Fix:** Removed `AppDbContext db` from the primary constructor entirely. All database access now goes through `IDbContextFactory<AppDbContext>.CreateDbContextAsync()` — each public method creates its own short-lived context via `await using var db = ...` and passes it to private methods as a parameter.
+- **Key insight:** In Blazor Server, never hold a scoped `DbContext` in a service that outlives the initial request scope. Always use `IDbContextFactory` for on-demand context creation.
+- **Unchanged:** `SyncTasksForListsInParallelAsync` and `SyncTasksForListAsync` already used the factory/scoped-db pattern correctly — they were left as-is.
