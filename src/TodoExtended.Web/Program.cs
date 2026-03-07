@@ -107,6 +107,7 @@ builder.Services.AddScoped<Microsoft.Graph.GraphServiceClient>(sp =>
 
 builder.Services.AddMudServices();
 
+builder.Services.AddSignalR(o => o.MaximumReceiveMessageSize = 512 * 1024); // 512 KB for large PersistentState payloads
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
