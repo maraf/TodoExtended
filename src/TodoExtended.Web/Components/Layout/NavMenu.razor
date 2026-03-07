@@ -14,7 +14,7 @@
             <MudDivider Class="my-2" />
             @foreach (var list in _taskLists)
             {
-                <MudNavLink Href="@($"/tasks/{list.Id}?name={Uri.EscapeDataString(list.DisplayName)}")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.CheckBox">@list.DisplayName</MudNavLink>
+                <MudNavLink Href="@($"/tasks/{list.Id}?name={Uri.EscapeDataString(list.DisplayName)}")" Match="NavLinkMatch.Prefix">@list.DisplayName</MudNavLink>
             }
             <MudNavLink Href="/sync-settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SyncAlt">Sync Settings</MudNavLink>
         </Authorized>
