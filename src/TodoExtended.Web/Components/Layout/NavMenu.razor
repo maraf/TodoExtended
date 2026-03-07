@@ -15,7 +15,15 @@
             <MudDivider Class="my-2" />
             @foreach (var list in _taskLists)
             {
-                <MudNavLink Href="@($"/tasks/{list.Id}?name={Uri.EscapeDataString(list.DisplayName)}")" Match="NavLinkMatch.Prefix">@list.DisplayName</MudNavLink>
+                var (emoji, name) = list.Emoji();
+                var icon = emoji == null ? Icons.Material.Filled.List : null;
+                <MudNavLink Href="@($"/tasks/{list.Id}")" Match="NavLinkMatch.Prefix" Icon="@icon">
+                    @if (emoji != null)
+                    {
+                        <span class="nav-emoji-icon" style="margin-left: -12px;margin-right: 12px;">@emoji</span>
+                    }
+                    @name
+                </MudNavLink>
             }
             <MudNavLink Href="/sync-settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SyncAlt">Sync Settings</MudNavLink>
         </Authorized>

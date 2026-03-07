@@ -24,9 +24,6 @@ else
             }
             else
             {
-                <MudText Typo="Typo.h5" Class="mb-2">@(_listDisplayName ?? ListId)</MudText>
-                <MudDivider Class="mb-4" />
-
                 @if (_tasks.Count == 0)
                 {
                     <MudAlert Severity="Severity.Info">No tasks in this list.</MudAlert>
@@ -76,11 +73,7 @@ else
     [Parameter]
     public string? ListId { get; set; }
 
-    [SupplyParameterFromQuery(Name = "name")]
-    public string? ListName { get; set; }
-
     private IReadOnlyList<TodoTask> _tasks = [];
-    private string? _listDisplayName;
     private bool _loadingTasks;
     private string? _error;
 
@@ -89,14 +82,12 @@ else
         if (ListId is null)
         {
             _tasks = [];
-            _listDisplayName = null;
             return;
         }
 
         _loadingTasks = true;
         _error = null;
         _tasks = [];
-        _listDisplayName = ListName;
 
         try
         {
