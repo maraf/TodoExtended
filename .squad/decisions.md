@@ -106,6 +106,42 @@ Migrated all UI from Bootstrap to Flowbite Blazor components + Tailwind CSS util
 
 **Impact:** All 8 UI files redesigned, _Imports.razor updated with 4 new Flowbite imports, zero Bootstrap classes remain, build clean (zero errors, zero warnings)
 
+### Use IDbContextFactory Exclusively in CachedTodoService
+
+**Author:** Backend  
+**Date:** 2026-03-06  
+**Status:** Implemented  
+**Issue:** #7
+
+`CachedTodoService` held a constructor-injected `AppDbContext` as a primary constructor parameter. During Blazor Server prerendering, the DI scope that created this DbContext is disposed after the prerender HTTP response completes. When the SignalR circuit connects and Blazor components re-initialize, any code path touching the disposed `db` field throws `ObjectDisposedException`, killing the circuit.
+
+**Decision:** Remove the `AppDbContext db` primary constructor parameter from `CachedTodoService`. All database access now goes exclusively through `IDbContextFactory<AppDbContext>`:
+
+- Each **public method** creates a fresh, short-lived context via `await using var db = await dbContextFactory.CreateDbContextAsync();`
+- Each **private method** that needs database access receives `AppDbContext db` as an explicit parameter
+- `SyncTasksForListsInParallelAsync` and `SyncTasksForListAsync` were already using the factory pattern and were left unchanged
+
+**Rationale:** `IDbContextFactory` creates contexts that are not tied to any DI scope, so they survive scope disposal. Short-lived contexts per operation prevent stale tracking and reduce memory pressure. Explicit `db` parameter threading makes the data flow visible and testable. This is the recommended EF Core pattern for Blazor Server apps.
+
+**Impact:** Single file changed: `src/TodoExtended.Web/Services/CachedTodoService.cs`. No interface changes, no breaking changes to consumers. All 7 public methods and 11 private methods updated.
+
+### NavMenu Emoji Icon Rendering
+
+**Date:** 2026-03-07  
+**Author:** Frontend  
+**Status:** Implemented
+
+Task list names in Microsoft To Do can contain a leading Unicode emoji (e.g., "🐶Domeczech"). The nav menu extracts this emoji and displays it as a visual icon prefix, stripping it from the text to avoid duplication.
+
+**Decision:**
+
+- **Emoji extraction** uses `StringInfo.GetTextElementEnumerator()` for grapheme-cluster-safe parsing, with `Rune`-based Unicode range checks to identify emoji characters. This correctly handles multi-byte, surrogate pair, and ZWJ emoji sequences.
+- **Rendering approach:** Since MudBlazor's `MudNavLink.Icon` only accepts SVG path strings, the emoji is rendered as a styled `<span class="nav-emoji-icon">` inside the nav link's child content, with CSS isolation matching the Material icon slot dimensions (24×24px, 1.25rem font).
+- **URL preservation:** The original `DisplayName` (with emoji) is kept in the Href query string for downstream use.
+- **Graceful fallback:** If no leading emoji is detected, the nav link renders plain text with no icon prefix, matching previous behavior.
+
+**Impact:** Files: `NavMenu.razor`, `NavMenu.razor.css` (new). No breaking changes; lists without emoji display identically to before.
+
 ### Garmin Connect IQ Watch App Scaffold
 
 **Date:** 2026-03-06  
