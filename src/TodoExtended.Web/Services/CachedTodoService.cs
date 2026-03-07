@@ -24,31 +24,31 @@ public class CachedTodoService(
         await EnsureListsCacheValidAsync();
         
         return await db.CachedTaskLists
-            .Where(l => !l.IsArchived)
+            .Where(l => l.IsSynced)
             .OrderBy(l => l.DisplayName)
-            .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsArchived))
+            .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsSynced))
             .ToListAsync();
     }
 
-    public async Task<IReadOnlyList<TodoTaskList>> GetArchivedTaskListsAsync()
+    public async Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync()
     {
         return await db.CachedTaskLists
-            .Where(l => l.IsArchived)
+            .Where(l => !l.IsSynced)
             .OrderBy(l => l.DisplayName)
-            .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsArchived))
+            .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsSynced))
             .ToListAsync();
     }
 
-    public async Task SetTaskListArchivedAsync(string taskListId, bool isArchived)
+    public async Task SetTaskListSyncedAsync(string taskListId, bool isSynced)
     {
         var cachedList = await db.CachedTaskLists.FindAsync(taskListId)
             ?? throw new InvalidOperationException($"Task list '{taskListId}' not found in cache.");
 
-        cachedList.IsArchived = isArchived;
+        cachedList.IsSynced = isSynced;
         cachedList.UpdatedUtc = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        logger.LogInformation("Task list {ListId} archived={IsArchived}", taskListId, isArchived);
+        logger.LogInformation("Task list {ListId} isSynced={IsSynced}", taskListId, isSynced);
     }
 
     public async Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId)
@@ -76,7 +76,7 @@ public class CachedTodoService(
         
         var tasks = await db.CachedTasks
             .Include(t => t.List)
-            .Where(t => !t.IsDeleted && t.DueDate == today && !t.List!.IsArchived)
+            .Where(t => !t.IsDeleted && t.DueDate == today && t.List!.IsSynced)
             .ToListAsync();
         
         return tasks
@@ -172,13 +172,13 @@ public class CachedTodoService(
         var now = DateTime.UtcNow;
         
         var oldestSync = await db.CachedTaskLists
-            .Where(l => !l.IsArchived)
+            .Where(l => l.IsSynced)
             .Select(l => (DateTime?)l.LastSyncUtc)
             .MinAsync();
         
         if (oldestSync == null)
         {
-            logger.LogDebug("Cache is stale: no non-archived lists in cache");
+            logger.LogDebug("Cache is stale: no synced lists in cache");
             return true;
         }
 
@@ -248,7 +248,7 @@ public class CachedTodoService(
                     {
                         Id = list.Id,
                         DisplayName = list.DisplayName,
-                        IsArchived = false,
+                        IsSynced = true,
                         DeltaToken = null,
                         LastSyncUtc = now,
                         CreatedUtc = now,
@@ -264,7 +264,7 @@ public class CachedTodoService(
 
                 // Update LastSyncUtc so staleness check passes without syncing tasks
                 var lists = await db.CachedTaskLists
-                    .Where(l => !l.IsArchived)
+                    .Where(l => l.IsSynced)
                     .ToListAsync();
 
                 var now = DateTime.UtcNow;
@@ -303,7 +303,7 @@ public class CachedTodoService(
             {
                 Id = list.Id,
                 DisplayName = list.DisplayName,
-                IsArchived = false,
+                IsSynced = true,
                 DeltaToken = null,
                 LastSyncUtc = now,
                 CreatedUtc = now,
@@ -324,7 +324,7 @@ public class CachedTodoService(
         await SyncTaskListsAsync();
 
         var lists = await db.CachedTaskLists
-            .Where(l => !l.IsArchived)
+            .Where(l => l.IsSynced)
             .Select(l => new { l.Id, l.DeltaToken })
             .ToListAsync();
 
@@ -396,7 +396,7 @@ public class CachedTodoService(
                                 {
                                     Id = graphList.Id!,
                                     DisplayName = graphList.DisplayName ?? "Untitled",
-                                    IsArchived = false,
+                                    IsSynced = true,
                                     DeltaToken = null,
                                     LastSyncUtc = now,
                                     CreatedUtc = now,
