@@ -3,7 +3,7 @@ using TodoExtended.Web.Data;
 
 namespace TodoExtended.Web.Services;
 
-public class TemplateService(AppDbContext db, ITodoService todoService) : ITemplateService
+public class TemplateService(AppDbContext db, ITodoService todoService, IUserTimeZoneService userTimeZoneService) : ITemplateService
 {
     public async Task<IReadOnlyList<TaskTemplate>> GetAllAsync()
     {
@@ -48,7 +48,7 @@ public class TemplateService(AppDbContext db, ITodoService todoService) : ITempl
             ?? throw new InvalidOperationException($"Template with ID {templateId} not found.");
 
         DateOnly? dueDate = template.DueDateToday
-            ? DateOnly.FromDateTime(DateTime.Now)
+            ? await userTimeZoneService.GetTodayAsync()
             : null;
 
         return await todoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate);

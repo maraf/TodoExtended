@@ -3,7 +3,7 @@ using Microsoft.Graph;
 
 namespace TodoExtended.Web.Services;
 
-public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoService> logger) : ITodoService
+public class GraphTodoService(GraphServiceClient graphClient, IUserTimeZoneService userTimeZoneService, ILogger<GraphTodoService> logger) : ITodoService
 {
     public async Task<IReadOnlyList<TodoTaskList>> GetTaskListsAsync()
     {
@@ -40,13 +40,14 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
     public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync()
     {
         var lists = await GetTaskListsAsync();
-        // "Today" in the user's local timezone, with boundaries converted to UTC
+        // "Today" in the user's configured timezone, with boundaries converted to UTC
         // for the Graph API filter. Microsoft To Do stores due dates as midnight
         // local time converted to UTC, so the filter must use UTC equivalents of
         // the local day boundaries.
-        var todayLocal = DateOnly.FromDateTime(DateTime.Now);
-        var todayStartUtc = todayLocal.ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
-        var tomorrowStartUtc = todayLocal.AddDays(1).ToDateTime(TimeOnly.MinValue, DateTimeKind.Local).ToUniversalTime();
+        var userZone = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
+        var todayLocal = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, userZone));
+        var todayStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayLocal.ToDateTime(TimeOnly.MinValue), userZone);
+        var tomorrowStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayLocal.AddDays(1).ToDateTime(TimeOnly.MinValue), userZone);
         var filter = $"dueDateTime/dateTime ge '{todayStartUtc:yyyy-MM-ddTHH:mm:ss}' and dueDateTime/dateTime lt '{tomorrowStartUtc:yyyy-MM-ddTHH:mm:ss}'";
         logger.LogDebug("GetTodayTasksAsync: Graph filter='{Filter}'", filter);
         var result = new List<TodoTaskWithList>();
@@ -80,6 +81,7 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
 
     public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, TimeOnly? reminderTime = null)
     {
+        var userZone = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
         var newTask = new Microsoft.Graph.Models.TodoTask
         {
             Title = title,
@@ -90,18 +92,19 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
             newTask.DueDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
             {
                 DateTime = due.ToDateTime(TimeOnly.MinValue).ToString("yyyy-MM-ddTHH:mm:ss"),
-                TimeZone = "UTC",
+                TimeZone = userZone.Id,
             };
         }
 
         if (reminderTime is { } reminder)
         {
-            var reminderDateTime = DateTime.Today.Add(reminder.ToTimeSpan());
+            var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, userZone));
+            var reminderDateTime = today.ToDateTime(new TimeOnly(reminder.Hour, reminder.Minute));
             newTask.IsReminderOn = true;
             newTask.ReminderDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
             {
                 DateTime = reminderDateTime.ToString("yyyy-MM-ddTHH:mm:ss"),
-                TimeZone = TimeZoneInfo.Local.Id,
+                TimeZone = userZone.Id,
             };
         }
 
@@ -140,10 +143,11 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
         Task.FromResult<IReadOnlyList<TodoTaskList>>([]);
 
     /// <summary>
-    /// Converts Graph's dateTimeTimeZone to a local DateOnly.
+    /// Converts Graph's dateTimeTimeZone to a DateOnly.
     /// Microsoft To Do stores due dates as midnight-local-time converted to UTC
-    /// (e.g., March 6 00:00 CET is stored as 2026-03-05T23:00:00 UTC). We must
-    /// convert back to local time before extracting the date.
+    /// (e.g., March 6 00:00 CET → 2026-03-05T23:00:00 UTC). Since the original
+    /// value is always midnight in some timezone, adding 12 hours and taking the
+    /// date gives the correct result for all practical timezones (UTC-12 to UTC+12).
     /// </summary>
     private DateOnly? ParseDueDate(Microsoft.Graph.Models.DateTimeTimeZone? dueDateTime)
     {
@@ -151,18 +155,8 @@ public class GraphTodoService(GraphServiceClient graphClient, ILogger<GraphTodoS
 
         logger.LogDebug("ParseDueDate: raw='{DateTime}' timeZone='{TimeZone}'", dueDateTime.DateTime, dueDateTime.TimeZone);
 
-        // Parse the full datetime and convert from the source timezone to local.
-        // Microsoft To Do stores due dates as midnight-local converted to UTC,
-        // so extracting just the UTC date gives the wrong day.
         var dt = DateTime.Parse(dueDateTime.DateTime, CultureInfo.InvariantCulture, DateTimeStyles.None);
-
-        if (!string.IsNullOrEmpty(dueDateTime.TimeZone))
-        {
-            var sourceZone = TimeZoneInfo.FindSystemTimeZoneById(dueDateTime.TimeZone);
-            dt = TimeZoneInfo.ConvertTime(dt, sourceZone, TimeZoneInfo.Local);
-        }
-
-        var result = DateOnly.FromDateTime(dt);
+        var result = DateOnly.FromDateTime(dt.AddHours(12));
         logger.LogDebug("ParseDueDate: result={Result}", result);
         return result;
     }

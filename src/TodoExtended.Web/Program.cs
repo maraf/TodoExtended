@@ -27,9 +27,10 @@ builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, relo
 builder.Services.AddSingleton<Microsoft.Extensions.Caching.Distributed.IDistributedCache, SqliteDistributedCache>();
 
 // Authentication with Microsoft Entra ID
+var graphScopes = builder.Configuration.GetSection("Graph:Scopes").Get<string[]>()!;
 builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"))
-    .EnableTokenAcquisitionToCallDownstreamApi(["Tasks.ReadWrite", "User.Read"])
+    .EnableTokenAcquisitionToCallDownstreamApi(graphScopes)
     .AddMicrosoftGraph(builder.Configuration.GetSection("Graph"))
     .AddDistributedTokenCaches();
 
@@ -69,6 +70,7 @@ builder.Services.Configure<TodoCacheOptions>(builder.Configuration.GetSection("T
 builder.Services.AddScoped<GraphTodoService>();
 builder.Services.AddScoped<ITodoService, CachedTodoService>();
 builder.Services.AddScoped<ITemplateService, TemplateService>();
+builder.Services.AddScoped<IUserTimeZoneService, UserTimeZoneService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<IUserPreferenceService, UserPreferenceService>();
 builder.Services.AddSingleton<ApiKeyGraphClientFactory>();
@@ -92,7 +94,6 @@ builder.Services.AddScoped<Microsoft.Graph.GraphServiceClient>(sp =>
     // OIDC flow: delegate to the default GraphServiceClient registered by AddMicrosoftGraph
     // We need to manually create it since we're overriding the registration
     var tokenAcquisition = sp.GetRequiredService<Microsoft.Identity.Web.ITokenAcquisition>();
-    var graphScopes = sp.GetRequiredService<IConfiguration>().GetSection("Graph:Scopes").Get<string[]>()!;
     
     // Use the TokenAcquisition-based auth provider
     var authProvider = new Microsoft.Kiota.Abstractions.Authentication.BaseBearerTokenAuthenticationProvider(

@@ -12,6 +12,7 @@ public class CachedTodoService(
     GraphServiceClient graphClient,
     IDbContextFactory<AppDbContext> dbContextFactory,
     IOptions<TodoCacheOptions> options,
+    IUserTimeZoneService userTimeZoneService,
     ILogger<CachedTodoService> logger) : ITodoService
 {
     private readonly TodoCacheOptions _options = options.Value;
@@ -71,7 +72,7 @@ public class CachedTodoService(
     {
         await EnsureCacheValidAsync();
         
-        var today = DateOnly.FromDateTime(DateTime.Now);
+        var today = await userTimeZoneService.GetTodayAsync();
         
         var tasks = await db.CachedTasks
             .Include(t => t.List)
@@ -577,10 +578,11 @@ public class CachedTodoService(
     }
 
     /// <summary>
-    /// Converts Graph's dateTimeTimeZone to a local DateOnly.
+    /// Converts Graph's dateTimeTimeZone to a DateOnly.
     /// Microsoft To Do stores due dates as midnight-local-time converted to UTC
-    /// (e.g., March 6 00:00 CET is stored as 2026-03-05T23:00:00 UTC). We must
-    /// convert back to local time before extracting the date.
+    /// (e.g., March 6 00:00 CET → 2026-03-05T23:00:00 UTC). Since the original
+    /// value is always midnight in some timezone, adding 12 hours and taking the
+    /// date gives the correct result for all practical timezones (UTC-12 to UTC+12).
     /// </summary>
     private DateOnly? ParseDueDate(Microsoft.Graph.Models.DateTimeTimeZone? dueDateTime)
     {
@@ -588,18 +590,8 @@ public class CachedTodoService(
 
         logger.LogDebug("ParseDueDate: raw='{DateTime}' timeZone='{TimeZone}'", dueDateTime.DateTime, dueDateTime.TimeZone);
 
-        // Parse the full datetime and convert from the source timezone to local.
-        // Microsoft To Do stores due dates as midnight-local converted to UTC,
-        // so extracting just the UTC date gives the wrong day.
         var dt = DateTime.Parse(dueDateTime.DateTime, CultureInfo.InvariantCulture, DateTimeStyles.None);
-
-        if (!string.IsNullOrEmpty(dueDateTime.TimeZone))
-        {
-            var sourceZone = TimeZoneInfo.FindSystemTimeZoneById(dueDateTime.TimeZone);
-            dt = TimeZoneInfo.ConvertTime(dt, sourceZone, TimeZoneInfo.Local);
-        }
-
-        var result = DateOnly.FromDateTime(dt);
+        var result = DateOnly.FromDateTime(dt.AddHours(12));
         logger.LogDebug("ParseDueDate: result={Result}", result);
         return result;
     }

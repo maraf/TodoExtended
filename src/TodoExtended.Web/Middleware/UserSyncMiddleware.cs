@@ -1,12 +1,16 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Graph;
+using Microsoft.Identity.Web;
+using Microsoft.Kiota.Abstractions.Authentication;
 using TodoExtended.Web.Data;
+using TodoExtended.Web.Services;
 
 namespace TodoExtended.Web.Middleware;
 
 public class UserSyncMiddleware(RequestDelegate next, ILogger<UserSyncMiddleware> logger)
 {
-    public async Task InvokeAsync(HttpContext context, AppDbContext dbContext)
+    public async Task InvokeAsync(HttpContext context, AppDbContext dbContext, ITokenAcquisition tokenAcquisition)
     {
         if (context.User.Identity?.IsAuthenticated == true)
         {
@@ -55,6 +59,29 @@ public class UserSyncMiddleware(RequestDelegate next, ILogger<UserSyncMiddleware
                         user.DisplayName = displayName;
                         user.HomeAccountId = homeAccountId;
                         user.LastSeenUtc = now;
+                    }
+
+                    if (string.IsNullOrEmpty(user.TimeZone))
+                    {
+                        try
+                        {
+                            // Use a separate token request with MailboxSettings.Read scope
+                            // so it doesn't break regular Graph calls for users who haven't
+                            // consented to this scope yet.
+                            var authProvider = new BaseBearerTokenAuthenticationProvider(
+                                new OidcTokenProvider(tokenAcquisition, ["MailboxSettings.Read"]));
+                            var mailboxClient = new GraphServiceClient(authProvider);
+                            var settings = await mailboxClient.Me.MailboxSettings.GetAsync();
+                            if (!string.IsNullOrEmpty(settings?.TimeZone))
+                            {
+                                user.TimeZone = settings.TimeZone;
+                                logger.LogInformation("Fetched timezone '{TimeZone}' for user {Email}", settings.TimeZone, email);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogWarning(ex, "Failed to fetch mailbox settings for user {Email}. User may need to sign out and sign back in to grant MailboxSettings.Read consent.", email);
+                        }
                     }
 
                     await dbContext.SaveChangesAsync();

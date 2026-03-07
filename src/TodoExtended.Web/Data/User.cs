@@ -9,6 +9,7 @@ public class User
     public DateTime LastSeenUtc { get; set; }
     public string? HomeAccountId { get; set; }   // MSAL home account ID (oid.tid) for token cache lookup
     public bool IsDarkMode { get; set; }
+    public string? TimeZone { get; set; }        // IANA timezone ID from Graph mailboxSettings
     
     public ICollection<ApiKey> ApiKeys { get; set; } = [];
     public UserToken? Token { get; set; }
