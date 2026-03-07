@@ -136,10 +136,10 @@ public class GraphTodoService(GraphServiceClient graphClient, IUserTimeZoneServi
         logger.LogDebug("UpdateTaskStatusAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
     }
 
-    public Task SetTaskListArchivedAsync(string taskListId, bool isArchived) =>
-        throw new NotSupportedException("Archiving task lists is only supported with local cache.");
+    public Task SetTaskListSyncedAsync(string taskListId, bool isSynced) =>
+        throw new NotSupportedException("Syncing task lists is only supported with local cache.");
 
-    public Task<IReadOnlyList<TodoTaskList>> GetArchivedTaskListsAsync() =>
+    public Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync() =>
         Task.FromResult<IReadOnlyList<TodoTaskList>>([]);
 
     /// <summary>

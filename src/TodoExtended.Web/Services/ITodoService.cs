@@ -1,6 +1,6 @@
 namespace TodoExtended.Web.Services;
 
-public record TodoTaskList(string Id, string DisplayName, bool IsArchived = false);
+public record TodoTaskList(string Id, string DisplayName, bool IsSynced = true);
 
 public record TodoTask(
     string Id,
@@ -27,6 +27,6 @@ public interface ITodoService
     Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync();
     Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, TimeOnly? reminderTime = null);
     Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed);
-    Task SetTaskListArchivedAsync(string taskListId, bool isArchived);
-    Task<IReadOnlyList<TodoTaskList>> GetArchivedTaskListsAsync();
+    Task SetTaskListSyncedAsync(string taskListId, bool isSynced);
+    Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync();
 }

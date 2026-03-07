@@ -6,7 +6,7 @@ public class CachedTaskList
     public required string DisplayName { get; set; }
     public string? DeltaToken { get; set; }
     public DateTime LastSyncUtc { get; set; }
-    public bool IsArchived { get; set; }
+    public bool IsSynced { get; set; } = true;
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
     
