@@ -31,13 +31,22 @@
 </MudNavMenu>
 
 @code {
-    private IReadOnlyList<TodoTaskList> _taskLists = [];
+    [PersistentState]
+    public IReadOnlyList<TodoTaskList>? TaskLists { get; set; }
+
+    private IReadOnlyList<TodoTaskList> _taskLists => TaskLists ?? [];
 
     protected override async Task OnInitializedAsync()
     {
+        if (TaskLists is not null)
+        {
+            Logger.LogDebug("OnInitializedAsync: TaskLists restored from persistent state, count={Count}", TaskLists.Count);
+            return;
+        }
+
         try
         {
-            _taskLists = await TodoService.GetTaskListsAsync();
+            TaskLists = await TodoService.GetTaskListsAsync();
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
