@@ -62,7 +62,6 @@ else
     @foreach (var group in TemplateItems.GroupBy(t => t.TaskListName).OrderBy(g => g.Key))
     {
         <MudText Typo="Typo.subtitle1" Color="Color.Secondary" Class="mb-2 mt-4">
-            <MudIcon Icon="@Icons.Material.Filled.List" Size="Size.Small" Class="mr-1" Style="vertical-align: middle;" />
             @group.Key
         </MudText>
 
