@@ -2,12 +2,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace TodoExtended.Web.Data;
 
-public class SimpleDbContextFactory(string connectionString) : IDbContextFactory<AppDbContext>
+public class SimpleDbContextFactory(string connectionString, EnableForeignKeysInterceptor foreignKeysInterceptor) : IDbContextFactory<AppDbContext>
 {
     public AppDbContext CreateDbContext()
     {
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
-        optionsBuilder.UseSqlite(connectionString);
+        optionsBuilder.UseSqlite(connectionString)
+                      .AddInterceptors(foreignKeysInterceptor);
         return new AppDbContext(optionsBuilder.Options);
     }
 
