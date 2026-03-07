@@ -5,7 +5,7 @@ import Toybox.WatchUi;
 
 function switchToTemplatesMenu(templates as Array<Models.Template>) as Void {
     var settings = System.getDeviceSettings();
-    var titleHeight = 55;
+    var titleHeight = 78;
 
     var customMenu = new WatchUi.CustomMenu(titleHeight, Graphics.COLOR_WHITE, {
         :focusItemHeight => settings.screenHeight - (2 * titleHeight),
@@ -83,9 +83,9 @@ class TemplateItem extends WatchUi.CustomMenuItem {
         dc.setColor(Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
 
         // Draw label with truncation
-        var labelX = spacing;
+        var labelX = spacing * 2;
         var labelY = dc.getHeight() / 2 - 2;
-        var labelAvailableWidth = dc.getWidth() - spacing * 2;
+        var labelAvailableWidth = dc.getWidth() - spacing * 3;
         var numberOfSkippedChars = 0;
         var label = _label;
         var labelWidth = dc.getTextWidthInPixels(label, font);

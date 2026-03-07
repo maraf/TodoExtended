@@ -5,7 +5,7 @@ import Toybox.WatchUi;
 
 function switchToTodayMenu(tasks as Array<Models.TodoTask>) as Void {
     var settings = System.getDeviceSettings();
-    var titleHeight = 55;
+    var titleHeight = 78;
 
     var customMenu = new WatchUi.CustomMenu(titleHeight, Graphics.COLOR_WHITE, {
         :focusItemHeight => settings.screenHeight - (2 * titleHeight),
