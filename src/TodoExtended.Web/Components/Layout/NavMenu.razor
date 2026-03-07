@@ -1,6 +1,8 @@
 @using Microsoft.Identity.Web
+@using Microsoft.Extensions.Logging
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
+@inject ILogger<NavMenu> Logger
 
 <MudNavMenu>
     <AuthorizeView>
@@ -12,7 +14,7 @@
             <MudDivider Class="my-2" />
             @foreach (var list in _taskLists)
             {
-                <MudNavLink Href="@($"/tasks/{list.Id}")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.CheckBox">@list.DisplayName</MudNavLink>
+                <MudNavLink Href="@($"/tasks/{list.Id}?name={Uri.EscapeDataString(list.DisplayName)}")" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.CheckBox">@list.DisplayName</MudNavLink>
             }
             <MudNavLink Href="/sync-settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SyncAlt">Sync Settings</MudNavLink>
         </Authorized>
@@ -36,7 +38,7 @@
         {
             // Nav menu loads best-effort; a failure here should not break the layout.
             // Errors surface on the individual task pages when the user navigates there.
-            Console.Error.WriteLine($"NavMenu: failed to load task lists: {ex.Message}");
+            Logger.LogWarning(ex, "NavMenu: failed to load task lists");
         }
     }
 }

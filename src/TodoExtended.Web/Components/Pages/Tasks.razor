@@ -24,7 +24,7 @@ else
             }
             else
             {
-                <MudText Typo="Typo.h5" Class="mb-2">@_listDisplayName</MudText>
+                <MudText Typo="Typo.h5" Class="mb-2">@(_listDisplayName ?? ListId)</MudText>
                 <MudDivider Class="mb-4" />
 
                 @if (_tasks.Count == 0)
@@ -76,6 +76,9 @@ else
     [Parameter]
     public string? ListId { get; set; }
 
+    [SupplyParameterFromQuery(Name = "name")]
+    public string? ListName { get; set; }
+
     private IReadOnlyList<TodoTask> _tasks = [];
     private string? _listDisplayName;
     private bool _loadingTasks;
@@ -93,11 +96,10 @@ else
         _loadingTasks = true;
         _error = null;
         _tasks = [];
+        _listDisplayName = ListName;
 
         try
         {
-            var allLists = await TodoService.GetTaskListsAsync();
-            _listDisplayName = allLists.FirstOrDefault(l => l.Id == ListId)?.DisplayName;
             _tasks = await TodoService.GetTasksAsync(ListId);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
