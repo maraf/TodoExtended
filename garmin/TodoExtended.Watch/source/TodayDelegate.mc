@@ -3,12 +3,15 @@ import Toybox.WatchUi;
 
 class TodayDelegate extends WatchUi.BehaviorDelegate {
 
-    function initialize() {
+    private var _view as TodayView;
+
+    function initialize(view as TodayView) {
         BehaviorDelegate.initialize();
+        _view = view;
     }
 
     function onSelect() as Boolean {
-        var view = WatchUi.getCurrentView() as TodayView;
+        var view = _view;
         if (view == null || view.isLoading() || view.hasError()) {
             return true;
         }
@@ -44,7 +47,7 @@ class TodayDelegate extends WatchUi.BehaviorDelegate {
     function onNextPage() as Boolean {
         // Swipe up / next page → navigate to Templates
         var templatesView = new TemplatesView();
-        WatchUi.switchToView(templatesView, new TemplatesDelegate(), WatchUi.SLIDE_UP);
+        WatchUi.switchToView(templatesView, new TemplatesDelegate(templatesView), WatchUi.SLIDE_UP);
         return true;
     }
 }
@@ -63,7 +66,7 @@ class TaskMenuDelegate extends WatchUi.Menu2InputDelegate {
         var task = _findTask(taskId);
         if (task != null) {
             var detailView = new TaskDetailView(task);
-            WatchUi.pushView(detailView, new TaskDetailDelegate(task), WatchUi.SLIDE_LEFT);
+            WatchUi.pushView(detailView, new TaskDetailDelegate(task, detailView), WatchUi.SLIDE_LEFT);
         }
     }
 

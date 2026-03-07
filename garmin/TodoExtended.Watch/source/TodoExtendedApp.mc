@@ -15,7 +15,8 @@ class TodoExtendedApp extends Application.AppBase {
     }
 
     function getInitialView() as [Views] or [Views, InputDelegates] {
-        return [new TemplatesView(), new TemplatesDelegate()];
+        var view = new TemplatesView();
+        return [view, new TemplatesDelegate(view)];
     }
 
     function onSettingsChanged() as Void {

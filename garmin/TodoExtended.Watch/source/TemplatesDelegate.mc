@@ -3,12 +3,15 @@ import Toybox.WatchUi;
 
 class TemplatesDelegate extends WatchUi.BehaviorDelegate {
 
-    function initialize() {
+    private var _view as TemplatesView;
+
+    function initialize(view as TemplatesView) {
         BehaviorDelegate.initialize();
+        _view = view;
     }
 
     function onSelect() as Boolean {
-        var view = WatchUi.getCurrentView() as TemplatesView;
+        var view = _view;
         if (view == null || view.isLoading() || view.hasError()) {
             return true;
         }
@@ -43,7 +46,7 @@ class TemplatesDelegate extends WatchUi.BehaviorDelegate {
     function onPreviousPage() as Boolean {
         // Swipe down / previous page → back to Today
         var todayView = new TodayView();
-        WatchUi.switchToView(todayView, new TodayDelegate(), WatchUi.SLIDE_DOWN);
+        WatchUi.switchToView(todayView, new TodayDelegate(todayView), WatchUi.SLIDE_DOWN);
         return true;
     }
 }
@@ -85,7 +88,7 @@ class TemplateMenuDelegate extends WatchUi.Menu2InputDelegate {
             // Pop the template menu and go back, then refresh today view
             WatchUi.popView(WatchUi.SLIDE_RIGHT);
             var todayView = new TodayView();
-            WatchUi.switchToView(todayView, new TodayDelegate(), WatchUi.SLIDE_RIGHT);
+            WatchUi.switchToView(todayView, new TodayDelegate(todayView), WatchUi.SLIDE_RIGHT);
         } else {
             // Show error via a simple confirmation dialog
             var message = ApiClient.getErrorMessage(responseCode);

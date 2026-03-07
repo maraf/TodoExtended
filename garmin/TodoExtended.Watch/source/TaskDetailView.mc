@@ -95,10 +95,12 @@ class TaskDetailView extends WatchUi.View {
 class TaskDetailDelegate extends WatchUi.BehaviorDelegate {
 
     private var _task as Models.TodoTask;
+    private var _view as TaskDetailView;
 
-    function initialize(task as Models.TodoTask) {
+    function initialize(task as Models.TodoTask, view as TaskDetailView) {
         BehaviorDelegate.initialize();
         _task = task;
+        _view = view;
     }
 
     function onSelect() as Boolean {
@@ -106,7 +108,7 @@ class TaskDetailDelegate extends WatchUi.BehaviorDelegate {
             return true;
         }
 
-        var view = WatchUi.getCurrentView() as TaskDetailView;
+        var view = _view;
         if (view != null && !view.isCompleting()) {
             view.setCompleting(true);
             ApiClient.completeTask(_task.listId, _task.id, method(:onCompleteResult));
@@ -115,7 +117,7 @@ class TaskDetailDelegate extends WatchUi.BehaviorDelegate {
     }
 
     function onCompleteResult(responseCode as Number, data as Dictionary or String or Null) as Void {
-        var view = WatchUi.getCurrentView() as TaskDetailView;
+        var view = _view;
         if (view == null) {
             return;
         }
