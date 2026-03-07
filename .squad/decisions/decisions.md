@@ -1352,3 +1352,75 @@ Start with 2-3 devices in `manifest.xml` and expand after testing.
 **What:** Adding a Monkey C companion app for Garmin watch to TodoExtended - tasks on the wrist
 **Why:** User request - extending TodoExtended to Garmin wearables via Connect IQ
 
+
+
+---
+
+# Unauthenticated Landing Page Experience
+
+**Date:** 2026-03-06  
+**Author:** Frontend  
+**Status:** Implemented
+
+## Decision
+
+For unauthenticated users visiting the app, hide all authenticated UI chrome (app bar, drawer, navigation) and show a polished landing page that describes the app and provides a prominent sign-in button.
+
+## Implementation
+
+1. **MainLayout.razor** — Wrap `MudAppBar`, `MudDrawer`, and `MudMainContent` in `<AuthorizeView>` `<Authorized>` block. For `<NotAuthorized>`, render only `@Body` with no chrome.
+
+2. **Home.razor** — Replace simple sign-in link with a full Material Design landing page featuring:
+   - Hero section with app name, tagline, and large "Sign in with Microsoft" button
+   - Feature highlights (4 cards: Today View, Task Templates, Quick Create, Garmin Watch)
+   - Centered, responsive layout using MudBlazor components
+   - Same theme/palette as authenticated app
+
+3. **MudBlazor providers** — Keep `MudThemeProvider`, `MudPopoverProvider`, `MudDialogProvider`, and `MudSnackbarProvider` **outside** `AuthorizeView` so they work for both auth states (landing page needs them for MudBlazor components).
+
+## Rationale
+
+- Better first impression for new users than a blank page with a simple link
+- Communicates value proposition before sign-in
+- Professional landing page experience aligns with polished authenticated UI
+- No impact on existing authenticated functionality
+- MudBlazor components provide consistent Material Design styling
+
+## Alternative Considered
+
+Keep the simple sign-in link. Rejected because it provides poor UX and doesn't communicate the app's capabilities.
+
+
+---
+
+# Azure AD / Entra ID Configuration — Existing Setup Audit
+
+**Date:** 2025-07-25  
+**Author:** Architect  
+**Status:** Reference (no code changes)
+
+## Summary
+
+The TodoExtended app already has a complete Microsoft Identity Platform integration. This document captures the existing configuration and provides step-by-step instructions for setting up the Azure Portal side (app registration) and filling in the local secrets.
+
+## Existing Architecture
+
+- **Auth library:** `Microsoft.Identity.Web` v4.5.0 (OIDC + Graph + UI packages)
+- **Auth schemes:** OpenID Connect (primary, Blazor UI) + custom API key scheme (REST API)
+- **Token caching:** SQLite-backed `IDistributedCache` via custom `SqliteDistributedCache`
+- **Graph scopes:** `Tasks.ReadWrite`, `User.Read`
+- **Tenant:** `consumers` (personal Microsoft accounts only)
+- **Page protection:** `@attribute [Authorize]` on protected pages, `<AuthorizeView>` for conditional UI
+
+## What Needs Azure Portal Setup
+
+1. App registration in Microsoft Entra ID
+2. Redirect URI: `https://localhost:{port}/signin-oidc`
+3. Client secret generation
+4. API permissions: `Tasks.ReadWrite`, `User.Read` (delegated, Microsoft Graph)
+5. Copy Client ID and Client Secret into `appsettings.local.json`
+
+## Decision
+
+No code changes needed. The integration is complete and follows Microsoft.Identity.Web best practices. Only the Azure Portal app registration and local secrets file need to be configured per-environment.
+

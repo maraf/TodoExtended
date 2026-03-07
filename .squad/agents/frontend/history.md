@@ -146,6 +146,42 @@ All 8 UI component files redesigned from Flowbite Blazor + Tailwind CSS to MudBl
 
 [Consolidated into ## Core Context section above]
 
+## 2026-03-06 → 2026-03-07: Unauthenticated Landing Page
+
+**Session:** Landing Page Experience (2026-03-06)  
+**Completed:** 2026-03-07T11:22:54Z (Scribed)
+
+### Completed Tasks
+
+- ✅ **MainLayout.razor** — Wrapped MudAppBar, MudDrawer, and MudMainContent in `<AuthorizeView>` `<Authorized>` block. For `<NotAuthorized>`, render only `@Body` directly (MudBlazor providers remain active for both states)
+- ✅ **Home.razor** — Redesigned `<NotAuthorized>` section as a full landing page with hero section, prominent sign-in button, and feature cards
+
+### Key Design Patterns
+
+- **Full-page landing:** For unauthenticated users, entire app chrome (app bar, drawer, navigation) is hidden
+- **Material Design landing page:** MudContainer with MaxWidth.Medium, centered layout, large CheckCircle icon, hero text, and prominent "Sign in with Microsoft" button
+- **Feature highlights grid:** 4 cards (Today View, Task Templates, Quick Create, Garmin Watch) using MudGrid with responsive breakpoints (2x2 on desktop, stacked on mobile)
+- **MudBlazor providers outside AuthorizeView:** MudThemeProvider, MudPopoverProvider, MudDialogProvider, and MudSnackbarProvider stay active for both auth states so landing page can use MudBlazor components
+- **Typography hierarchy:** h2 for app title, h5 for tagline and section headings, body2 for descriptions
+- **Consistent theming:** Landing page uses the same Material Design palette as the authenticated app
+
+### Technical Details
+
+- Sign-in URL: `MicrosoftIdentity/Account/SignIn`
+- Landing page components: MudContainer, MudPaper, MudIcon, MudText, MudButton, MudDivider, MudGrid, MudItem, MudCard
+- Icons: Login icon for sign-in button; CheckCircle for hero; Today, ContentCopy, FlashOn, Watch for features
+- Layout: Full viewport height centering with `min-height: 100vh` and flexbox alignment
+- All existing authenticated functionality remains intact
+
+### Files Modified
+
+- `src/TodoExtended.Web/Components/Layout/MainLayout.razor`
+- `src/TodoExtended.Web/Components/Pages/Home.razor`
+
+### Build Status
+
+✅ Zero errors, zero warnings
+
 ## 2026-03-06: Sync Performance Improvements
 
 **Session:** Sync Performance Integration (2026-03-06T0901Z)
