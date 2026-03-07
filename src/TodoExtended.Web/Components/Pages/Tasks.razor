@@ -24,14 +24,14 @@ else
             }
             else
             {
-                @if (_tasks.Count == 0)
+                @if (TaskItems!.Count == 0)
                 {
                     <MudAlert Severity="Severity.Info">No tasks in this list.</MudAlert>
                 }
                 else
                 {
                     <MudList T="string" Dense="true">
-                        @foreach (var task in _tasks)
+                        @foreach (var task in TaskItems!)
                         {
                             <MudListItem T="string">
                                 <div class="d-flex align-center" style="width:100%">
@@ -73,7 +73,12 @@ else
     [Parameter]
     public string? ListId { get; set; }
 
-    private IReadOnlyList<TodoTask> _tasks = [];
+    [PersistentState]
+    public IReadOnlyList<TodoTask>? TaskItems { get; set; }
+
+    [PersistentState]
+    public string? PersistedListId { get; set; }
+
     private bool _loadingTasks;
     private string? _error;
 
@@ -81,17 +86,25 @@ else
     {
         if (ListId is null)
         {
-            _tasks = [];
+            TaskItems = null;
+            PersistedListId = null;
+            return;
+        }
+
+        if (TaskItems is not null && PersistedListId == ListId)
+        {
+            _loadingTasks = false;
             return;
         }
 
         _loadingTasks = true;
         _error = null;
-        _tasks = [];
+        TaskItems = null;
 
         try
         {
-            _tasks = await TodoService.GetTasksAsync(ListId);
+            TaskItems = await TodoService.GetTasksAsync(ListId);
+            PersistedListId = ListId;
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -110,6 +123,6 @@ else
 
     private void HandleTaskStatusChanged(string taskId, bool newStatus)
     {
-        _tasks = _tasks.Select(t => t.Id == taskId ? t with { IsCompleted = newStatus } : t).ToList();
+        TaskItems = TaskItems?.Select(t => t.Id == taskId ? t with { IsCompleted = newStatus } : t).ToList();
     }
 }
