@@ -19,7 +19,7 @@ public class CachedTodoService(
 
     public async Task<IReadOnlyList<TodoTaskList>> GetTaskListsAsync()
     {
-        await EnsureCacheValidAsync();
+        await EnsureListsCacheValidAsync();
         
         return await db.CachedTaskLists
             .Where(l => !l.IsArchived)
@@ -145,6 +145,25 @@ public class CachedTodoService(
         }
     }
 
+    private async Task EnsureListsCacheValidAsync()
+    {
+        if (!await IsCacheStaleAsync())
+            return;
+
+        await _syncLock.WaitAsync();
+        try
+        {
+            if (!await IsCacheStaleAsync())
+                return;
+
+            await SyncListsOnlyAsync();
+        }
+        finally
+        {
+            _syncLock.Release();
+        }
+    }
+
     private async Task<bool> IsCacheStaleAsync()
     {
         var cacheMaxAge = TimeSpan.FromMinutes(_options.StalenessThresholdMinutes);
@@ -199,6 +218,69 @@ public class CachedTodoService(
             if (ShouldRebuildCache(ex))
             {
                 logger.LogWarning("Rebuilding cache due to invalid delta token or sync error");
+                await ClearCacheAndInitialSyncAsync();
+            }
+            else
+            {
+                throw;
+            }
+        }
+    }
+
+    private async Task SyncListsOnlyAsync()
+    {
+        logger.LogInformation("Starting lists-only cache sync");
+
+        try
+        {
+            var hasAnyLists = await db.CachedTaskLists.AnyAsync();
+
+            if (!hasAnyLists)
+            {
+                var lists = await graphService.GetTaskListsAsync();
+                var now = DateTime.UtcNow;
+
+                foreach (var list in lists)
+                {
+                    db.CachedTaskLists.Add(new CachedTaskList
+                    {
+                        Id = list.Id,
+                        DisplayName = list.DisplayName,
+                        IsArchived = false,
+                        DeltaToken = null,
+                        LastSyncUtc = now,
+                        CreatedUtc = now,
+                        UpdatedUtc = now,
+                    });
+                }
+
+                await db.SaveChangesAsync();
+            }
+            else
+            {
+                await SyncTaskListsAsync();
+
+                // Update LastSyncUtc so staleness check passes without syncing tasks
+                var lists = await db.CachedTaskLists
+                    .Where(l => !l.IsArchived)
+                    .ToListAsync();
+
+                var now = DateTime.UtcNow;
+                foreach (var list in lists)
+                    list.LastSyncUtc = now;
+
+                await db.SaveChangesAsync();
+            }
+
+            logger.LogInformation("Lists-only cache sync completed successfully");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Lists-only cache sync failed");
+
+            if (ShouldRebuildCache(ex))
+            {
+                logger.LogWarning("Falling back to full sync due to error");
                 await ClearCacheAndInitialSyncAsync();
             }
             else
