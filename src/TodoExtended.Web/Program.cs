@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
+using TodoExtended.Web.Api;
 using TodoExtended.Web.Authentication;
 using TodoExtended.Web.Components;
 using TodoExtended.Web.Data;
@@ -141,7 +142,7 @@ api.MapPost("/templates/{id}/execute", async (Guid id, ITemplateService template
     try
     {
         var task = await templateService.ExecuteTemplateAsync(id);
-        return Results.Ok(task);
+        return Results.Ok(new ApiTodoTask(task.Id, task.Title, task.IsCompleted, task.DueDate, task.Importance));
     }
     catch (InvalidOperationException ex)
     {
@@ -153,7 +154,8 @@ api.MapPost("/templates/{id}/execute", async (Guid id, ITemplateService template
 api.MapGet("/today", async (ITodoService todoService) =>
 {
     var tasks = await todoService.GetTodayTasksAsync();
-    return Results.Ok(tasks);
+    return Results.Ok(tasks.Select(t => new ApiTodoTaskWithList(
+        t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance, t.ListId, t.ListName)));
 });
 
 // Mark task as completed
