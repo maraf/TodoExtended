@@ -66,6 +66,13 @@
 - **Key decision:** App type `app` (not `widget`) required for Communications permission to make HTTP requests.
 - **Status:** Ready for Connect IQ SDK build verification and device testing.
 
+### 2026-03-07 — DbContext Lifetime Bug Fix (Issue #7)
+- Backend fixed critical `CachedTodoService` issue where constructor-injected `AppDbContext` was tied to prerender-scope lifetime, causing `ObjectDisposedException` during circuit re-initialization.
+- **Solution:** Removed constructor-injected `AppDbContext` parameter; refactored all 7 public and 11 private methods to use `IDbContextFactory<AppDbContext>` exclusively. Each public method creates a fresh, short-lived context. Private methods receive `db` as explicit parameters.
+- **Rationale:** `IDbContextFactory` creates contexts independent of any DI scope, ensuring survival past scope disposal. Short-lived contexts prevent stale tracking and memory pressure. Explicit parameter threading maintains data flow visibility.
+- **Build:** Clean (0 errors, 0 warnings). Single file changed: `src/TodoExtended.Web/Services/CachedTodoService.cs`. No breaking changes.
+- **Alignment:** Implementation follows Architect's analysis and EF Core best practices for Blazor Server.
+
 ### 2025-07-25 — Azure AD / Entra ID Configuration Audit
 - Audited existing Microsoft Identity Platform setup. The app is ALREADY fully wired for Azure AD authentication.
 - **Existing stack:** `Microsoft.Identity.Web` v4.5.0 (OIDC + Graph + UI), API key secondary auth scheme, SQLite-backed distributed token cache, `UserSyncMiddleware`.
