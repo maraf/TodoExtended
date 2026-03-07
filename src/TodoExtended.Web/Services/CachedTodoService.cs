@@ -383,6 +383,10 @@ public class CachedTodoService(
                                 logger.LogDebug("Removing task list {ListId} from cache", graphList.Id);
                                 db.CachedTaskLists.Remove(cachedList);
                             }
+                            else
+                            {
+                                logger.LogDebug("Skipping removal of task list {ListId}: not found in cache", graphList.Id);
+                            }
                         }
                         else
                         {
@@ -476,12 +480,22 @@ public class CachedTodoService(
                     {
                         if (graphTask.AdditionalData?.ContainsKey("@removed") == true)
                         {
+                            if (graphTask.Id is null)
+                            {
+                                logger.LogWarning("Received @removed task with null Id in list {ListId}; skipping", listId);
+                                continue;
+                            }
+                            logger.LogDebug("Task {TaskId} detected as @removed in list {ListId}", graphTask.Id, listId);
                             var cachedTask = await scopedDb.CachedTasks.FindAsync(graphTask.Id);
                             if (cachedTask != null)
                             {
-                                logger.LogDebug("Soft deleting task {TaskId} from cache", graphTask.Id);
+                                logger.LogDebug("Soft deleting task {TaskId} from cache (was IsDeleted={WasDeleted})", graphTask.Id, cachedTask.IsDeleted);
                                 cachedTask.IsDeleted = true;
                                 cachedTask.UpdatedUtc = DateTime.UtcNow;
+                            }
+                            else
+                            {
+                                logger.LogDebug("Skipping soft-delete for task {TaskId}: not found in cache", graphTask.Id);
                             }
                         }
                         else
@@ -545,6 +559,10 @@ public class CachedTodoService(
                             cachedList.DeltaToken = response.OdataDeltaLink;
                             cachedList.LastSyncUtc = DateTime.UtcNow;
                             await scopedDb.SaveChangesAsync();
+                        }
+                        else
+                        {
+                            logger.LogWarning("Cannot store delta token for list {ListId}: list not found in cache. Future syncs will perform a full sync for this list until it is re-added to the cache, meaning task deletions will not be detected during that time", listId);
                         }
                     }
                     break;

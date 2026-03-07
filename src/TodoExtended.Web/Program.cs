@@ -58,13 +58,16 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 var dbPath = connectionString.Replace("Data Source=", "");
 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(dbPath))!);
 
+builder.Services.AddSingleton<EnableForeignKeysInterceptor>();
+
 // Scoped DbContext for regular use
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+builder.Services.AddDbContext<AppDbContext>((sp, options) =>
+    options.UseSqlite(connectionString)
+           .AddInterceptors(sp.GetRequiredService<EnableForeignKeysInterceptor>()));
 
 // Singleton DbContext factory for singleton services (like SqliteDistributedCache)
 builder.Services.AddSingleton<IDbContextFactory<AppDbContext>>(provider => 
-    new SimpleDbContextFactory(connectionString));
+    new SimpleDbContextFactory(connectionString, provider.GetRequiredService<EnableForeignKeysInterceptor>()));
 
 builder.Services.Configure<TodoCacheOptions>(builder.Configuration.GetSection("TodoCache"));
 builder.Services.AddScoped<GraphTodoService>();
