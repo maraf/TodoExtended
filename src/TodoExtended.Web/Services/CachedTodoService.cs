@@ -328,6 +328,12 @@ public class CachedTodoService(
             .Select(l => new { l.Id, l.DeltaToken })
             .ToListAsync();
 
+        foreach (var list in lists)
+        {
+            if (list.DeltaToken == null)
+                logger.LogWarning("List {ListId} has no delta token: a full sync will be performed and deleted tasks will not be detected", list.Id);
+        }
+
         await SyncTasksForListsInParallelAsync(
             lists.Select(l => (l.Id, l.DeltaToken)).ToList());
     }
@@ -449,6 +455,10 @@ public class CachedTodoService(
                         }
                         await db.SaveChangesAsync();
                     }
+                    else
+                    {
+                        logger.LogWarning("No delta link returned for task lists: task lists delta token will not be refreshed, next sync will perform a full task lists sync");
+                    }
                     break;
                 }
             }
@@ -462,7 +472,10 @@ public class CachedTodoService(
 
     private async Task SyncTasksForListAsync(AppDbContext scopedDb, string listId, string? deltaToken)
     {
-        logger.LogDebug("Syncing tasks for list {ListId} with delta token: {HasToken}", listId, !string.IsNullOrEmpty(deltaToken));
+        if (string.IsNullOrEmpty(deltaToken))
+            logger.LogWarning("Syncing tasks for list {ListId}: no delta token available, performing full sync — @removed items are not returned by a full sync so deleted tasks will not be detected", listId);
+        else
+            logger.LogDebug("Syncing tasks for list {ListId} with delta token", listId);
 
         try
         {
@@ -476,6 +489,7 @@ public class CachedTodoService(
             {
                 if (response.Value != null)
                 {
+                    logger.LogDebug("Delta page for list {ListId}: {Count} items", listId, response.Value.Count);
                     foreach (var graphTask in response.Value)
                     {
                         if (graphTask.AdditionalData?.ContainsKey("@removed") == true)
@@ -564,6 +578,10 @@ public class CachedTodoService(
                         {
                             logger.LogWarning("Cannot store delta token for list {ListId}: list not found in cache. Future syncs will perform a full sync for this list until it is re-added to the cache, meaning task deletions will not be detected during that time", listId);
                         }
+                    }
+                    else
+                    {
+                        logger.LogWarning("No delta link returned for list {ListId}: delta token will not be refreshed, next sync will perform a full sync and deleted tasks will not be detected", listId);
                     }
                     break;
                 }
