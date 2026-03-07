@@ -1,6 +1,6 @@
-using Toybox.Communications;
-using Toybox.Lang;
-using Toybox.System;
+import Toybox.Communications;
+import Toybox.Lang;
+import Toybox.System;
 
 module ApiClient {
 
@@ -8,7 +8,7 @@ module ApiClient {
     const ERROR_NO_CONNECTION = -104;
     const ERROR_RESPONSE_TOO_LARGE = -402;
 
-    typedef ApiCallback as Method(responseCode as Number, data as Dictionary or Array or Null) as Void;
+    typedef ApiCallback as Method(responseCode as Number, data as Dictionary or String or Null) as Void;
 
     function getTodayTasks(callback as ApiCallback) as Void {
         var url = Settings.getApiBaseUrl() + "/api/today";

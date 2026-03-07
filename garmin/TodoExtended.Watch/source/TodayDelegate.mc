@@ -1,5 +1,5 @@
-using Toybox.Lang;
-using Toybox.WatchUi;
+import Toybox.Lang;
+import Toybox.WatchUi;
 
 class TodayDelegate extends WatchUi.BehaviorDelegate {
 

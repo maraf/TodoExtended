@@ -1,5 +1,5 @@
-using Toybox.Lang;
-using Toybox.WatchUi;
+import Toybox.Lang;
+import Toybox.WatchUi;
 
 class TemplatesDelegate extends WatchUi.BehaviorDelegate {
 
@@ -80,7 +80,7 @@ class TemplateMenuDelegate extends WatchUi.Menu2InputDelegate {
         ApiClient.executeTemplate(template.id, method(:onExecuteResult));
     }
 
-    function onExecuteResult(responseCode as Number, data as Dictionary or Array or Null) as Void {
+    function onExecuteResult(responseCode as Number, data as Dictionary or String or Null) as Void {
         if (responseCode == 200) {
             // Pop the template menu and go back, then refresh today view
             WatchUi.popView(WatchUi.SLIDE_RIGHT);

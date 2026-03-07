@@ -1,6 +1,6 @@
-using Toybox.Graphics;
-using Toybox.Lang;
-using Toybox.WatchUi;
+import Toybox.Graphics;
+import Toybox.Lang;
+import Toybox.WatchUi;
 
 class TaskDetailView extends WatchUi.View {
 
@@ -114,7 +114,7 @@ class TaskDetailDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
-    function onCompleteResult(responseCode as Number, data as Dictionary or Array or Null) as Void {
+    function onCompleteResult(responseCode as Number, data as Dictionary or String or Null) as Void {
         var view = WatchUi.getCurrentView() as TaskDetailView;
         if (view == null) {
             return;

@@ -1,7 +1,7 @@
-using Toybox.Graphics;
-using Toybox.Lang;
-using Toybox.System;
-using Toybox.WatchUi;
+import Toybox.Graphics;
+import Toybox.Lang;
+import Toybox.System;
+import Toybox.WatchUi;
 
 class TodayView extends WatchUi.View {
 
@@ -34,7 +34,7 @@ class TodayView extends WatchUi.View {
         ApiClient.getTodayTasks(method(:onTasksReceived));
     }
 
-    function onTasksReceived(responseCode as Number, data as Dictionary or Array or Null) as Void {
+    function onTasksReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
         _loading = false;
         if (responseCode == 200 && data != null) {
             _tasks = Models.parseTasks(data as Array);

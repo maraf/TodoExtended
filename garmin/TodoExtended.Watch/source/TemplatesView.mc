@@ -1,6 +1,6 @@
-using Toybox.Graphics;
-using Toybox.Lang;
-using Toybox.WatchUi;
+import Toybox.Graphics;
+import Toybox.Lang;
+import Toybox.WatchUi;
 
 class TemplatesView extends WatchUi.View {
 
@@ -30,7 +30,7 @@ class TemplatesView extends WatchUi.View {
         ApiClient.getTemplates(method(:onTemplatesReceived));
     }
 
-    function onTemplatesReceived(responseCode as Number, data as Dictionary or Array or Null) as Void {
+    function onTemplatesReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
         _loading = false;
         if (responseCode == 200 && data != null) {
             _templates = Models.parseTemplates(data as Array);

@@ -1,5 +1,6 @@
-using Toybox.Application;
-using Toybox.Lang;
+import Toybox.Application;
+import Toybox.Application.Properties;
+import Toybox.Lang;
 
 module Settings {
 

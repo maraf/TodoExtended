@@ -65,3 +65,12 @@
 - **Device targets:** Venu 3, Fenix 7, Forerunner 265. minSdkVersion 4.2.0 for Menu2, Communications, Properties API support.
 - **Key decision:** App type `app` (not `widget`) required for Communications permission to make HTTP requests.
 - **Status:** Ready for Connect IQ SDK build verification and device testing.
+
+### 2025-07-25 — Azure AD / Entra ID Configuration Audit
+- Audited existing Microsoft Identity Platform setup. The app is ALREADY fully wired for Azure AD authentication.
+- **Existing stack:** `Microsoft.Identity.Web` v4.5.0 (OIDC + Graph + UI), API key secondary auth scheme, SQLite-backed distributed token cache, `UserSyncMiddleware`.
+- **TenantId:** `consumers` (personal Microsoft accounts). To support work/school accounts, change to `common` or a specific tenant GUID.
+- **Graph scopes:** `Tasks.ReadWrite`, `User.Read` — used to access Microsoft To Do via Graph API.
+- **Auth patterns in Blazor:** `@attribute [Authorize]` on Tasks, Today, Templates, ApiKeys pages. `<AuthorizeView>` in Home, MainLayout, NavMenu. Routes.razor does NOT use `<AuthorizeRouteView>` — uses `<RouteView>` instead.
+- **Secrets management:** `appsettings.local.json` is the intended location for `ClientId` and `ClientSecret` (gitignored). Currently the file only has logging config; user likely uses `dotnet user-secrets` or environment variables.
+- **Key file paths:** `Program.cs` (auth registration lines 20-25), `appsettings.json` (AzureAd section), `Authentication/ApiKeyAuthenticationHandler.cs`.

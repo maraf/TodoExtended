@@ -1,6 +1,6 @@
-using Toybox.Application;
-using Toybox.Lang;
-using Toybox.WatchUi;
+import Toybox.Application;
+import Toybox.Lang;
+import Toybox.WatchUi;
 
 class TodoExtendedApp extends Application.AppBase {
 
@@ -14,11 +14,8 @@ class TodoExtendedApp extends Application.AppBase {
     function onStop(state as Dictionary?) as Void {
     }
 
-    function getInitialView() as Array<Views or InputDelegates>? {
-        if (!Settings.isConfigured()) {
-            return [new TodayView(), new TodayDelegate()] as Array<Views or InputDelegates>;
-        }
-        return [new TodayView(), new TodayDelegate()] as Array<Views or InputDelegates>;
+    function getInitialView() as [Views] or [Views, InputDelegates] {
+        return [new TemplatesView(), new TemplatesDelegate()];
     }
 
     function onSettingsChanged() as Void {
