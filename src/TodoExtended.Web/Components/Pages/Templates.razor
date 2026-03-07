@@ -40,7 +40,7 @@ else if (_error is not null)
 {
     <MudAlert Severity="Severity.Error">@_error</MudAlert>
 }
-else if (_templates is not { Count: > 0 })
+else if (TemplateItems is not { Count: > 0 })
 {
     @* Empty state *@
     <MudPaper Elevation="0" Class="d-flex flex-column align-center justify-center pa-12 mt-4" Style="border: 2px dashed var(--mud-palette-lines-default); border-radius: 12px;">
@@ -59,7 +59,7 @@ else if (_templates is not { Count: > 0 })
 else
 {
     @* Group templates by task list *@
-    @foreach (var group in _templates.GroupBy(t => t.TaskListName).OrderBy(g => g.Key))
+    @foreach (var group in TemplateItems.GroupBy(t => t.TaskListName).OrderBy(g => g.Key))
     {
         <MudText Typo="Typo.subtitle1" Color="Color.Secondary" Class="mb-2 mt-4">
             <MudIcon Icon="@Icons.Material.Filled.List" Size="Size.Small" Class="mr-1" Style="vertical-align: middle;" />
@@ -170,9 +170,9 @@ else
                    Variant="Variant.Outlined"
                    Placeholder="Select a list"
                    Class="mb-4">
-            @if (_taskLists is not null)
+            @if (TaskLists is not null)
             {
-                @foreach (var list in _taskLists)
+                @foreach (var list in TaskLists)
                 {
                     <MudSelectItem T="string" Value="@list.Id">@list.DisplayName</MudSelectItem>
                 }
@@ -180,29 +180,27 @@ else
         </MudSelect>
 
         <MudGrid Spacing="3" Class="mb-2">
-            <MudItem xs="6">
+            <MudItem xs="3">
                 <MudNumericField @bind-Value="_formSortOrder"
                                  Label="Sort Order"
-                                 Variant="Variant.Outlined"
-                                 HelperText="Lower numbers appear first" />
-            </MudItem>
-            <MudItem xs="6" Class="d-flex align-center">
-                <MudSwitch Value="_formDueDateToday"
-                           ValueChanged="OnDueDateTodayChanged"
-                           Label="Due Today"
-                           Color="Color.Warning"
-                           T="bool" />
+                                 Variant="Variant.Outlined" />
             </MudItem>
         </MudGrid>
+
+        <MudSwitch Value="_formDueDateToday"
+                    ValueChanged="OnDueDateTodayChanged"
+                    Label="Due Today"
+                    Color="Color.Warning"
+                    T="bool" />
 
         @if (_formDueDateToday)
         {
             <MudTimePicker @bind-Time="_formReminderTimeSpan"
-                           Label="Reminder Time"
-                           Variant="Variant.Outlined"
-                           Clearable="true"
-                           Class="mb-4"
-                           HelperText="Optional — set a reminder for today at this time" />
+                        Label="Reminder Time"
+                        Variant="Variant.Outlined"
+                        Clearable="true"
+                        Class="mb-4"
+                        HelperText="Optional — set a reminder for today at this time" />
         }
 
         @if (_formError is not null)
@@ -243,8 +241,12 @@ else
 </style>
 
 @code {
-    private IReadOnlyList<TaskTemplate>? _templates;
-    private IReadOnlyList<TodoTaskList>? _taskLists;
+    [PersistentState]
+    public IReadOnlyList<TaskTemplate>? TemplateItems { get; set; }
+
+    [PersistentState]
+    public IReadOnlyList<TodoTaskList>? TaskLists { get; set; }
+
     private bool _loading = true;
     private bool _saving;
     private string? _error;
@@ -261,14 +263,20 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        if (TemplateItems is not null)
+        {
+            _loading = false;
+            return;
+        }
+
         try
         {
             var templatesTask = TemplateService.GetAllAsync();
             var taskListsTask = TodoService.GetTaskListsAsync();
             await Task.WhenAll(templatesTask, taskListsTask);
 
-            _templates = templatesTask.Result.OrderBy(t => t.SortOrder).ThenBy(t => t.Title).ToList();
-            _taskLists = taskListsTask.Result;
+            TemplateItems = templatesTask.Result.OrderBy(t => t.SortOrder).ThenBy(t => t.Title).ToList();
+            TaskLists = taskListsTask.Result;
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -325,7 +333,7 @@ else
             return;
         }
 
-        var selectedList = _taskLists?.FirstOrDefault(l => l.Id == _formTaskListId);
+        var selectedList = TaskLists?.FirstOrDefault(l => l.Id == _formTaskListId);
         if (selectedList is null)
         {
             _formError = "Invalid task list selection.";
@@ -442,7 +450,7 @@ else
     private async Task RefreshTemplates()
     {
         var all = await TemplateService.GetAllAsync();
-        _templates = all.OrderBy(t => t.SortOrder).ThenBy(t => t.Title).ToList();
+        TemplateItems = all.OrderBy(t => t.SortOrder).ThenBy(t => t.Title).ToList();
     }
 
     private void ResetForm()
