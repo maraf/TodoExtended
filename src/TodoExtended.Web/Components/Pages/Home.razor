@@ -7,10 +7,10 @@
 
 <PageTitle>TodoExtended</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-2">TodoExtended</MudText>
-
 <AuthorizeView>
     <Authorized>
+        <MudText Typo="Typo.h4" Class="mb-2">TodoExtended</MudText>
+
         @if (_loading)
         {
             <MudGrid>
@@ -67,9 +67,84 @@
         </MudText>
     </Authorized>
     <NotAuthorized>
-        <MudText Typo="Typo.body1">
-            <MudLink Href="MicrosoftIdentity/Account/SignIn">Sign in with your Microsoft account</MudLink> to get started.
-        </MudText>
+        <MudContainer MaxWidth="MaxWidth.Medium" Class="d-flex flex-column align-center justify-center" Style="min-height: 100vh;">
+            <MudPaper Elevation="0" Class="pa-8 d-flex flex-column align-center" Style="text-align: center; max-width: 800px;">
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Primary" Style="font-size: 80px;" Class="mb-4" />
+                
+                <MudText Typo="Typo.h2" Class="mb-2" Style="font-weight: 500;">TodoExtended</MudText>
+                <MudText Typo="Typo.h5" Color="Color.Secondary" Class="mb-6">
+                    Supercharge your productivity with Microsoft To Do
+                </MudText>
+
+                <MudButton Href="MicrosoftIdentity/Account/SignIn" 
+                           Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           Size="Size.Large"
+                           StartIcon="@Icons.Material.Filled.Login"
+                           Class="mb-8"
+                           Style="padding: 12px 32px; font-size: 1.1rem;">
+                    Sign in with Microsoft
+                </MudButton>
+
+                <MudDivider Class="my-8" Style="width: 100%;" />
+
+                <MudText Typo="Typo.h5" Class="mb-6" Style="font-weight: 500;">Key Features</MudText>
+
+                <MudGrid Spacing="4" Justify="Justify.Center">
+                    <MudItem xs="12" sm="6">
+                        <MudCard Elevation="2" Class="pa-4" Style="height: 100%;">
+                            <MudCardContent Class="d-flex flex-column align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Today" Color="Color.Primary" Size="Size.Large" Class="mb-3" />
+                                <MudText Typo="Typo.h6" Class="mb-2">Today View</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                                    Focus on what matters today. See all tasks due today across all your lists in one place.
+                                </MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudCard Elevation="2" Class="pa-4" Style="height: 100%;">
+                            <MudCardContent Class="d-flex flex-column align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Primary" Size="Size.Large" Class="mb-3" />
+                                <MudText Typo="Typo.h6" Class="mb-2">Task Templates</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                                    Create recurring tasks instantly. Set up templates and create tasks with one click.
+                                </MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudCard Elevation="2" Class="pa-4" Style="height: 100%;">
+                            <MudCardContent Class="d-flex flex-column align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.FlashOn" Color="Color.Primary" Size="Size.Large" Class="mb-3" />
+                                <MudText Typo="Typo.h6" Class="mb-2">Quick Create</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                                    Lightning-fast task creation from your templates right from the home screen.
+                                </MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+                        <MudCard Elevation="2" Class="pa-4" Style="height: 100%;">
+                            <MudCardContent Class="d-flex flex-column align-center">
+                                <MudIcon Icon="@Icons.Material.Filled.Watch" Color="Color.Primary" Size="Size.Large" Class="mb-3" />
+                                <MudText Typo="Typo.h6" Class="mb-2">Garmin Watch Companion</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                                    Check your tasks and complete them right from your Garmin smartwatch.
+                                </MudText>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                </MudGrid>
+
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-8">
+                    Powered by Microsoft To Do. Sign in with your Microsoft account to get started.
+                </MudText>
+            </MudPaper>
+        </MudContainer>
     </NotAuthorized>
 </AuthorizeView>
 
