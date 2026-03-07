@@ -51,6 +51,6 @@ public class TemplateService(AppDbContext db, ITodoService todoService, IUserTim
             ? await userTimeZoneService.GetTodayAsync()
             : null;
 
-        return await todoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate);
+        return await todoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate, template.ReminderTime);
     }
 }
