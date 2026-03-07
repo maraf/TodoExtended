@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Graph;
 using Microsoft.Extensions.Options;
 using TodoExtended.Web.Data;
+using System.Globalization;
 
 namespace TodoExtended.Web.Services;
 
@@ -575,11 +576,22 @@ public class CachedTodoService(
                message.Contains("delta") && message.Contains("invalid");
     }
 
-    private static DateOnly? ParseDueDate(Microsoft.Graph.Models.DateTimeTimeZone? dueDateTime)
+    /// <summary>
+    /// Converts Graph's dateTimeTimeZone to a local DateOnly.
+    /// Microsoft To Do stores due dates as midnight-local-time converted to UTC
+    /// (e.g., March 6 00:00 CET is stored as 2026-03-05T23:00:00 UTC). We must
+    /// convert back to local time before extracting the date.
+    /// </summary>
+    private DateOnly? ParseDueDate(Microsoft.Graph.Models.DateTimeTimeZone? dueDateTime)
     {
         if (dueDateTime?.DateTime is null) return null;
 
-        var dt = DateTime.Parse(dueDateTime.DateTime, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None);
+        logger.LogDebug("ParseDueDate: raw='{DateTime}' timeZone='{TimeZone}'", dueDateTime.DateTime, dueDateTime.TimeZone);
+
+        // Parse the full datetime and convert from the source timezone to local.
+        // Microsoft To Do stores due dates as midnight-local converted to UTC,
+        // so extracting just the UTC date gives the wrong day.
+        var dt = DateTime.Parse(dueDateTime.DateTime, CultureInfo.InvariantCulture, DateTimeStyles.None);
 
         if (!string.IsNullOrEmpty(dueDateTime.TimeZone))
         {
@@ -587,7 +599,9 @@ public class CachedTodoService(
             dt = TimeZoneInfo.ConvertTime(dt, sourceZone, TimeZoneInfo.Local);
         }
 
-        return DateOnly.FromDateTime(dt);
+        var result = DateOnly.FromDateTime(dt);
+        logger.LogDebug("ParseDueDate: result={Result}", result);
+        return result;
     }
 
     private static int ImportanceSortOrder(string? importance) => importance?.ToLowerInvariant() switch
