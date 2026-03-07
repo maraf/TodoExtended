@@ -1,3 +1,5 @@
 <drawables>
     <bitmap id="LauncherIcon" filename="launcher_icon.png" />
+    <bitmap id="CheckIcon" filename="check.png" />
+    <bitmap id="UncheckIcon" filename="uncheck.png" />
 </drawables>

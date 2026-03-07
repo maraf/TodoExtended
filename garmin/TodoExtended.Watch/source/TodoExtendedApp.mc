@@ -1,5 +1,6 @@
 import Toybox.Application;
 import Toybox.Lang;
+import Toybox.System;
 import Toybox.WatchUi;
 
 class TodoExtendedApp extends Application.AppBase {
@@ -15,8 +16,22 @@ class TodoExtendedApp extends Application.AppBase {
     }
 
     function getInitialView() as [Views] or [Views, InputDelegates] {
-        var view = new TemplatesView();
-        return [view, new TemplatesDelegate(view)];
+        if (!Settings.isConfigured()) {
+            return [new MessageView("Configure API URL\nand key in\nGarmin Connect"), new WatchUi.BehaviorDelegate()];
+        }
+
+        ApiClient.getTodayTasks(method(:onTodayTasksReceived));
+        return [new WatchUi.ProgressBar("Loading...", null), new WatchUi.BehaviorDelegate()];
+    }
+
+    function onTodayTasksReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
+        if (responseCode == 200 && data != null) {
+            var tasks = Models.parseTasks(data as Array);
+            switchToTodayMenu(tasks);
+        } else {
+            var message = ApiClient.getErrorMessage(responseCode);
+            WatchUi.switchToView(new MessageView(message), new WatchUi.BehaviorDelegate(), WatchUi.SLIDE_UP);
+        }
     }
 
     function onSettingsChanged() as Void {
