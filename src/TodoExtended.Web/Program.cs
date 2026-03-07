@@ -46,6 +46,8 @@ builder.Services.AddControllersWithViews()
 
 // EF Core + SQLite
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+var dbPath = connectionString.Replace("Data Source=", "");
+Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(dbPath))!);
 
 // Scoped DbContext for regular use
 builder.Services.AddDbContext<AppDbContext>(options =>
