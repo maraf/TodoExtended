@@ -18,7 +18,7 @@ module Settings {
 
     function getApiKey() as String {
         var key = Application.Properties.getValue("apiKey") as String;
-        if (key == null) {
+        if (key == null || key.length() == 0) {
             return "";
         }
         return key;
