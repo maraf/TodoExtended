@@ -7,66 +7,92 @@
 
 <PageTitle>Tasks</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Tasks</MudText>
-
 @if (_error is not null)
 {
-    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Style="border-radius: 12px;">@_error</MudAlert>
+}
+else if (ListId is null)
+{
+    <div class="d-flex flex-column align-center justify-center" style="min-height: 320px;">
+        <div style="font-size: 3.5rem; margin-bottom: 16px;">📋</div>
+        <MudText Typo="Typo.h5" Class="mb-2" Style="font-weight: 600;">Pick a list</MudText>
+        <MudText Typo="Typo.body1" Style="color: var(--mud-palette-text-secondary);">Select a task list from the sidebar to view your tasks.</MudText>
+    </div>
 }
 else
 {
-    <MudPaper Elevation="2" Class="pa-4">
-        @if (ListId is not null)
-        {
-            @if (_loadingTasks)
+    <div class="page-header mb-6">
+        <div class="d-flex align-center">
+            <div class="page-icon-wrap mr-3" style="background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%);">
+                <MudIcon Icon="@Icons.Material.Filled.List" Style="color: #7C3AED;" />
+            </div>
+            <MudText Typo="Typo.h4" Class="page-title">Tasks</MudText>
+        </div>
+    </div>
+
+    @if (_loadingTasks)
+    {
+        <MudPaper Elevation="2" Class="pa-6" Style="border-radius: 16px;">
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Rounded="true" />
+            @for (int i = 0; i < 5; i++)
             {
-                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+                <MudSkeleton Height="52px" Class="mb-2" />
             }
-            else
+        </MudPaper>
+    }
+    else if (TaskItems!.Count == 0)
+    {
+        <MudPaper Elevation="2" Class="pa-8 d-flex flex-column align-center" Style="border-radius: 16px; text-align: center;">
+            <div style="font-size: 3rem; margin-bottom: 16px;">✅</div>
+            <MudText Typo="Typo.h5" Class="mb-2" Style="font-weight: 600;">Empty list</MudText>
+            <MudText Typo="Typo.body1" Style="color: var(--mud-palette-text-secondary);">No tasks in this list yet.</MudText>
+        </MudPaper>
+    }
+    else
+    {
+        <div class="d-flex align-center mb-4">
+            <MudChip T="string" Color="Color.Secondary" Size="Size.Small" Style="font-weight: 600; border-radius: 8px;">
+                @TaskItems!.Count(t => !t.IsCompleted) open
+            </MudChip>
+            @if (TaskItems!.Any(t => t.IsCompleted))
             {
-                @if (TaskItems!.Count == 0)
-                {
-                    <MudAlert Severity="Severity.Info">No tasks in this list.</MudAlert>
-                }
-                else
-                {
-                    <MudList T="string" Dense="true">
-                        @foreach (var task in TaskItems!)
+                <MudChip T="string" Color="Color.Success" Size="Size.Small" Class="ml-2" Style="font-weight: 600; border-radius: 8px;">
+                    @TaskItems!.Count(t => t.IsCompleted) done
+                </MudChip>
+            }
+        </div>
+
+        <MudPaper Elevation="2" Class="pa-0" Style="border-radius: 16px; overflow: hidden;">
+            @foreach (var (task, idx) in TaskItems!.Select((t, i) => (t, i)))
+            {
+                <div class="today-task-row @(task.IsCompleted ? "task-completed" : "") @(idx > 0 ? "task-divider" : "")">
+                    <TaskStatusCheckbox TaskId="@task.Id"
+                                        ListId="@ListId"
+                                        IsCompleted="@task.IsCompleted"
+                                        TaskTitle="@task.Title"
+                                        OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                        OnError="(msg) => Snackbar.Add(msg, Severity.Warning)" />
+                    <div class="task-text-wrap">
+                        <MudText Style="@(task.IsCompleted ? "text-decoration: line-through; opacity: 0.45;" : "font-weight: 500;")">
+                            @task.Title
+                        </MudText>
+                        @if (task.DueDate is not null)
                         {
-                            <MudListItem T="string">
-                                <div class="d-flex align-center" style="width:100%">
-                                    <TaskStatusCheckbox TaskId="@task.Id"
-                                                        ListId="@ListId"
-                                                        IsCompleted="@task.IsCompleted"
-                                                        TaskTitle="@task.Title"
-                                                        OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
-                                                        OnError="(msg) => Snackbar.Add(msg, Severity.Warning)" />
-                                    <div>
-                                        <MudText Style="@(task.IsCompleted ? "text-decoration: line-through; opacity: 0.5;" : "")">
-                                            @task.Title
-                                        </MudText>
-                                        @if (task.DueDate is not null)
-                                        {
-                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Due: @task.DueDate.Value.ToString("MMM d, yyyy")</MudText>
-                                        }
-                                    </div>
-                                    <MudSpacer />
-                                    @if (task.Importance == "High")
-                                    {
-                                        <MudChip T="string" Size="Size.Small" Color="Color.Error">!</MudChip>
-                                    }
-                                </div>
-                            </MudListItem>
+                            <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">
+                                <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" Style="vertical-align: middle; margin-right: 2px;" />
+                                @task.DueDate.Value.ToString("MMM d, yyyy")
+                            </MudText>
                         }
-                    </MudList>
-                }
+                    </div>
+                    <MudSpacer />
+                    @if (task.Importance == "High")
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Filled" Style="border-radius: 6px; min-width: 28px;">!</MudChip>
+                    }
+                </div>
             }
-        }
-        else
-        {
-            <MudAlert Severity="Severity.Info">Select a task list from the menu to view tasks.</MudAlert>
-        }
-    </MudPaper>
+        </MudPaper>
+    }
 }
 
 @code {

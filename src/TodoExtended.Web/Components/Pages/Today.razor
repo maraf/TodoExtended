@@ -8,50 +8,79 @@
 
 <PageTitle>Today</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-2">Today</MudText>
+<div class="page-header mb-6">
+    <div class="d-flex align-center">
+        <div class="page-icon-wrap mr-3" style="background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);">
+            <MudIcon Icon="@Icons.Material.Filled.Today" Style="color: #4F46E5;" />
+        </div>
+        <div>
+            <MudText Typo="Typo.h4" Class="page-title">Today</MudText>
+            <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">@DateTime.Today.ToString("dddd, MMMM d", System.Globalization.CultureInfo.InvariantCulture)</MudText>
+        </div>
+    </div>
+</div>
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
-    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="200px" />
+    <MudPaper Elevation="2" Class="pa-6" Style="border-radius: 16px;">
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Rounded="true" />
+        @for (int i = 0; i < 4; i++)
+        {
+            <MudSkeleton Height="52px" Class="mb-2" />
+        }
+    </MudPaper>
 }
 else if (_error is not null)
 {
-    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Style="border-radius: 12px;">@_error</MudAlert>
 }
 else if (TodayTasks is not { Count: > 0 })
 {
-    <MudAlert Severity="Severity.Success" Class="mt-4">🎉 No tasks due today! Enjoy your free time.</MudAlert>
+    <MudPaper Elevation="2" Class="pa-8 d-flex flex-column align-center" Style="border-radius: 16px; text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 16px;">🎉</div>
+        <MudText Typo="Typo.h5" Class="mb-2" Style="font-weight: 600;">All caught up!</MudText>
+        <MudText Typo="Typo.body1" Style="color: var(--mud-palette-text-secondary);">No tasks due today. Enjoy your free time.</MudText>
+    </MudPaper>
 }
 else
 {
-    <MudText Typo="Typo.subtitle1" Color="Color.Secondary" Class="mb-4">@TodayTasks.Count task(s) due today</MudText>
+    <div class="d-flex align-center mb-4">
+        <MudChip T="string" Color="Color.Primary" Size="Size.Small" Style="font-weight: 600; border-radius: 8px;">
+            @TodayTasks.Count(t => !t.IsCompleted) remaining
+        </MudChip>
+        @if (TodayTasks.Any(t => t.IsCompleted))
+        {
+            <MudChip T="string" Color="Color.Success" Size="Size.Small" Class="ml-2" Style="font-weight: 600; border-radius: 8px;">
+                @TodayTasks.Count(t => t.IsCompleted) done
+            </MudChip>
+        }
+    </div>
 
-    <MudPaper Elevation="2" Class="pa-0">
-        <MudList T="string" Dense="true">
-            @foreach (var task in TodayTasks)
-            {
-                <MudListItem T="string">
-                    <div class="d-flex align-center" style="width:100%">
-                        <TaskStatusCheckbox TaskId="@task.Id"
-                                            ListId="@task.ListId"
-                                            IsCompleted="@task.IsCompleted"
-                                            TaskTitle="@task.Title"
-                                            OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
-                                            OnError="(msg) => Snackbar.Add(msg, Severity.Warning)" />
-                        <MudText Style="@(task.IsCompleted ? "text-decoration: line-through; opacity: 0.5;" : "")">
-                            @task.Title
-                        </MudText>
-                        <MudSpacer />
-                        <MudChip T="string" Size="Size.Small" Color="Color.Info" Class="ml-2">@task.ListName</MudChip>
-                        @if (task.Importance == "High")
-                        {
-                            <MudChip T="string" Size="Size.Small" Color="Color.Error" Class="ml-1">!</MudChip>
-                        }
-                    </div>
-                </MudListItem>
-            }
-        </MudList>
+    <MudPaper Elevation="2" Class="pa-0" Style="border-radius: 16px; overflow: hidden;">
+        @foreach (var (task, idx) in TodayTasks.Select((t, i) => (t, i)))
+        {
+            <div class="today-task-row @(task.IsCompleted ? "task-completed" : "") @(idx > 0 ? "task-divider" : "")">
+                <TaskStatusCheckbox TaskId="@task.Id"
+                                    ListId="@task.ListId"
+                                    IsCompleted="@task.IsCompleted"
+                                    TaskTitle="@task.Title"
+                                    OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                    OnError="(msg) => Snackbar.Add(msg, Severity.Warning)" />
+                <div class="task-text-wrap">
+                    <MudText Style="@(task.IsCompleted ? "text-decoration: line-through; opacity: 0.45;" : "font-weight: 500;")">
+                        @task.Title
+                    </MudText>
+                </div>
+                <MudSpacer />
+                <div class="d-flex align-center gap-1">
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Style="border-radius: 6px; font-size: 0.75rem;">@task.ListName</MudChip>
+                    @if (task.Importance == "High")
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Filled" Style="border-radius: 6px; min-width: 28px;">!</MudChip>
+                    }
+                </div>
+            </div>
+        }
     </MudPaper>
 }
 

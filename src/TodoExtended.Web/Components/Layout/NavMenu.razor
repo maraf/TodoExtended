@@ -4,31 +4,38 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<NavMenu> Logger
 
-<MudNavMenu>
-    <AuthorizeView>
-        <Authorized>
-            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
-            <MudNavLink Href="/today" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Today">Today</MudNavLink>
-            <MudDivider Class="my-2" />
-            <MudNavLink Href="/templates" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ContentCopy">Templates</MudNavLink>
-            <MudNavLink Href="/api-keys" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.VpnKey">API Keys</MudNavLink>
-            <MudDivider Class="my-2" />
-            @foreach (var list in _taskLists)
-            {
-                var (emoji, name) = list.Emoji();
-                var icon = emoji == null ? Icons.Material.Filled.List : null;
-                <MudNavLink Href="@($"/tasks/{list.Id}")" Match="NavLinkMatch.Prefix" Icon="@icon">
-                    @if (emoji != null)
+<div class="nav-sidebar">
+    <MudNavMenu Class="nav-menu-inner">
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-section-label">MAIN</div>
+                <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard" Class="nav-link-item">Dashboard</MudNavLink>
+                <MudNavLink Href="/today" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Today" Class="nav-link-item">Today</MudNavLink>
+                <div class="nav-section-label mt-3">TOOLS</div>
+                <MudNavLink Href="/templates" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ContentCopy" Class="nav-link-item">Templates</MudNavLink>
+                <MudNavLink Href="/api-keys" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.VpnKey" Class="nav-link-item">API Keys</MudNavLink>
+                @if (_taskLists.Count > 0)
+                {
+                    <div class="nav-section-label mt-3">MY LISTS</div>
+                    @foreach (var list in _taskLists)
                     {
-                        <span class="nav-emoji-icon" style="margin-left: -12px;margin-right: 12px;">@emoji</span>
+                        var (emoji, name) = list.Emoji();
+                        var icon = emoji == null ? Icons.Material.Filled.List : null;
+                        <MudNavLink Href="@($"/tasks/{list.Id}")" Match="NavLinkMatch.Prefix" Icon="@icon" Class="nav-link-item">
+                            @if (emoji != null)
+                            {
+                                <span class="nav-emoji-icon" style="margin-left: -12px; margin-right: 12px; font-size: 1.1em;">@emoji</span>
+                            }
+                            @name
+                        </MudNavLink>
                     }
-                    @name
-                </MudNavLink>
-            }
-            <MudNavLink Href="/sync-settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SyncAlt">Sync Settings</MudNavLink>
-        </Authorized>
-    </AuthorizeView>
-</MudNavMenu>
+                }
+                <div class="nav-section-label mt-3">SETTINGS</div>
+                <MudNavLink Href="/sync-settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SyncAlt" Class="nav-link-item">Sync Settings</MudNavLink>
+            </Authorized>
+        </AuthorizeView>
+    </MudNavMenu>
+</div>
 
 @code {
     [PersistentState]

@@ -8,160 +8,173 @@
 @inject ISnackbar Snackbar
 @inject IOptions<DemoOptions> DemoOptions
 
-<PageTitle>TodoExtended</PageTitle>
+<PageTitle>Dashboard</PageTitle>
 
 <AuthorizeView>
     <Authorized>
-        <MudText Typo="Typo.h4" Class="mb-2">TodoExtended</MudText>
+        <div class="page-header mb-6">
+            <MudText Typo="Typo.h4" Class="page-title">Dashboard</MudText>
+            <MudText Typo="Typo.body1" Style="color: var(--mud-palette-text-secondary);">Welcome back! Here's your quick overview.</MudText>
+        </div>
 
         @if (_loading)
         {
-            <MudGrid>
+            <MudGrid Spacing="3">
                 @for (int i = 0; i < 3; i++)
                 {
                     <MudItem xs="12" sm="6" md="4">
-                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="120px" />
+                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="120px" Class="rounded-xl" />
                     </MudItem>
                 }
             </MudGrid>
         }
         else if (_templateError is not null)
         {
-            <MudAlert Severity="Severity.Error" Class="mb-4">@_templateError</MudAlert>
+            <MudAlert Severity="Severity.Error" Class="mb-4" Variant="Variant.Filled">@_templateError</MudAlert>
         }
         else if (_templates is { Count: > 0 })
         {
-            <MudText Typo="Typo.h6" Class="mt-6 mb-3">Quick Create</MudText>
-            <MudGrid>
+            <div class="section-header mb-4">
+                <MudIcon Icon="@Icons.Material.Filled.FlashOn" Class="mr-2" Style="color: #4F46E5; vertical-align: middle;" />
+                <MudText Typo="Typo.h6" Style="display: inline; font-weight: 600;">Quick Create</MudText>
+            </div>
+            <MudGrid Spacing="3">
                 @foreach (var template in _templates)
                 {
                     var t = template;
                     <MudItem xs="12" sm="6" md="4">
-                        <MudCard Elevation="2">
-                            <MudCardContent>
-                                <MudText Typo="Typo.subtitle1">@t.Title</MudText>
-                                @if (!string.IsNullOrEmpty(t.TaskListName))
-                                {
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@t.TaskListName</MudText>
-                                }
-                            </MudCardContent>
-                            <MudCardActions>
-                                @if (_executingTemplateId == t.Id)
-                                {
-                                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
-                                }
-                                else
-                                {
-                                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                               StartIcon="@Icons.Material.Filled.Add"
-                                               OnClick="() => ExecuteTemplate(t)">
-                                        Create
-                                    </MudButton>
-                                }
-                            </MudCardActions>
-                        </MudCard>
+                        <MudPaper Elevation="2" Class="template-quick-card pa-4" Style="border-radius: 14px; border: 1px solid var(--mud-palette-divider);">
+                            <div class="d-flex align-center mb-3">
+                                <div class="template-quick-icon mr-3">
+                                    <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" />
+                                </div>
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600; line-height: 1.2;">@t.Title</MudText>
+                                    @if (!string.IsNullOrEmpty(t.TaskListName))
+                                    {
+                                        <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">@t.TaskListName</MudText>
+                                    }
+                                </div>
+                            </div>
+                            @if (_executingTemplateId == t.Id)
+                            {
+                                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Rounded="true" />
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.Add"
+                                           OnClick="() => ExecuteTemplate(t)"
+                                           FullWidth="true"
+                                           Style="border-radius: 8px; font-weight: 600;">
+                                    Create Task
+                                </MudButton>
+                            }
+                        </MudPaper>
                     </MudItem>
                 }
             </MudGrid>
         }
 
-        <MudText Typo="Typo.body2" Class="mt-4">
-            <MudLink Href="templates">Manage templates →</MudLink>
-        </MudText>
+        <div class="mt-5">
+            <MudLink Href="templates" Style="color: var(--mud-palette-primary); font-weight: 500;">
+                <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Small" Class="mr-1" Style="vertical-align: middle;" />
+                Manage templates →
+            </MudLink>
+        </div>
     </Authorized>
     <NotAuthorized>
-        <MudContainer MaxWidth="MaxWidth.Medium" Class="d-flex flex-column align-center justify-center" Style="min-height: 100vh;">
-            <MudPaper Elevation="0" Class="pa-8 d-flex flex-column align-center" Style="text-align: center; max-width: 800px;">
-                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Primary" Style="font-size: 80px;" Class="mb-4" />
-                
-                <MudText Typo="Typo.h2" Class="mb-2" Style="font-weight: 500;">TodoExtended</MudText>
-                <MudText Typo="Typo.h5" Color="Color.Secondary" Class="mb-6">
-                    Supercharge your productivity with Microsoft To Do
-                </MudText>
+        <div class="hero-container">
+            <div class="hero-bg"></div>
+            <MudContainer MaxWidth="MaxWidth.Medium" Class="d-flex flex-column align-center justify-center" Style="min-height: 100vh; position: relative; z-index: 1;">
+                <div class="hero-content d-flex flex-column align-center" style="text-align: center; max-width: 640px; width: 100%;">
+                    
+                    <div class="hero-badge mb-6">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-1" />
+                        <span>Powered by Microsoft To Do</span>
+                    </div>
 
-                <MudButton Href="MicrosoftIdentity/Account/SignIn" 
-                           Variant="Variant.Filled" 
-                           Color="Color.Primary" 
-                           Size="Size.Large"
-                           StartIcon="@Icons.Material.Filled.Login"
-                           Class="mb-8"
-                           Style="padding: 12px 32px; font-size: 1.1rem;">
-                    Sign in with Microsoft
-                </MudButton>
+                    <MudText Typo="Typo.h2" Class="hero-title mb-3">
+                        Todo<span class="hero-title-accent">Extended</span>
+                    </MudText>
+                    <MudText Typo="Typo.h5" Class="hero-subtitle mb-8">
+                        Supercharge your productivity with templates, Garmin watch support, and more.
+                    </MudText>
 
-                @if (DemoOptions.Value.Enabled)
-                {
-                    <MudButton Href="/auth/demo-signin"
-                               Variant="Variant.Outlined"
-                               Color="Color.Secondary"
-                               Size="Size.Large"
-                               StartIcon="@Icons.Material.Filled.PlayCircle"
-                               Class="mb-8 ml-4"
-                               Style="padding: 12px 32px; font-size: 1.1rem;"
-                               UserAttributes="@(new Dictionary<string, object> { { "data-enhance-nav", "false" } })">
-                        Try Demo
-                    </MudButton>
-                }
+                    <div class="d-flex flex-wrap justify-center gap-3 mb-10">
+                        <MudButton Href="MicrosoftIdentity/Account/SignIn"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Size="Size.Large"
+                                   StartIcon="@Icons.Material.Filled.Login"
+                                   Class="hero-btn-primary"
+                                   Style="padding: 14px 36px; font-size: 1rem; font-weight: 600; border-radius: 12px;">
+                            Sign in with Microsoft
+                        </MudButton>
 
-                <MudDivider Class="my-8" Style="width: 100%;" />
+                        @if (DemoOptions.Value.Enabled)
+                        {
+                            <MudButton Href="/auth/demo-signin"
+                                       Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       Size="Size.Large"
+                                       StartIcon="@Icons.Material.Filled.PlayCircle"
+                                       Style="padding: 14px 36px; font-size: 1rem; font-weight: 600; border-radius: 12px;"
+                                       UserAttributes="@(new Dictionary<string, object> { { "data-enhance-nav", "false" } })">
+                                Try Demo
+                            </MudButton>
+                        }
+                    </div>
 
-                <MudText Typo="Typo.h5" Class="mb-6" Style="font-weight: 500;">Key Features</MudText>
-
-                <MudGrid Spacing="4" Justify="Justify.Center">
-                    <MudItem xs="12" sm="6">
-                        <MudCard Elevation="2" Class="pa-4" Style="height: 100%;">
-                            <MudCardContent Class="d-flex flex-column align-center">
-                                <MudIcon Icon="@Icons.Material.Filled.Today" Color="Color.Primary" Size="Size.Large" Class="mb-3" />
-                                <MudText Typo="Typo.h6" Class="mb-2">Today View</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
-                                    Focus on what matters today. See all tasks due today across all your lists in one place.
+                    <MudGrid Spacing="3" Justify="Justify.Center" Class="w-100">
+                        <MudItem xs="12" sm="6">
+                            <MudPaper Elevation="2" Class="feature-card pa-5 d-flex flex-column align-start" Style="height: 100%; border-radius: 16px;">
+                                <div class="feature-icon-wrap mb-3" style="background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);">
+                                    <MudIcon Icon="@Icons.Material.Filled.Today" Style="color: #4F46E5;" Size="Size.Medium" />
+                                </div>
+                                <MudText Typo="Typo.h6" Class="mb-1" Style="font-weight: 600;">Today View</MudText>
+                                <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">
+                                    Focus on what matters. See all tasks due today across all your lists in one place.
                                 </MudText>
-                            </MudCardContent>
-                        </MudCard>
-                    </MudItem>
-
-                    <MudItem xs="12" sm="6">
-                        <MudCard Elevation="2" Class="pa-4" Style="height: 100%;">
-                            <MudCardContent Class="d-flex flex-column align-center">
-                                <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Color="Color.Primary" Size="Size.Large" Class="mb-3" />
-                                <MudText Typo="Typo.h6" Class="mb-2">Task Templates</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudPaper Elevation="2" Class="feature-card pa-5 d-flex flex-column align-start" Style="height: 100%; border-radius: 16px;">
+                                <div class="feature-icon-wrap mb-3" style="background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%);">
+                                    <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Style="color: #7C3AED;" Size="Size.Medium" />
+                                </div>
+                                <MudText Typo="Typo.h6" Class="mb-1" Style="font-weight: 600;">Task Templates</MudText>
+                                <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">
                                     Create recurring tasks instantly. Set up templates and create tasks with one click.
                                 </MudText>
-                            </MudCardContent>
-                        </MudCard>
-                    </MudItem>
-
-                    <MudItem xs="12" sm="6">
-                        <MudCard Elevation="2" Class="pa-4" Style="height: 100%;">
-                            <MudCardContent Class="d-flex flex-column align-center">
-                                <MudIcon Icon="@Icons.Material.Filled.FlashOn" Color="Color.Primary" Size="Size.Large" Class="mb-3" />
-                                <MudText Typo="Typo.h6" Class="mb-2">Quick Create</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudPaper Elevation="2" Class="feature-card pa-5 d-flex flex-column align-start" Style="height: 100%; border-radius: 16px;">
+                                <div class="feature-icon-wrap mb-3" style="background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);">
+                                    <MudIcon Icon="@Icons.Material.Filled.FlashOn" Style="color: #059669;" Size="Size.Medium" />
+                                </div>
+                                <MudText Typo="Typo.h6" Class="mb-1" Style="font-weight: 600;">Quick Create</MudText>
+                                <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">
                                     Lightning-fast task creation from your templates right from the home screen.
                                 </MudText>
-                            </MudCardContent>
-                        </MudCard>
-                    </MudItem>
-
-                    <MudItem xs="12" sm="6">
-                        <MudCard Elevation="2" Class="pa-4" Style="height: 100%;">
-                            <MudCardContent Class="d-flex flex-column align-center">
-                                <MudIcon Icon="@Icons.Material.Filled.Watch" Color="Color.Primary" Size="Size.Large" Class="mb-3" />
-                                <MudText Typo="Typo.h6" Class="mb-2">Garmin Watch Companion</MudText>
-                                <MudText Typo="Typo.body2" Color="Color.Secondary" Align="Align.Center">
-                                    Check your tasks and complete them right from your Garmin smartwatch.
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudPaper Elevation="2" Class="feature-card pa-5 d-flex flex-column align-start" Style="height: 100%; border-radius: 16px;">
+                                <div class="feature-icon-wrap mb-3" style="background: linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%);">
+                                    <MudIcon Icon="@Icons.Material.Filled.Watch" Style="color: #EA580C;" Size="Size.Medium" />
+                                </div>
+                                <MudText Typo="Typo.h6" Class="mb-1" Style="font-weight: 600;">Garmin Companion</MudText>
+                                <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">
+                                    Check and complete tasks directly from your Garmin smartwatch.
                                 </MudText>
-                            </MudCardContent>
-                        </MudCard>
-                    </MudItem>
-                </MudGrid>
-
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-8">
-                    Powered by Microsoft To Do. Sign in with your Microsoft account to get started.
-                </MudText>
-            </MudPaper>
-        </MudContainer>
+                            </MudPaper>
+                        </MudItem>
+                    </MudGrid>
+                </div>
+            </MudContainer>
+        </div>
     </NotAuthorized>
 </AuthorizeView>
 

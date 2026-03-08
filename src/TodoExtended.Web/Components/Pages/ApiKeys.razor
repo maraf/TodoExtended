@@ -12,16 +12,22 @@
 
 @* Header row with title and add button *@
 <div class="d-flex align-center justify-space-between mb-6">
-    <div>
-        <MudText Typo="Typo.h4">API Keys</MudText>
-        <MudText Typo="Typo.subtitle1" Color="Color.Secondary">Manage API keys for external integrations.</MudText>
+    <div class="d-flex align-center">
+        <div class="page-icon-wrap mr-3" style="background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);">
+            <MudIcon Icon="@Icons.Material.Filled.VpnKey" Style="color: #059669;" />
+        </div>
+        <div>
+            <MudText Typo="Typo.h4" Class="page-title">API Keys</MudText>
+            <MudText Typo="Typo.subtitle1" Style="color: var(--mud-palette-text-secondary);">Manage keys for external integrations.</MudText>
+        </div>
     </div>
     @if (!_loading && _error is null)
     {
         <MudButton Variant="Variant.Filled"
                    Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="OpenCreateDialog">
+                   OnClick="OpenCreateDialog"
+                   Style="border-radius: 10px; font-weight: 600;">
             New API Key
         </MudButton>
     }

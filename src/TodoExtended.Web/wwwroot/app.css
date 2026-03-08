@@ -3,15 +3,15 @@ h1:focus {
 }
 
 .valid.modified:not([type=checkbox]) {
-    outline: 1px solid #26b050;
+    outline: 1px solid #10B981;
 }
 
 .invalid {
-    outline: 1px solid #e50000;
+    outline: 1px solid #EF4444;
 }
 
 .validation-message {
-    color: #e50000;
+    color: #EF4444;
 }
 
 .blazor-error-boundary {
@@ -23,3 +23,229 @@ h1:focus {
     .blazor-error-boundary::after {
         content: "An error has occurred."
     }
+
+/* ============================================================
+   GLOBAL TYPOGRAPHY & LAYOUT
+   ============================================================ */
+
+body {
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* ============================================================
+   PAGE HEADERS
+   ============================================================ */
+
+.page-title {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.page-header {
+    padding-bottom: 4px;
+}
+
+.page-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+}
+
+/* ============================================================
+   HERO / LANDING PAGE
+   ============================================================ */
+
+.hero-container {
+    position: relative;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+.hero-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 40%, #FDF4FF 100%);
+    z-index: 0;
+}
+
+.hero-content {
+    padding: 40px 16px;
+}
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(79, 70, 229, 0.08);
+    color: #4F46E5;
+    border: 1px solid rgba(79, 70, 229, 0.2);
+    border-radius: 999px;
+    padding: 6px 16px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.hero-title {
+    font-size: clamp(2.2rem, 6vw, 3.5rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #0F172A;
+    line-height: 1.1;
+}
+
+.hero-title-accent {
+    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.hero-subtitle {
+    color: #475569;
+    font-weight: 400;
+    line-height: 1.6;
+    max-width: 480px;
+}
+
+.feature-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: default;
+}
+
+.feature-card:hover {
+    transform: translateY(-3px);
+}
+
+.feature-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+}
+
+/* ============================================================
+   TASK ROWS
+   ============================================================ */
+
+.today-task-row {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    transition: background 0.1s ease;
+    gap: 8px;
+}
+
+.today-task-row:hover {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.task-divider {
+    border-top: 1px solid var(--mud-palette-divider);
+}
+
+.task-completed {
+    opacity: 0.75;
+}
+
+.task-text-wrap {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ============================================================
+   TEMPLATE QUICK CARDS
+   ============================================================ */
+
+.template-quick-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.template-quick-card:hover {
+    transform: translateY(-2px);
+}
+
+.template-quick-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+    color: #4F46E5;
+    flex-shrink: 0;
+}
+
+/* ============================================================
+   TEMPLATE CARDS (Templates page)
+   ============================================================ */
+
+.template-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.15) !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.template-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.template-sort-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+}
+
+/* ============================================================
+   API KEY CARDS
+   ============================================================ */
+
+.apikey-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.15) !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.apikey-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* ============================================================
+   DARK MODE OVERRIDES
+   ============================================================ */
+
+[data-mud-theme-dark] .hero-bg {
+    background: linear-gradient(135deg, #1E1B4B 0%, #1E1B3A 40%, #1E1B2E 100%);
+}
+
+[data-mud-theme-dark] .hero-title {
+    color: #F1F5F9;
+}
+
+[data-mud-theme-dark] .hero-subtitle {
+    color: #94A3B8;
+}
+
+[data-mud-theme-dark] .hero-badge {
+    background: rgba(129, 140, 248, 0.12);
+    color: #818CF8;
+    border-color: rgba(129, 140, 248, 0.25);
+}
+
+[data-mud-theme-dark] .today-task-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+}

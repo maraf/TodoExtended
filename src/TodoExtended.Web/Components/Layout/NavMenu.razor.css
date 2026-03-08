@@ -1,3 +1,29 @@
+.nav-sidebar {
+    height: 100%;
+    padding: 8px 0;
+}
+
+.nav-menu-inner {
+    padding: 0 8px;
+}
+
+.nav-section-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--mud-palette-text-secondary);
+    padding: 8px 12px 4px 12px;
+    opacity: 0.6;
+}
+
+.nav-link-item {
+    border-radius: 8px !important;
+    margin-bottom: 2px !important;
+    font-weight: 500 !important;
+    transition: all 0.15s ease !important;
+}
+
 .nav-emoji-icon {
     display: inline-flex;
     align-items: center;
@@ -5,7 +31,7 @@
     width: 24px;
     height: 24px;
     margin-right: 8px;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     line-height: 1;
     flex-shrink: 0;
     vertical-align: middle;
