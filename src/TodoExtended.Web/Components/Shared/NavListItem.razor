@@ -1,13 +1,18 @@
-@* NavListItem.razor - sidebar nav link with emoji for task lists *@
-<NavLink href="@Href" Match="NavLinkMatch.Prefix" ActiveClass="bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-semibold"
-         class="flex items-center gap-2.5 mx-2 px-3 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-white transition-all duration-150">
+@* NavListItem.razor - floating glass sidebar list link with emoji *@
+<NavLink href="@Href" Match="NavLinkMatch.Prefix"
+         ActiveClass="bg-gradient-to-r from-brand-600/10 to-violet-600/10 dark:from-brand-500/20 dark:to-violet-500/15 text-brand-700 dark:text-brand-300 font-semibold shadow-sm border-brand-200/60 dark:border-brand-700/40"
+         class="flex items-center gap-2.5 mx-3 mb-0.5 px-3 py-2 rounded-2xl text-sm font-medium text-slate-600 dark:text-slate-300
+                hover:bg-white/60 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white
+                hover:shadow-sm
+                border border-transparent
+                transition-all duration-150">
     @if (!string.IsNullOrEmpty(Emoji))
     {
         <span class="text-base leading-none w-5 text-center flex-shrink-0">@Emoji</span>
     }
     else
     {
-        <span class="w-5 h-5 flex-shrink-0 text-slate-400">
+        <span class="w-5 h-5 flex-shrink-0 text-slate-400 dark:text-slate-500">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
             </svg>

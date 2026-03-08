@@ -13,33 +13,36 @@
 <!-- Page header -->
 <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30 flex-shrink-0">
-            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="w-14 h-14 rounded-3xl bg-gradient-to-br from-violet-500 to-purple-600
+                    flex items-center justify-center
+                    shadow-2xl shadow-violet-500/40
+                    flex-shrink-0 animate-float">
+            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
             </svg>
         </div>
         <div>
             <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Templates</h1>
-            <p class="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Manage templates for quick task creation.</p>
+            <p class="text-slate-400 dark:text-slate-500 text-sm mt-0.5">Manage templates for quick task creation.</p>
         </div>
     </div>
-    @if (!_loading && _error is null)
-    {
-        <button @onclick="OpenAddDialog" class="btn-primary flex-shrink-0">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-            </svg>
-            New Template
-        </button>
-    }
+    <button @onclick="OpenAddDialog"
+            class="btn bg-gradient-to-r from-violet-600 to-brand-600 hover:from-violet-500 hover:to-brand-500 text-white text-sm px-5 py-2.5 rounded-2xl shadow-lg shadow-violet-500/25 hover:shadow-xl hover:shadow-violet-500/30 hover:-translate-y-0.5 transition-all">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+        </svg>
+        New Template
+    </button>
 </div>
 
 @if (_loading)
 {
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        @for (var i = 0; i < 3; i++)
+        @for (int i = 0; i < 3; i++)
         {
-            <div class="h-40 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse"></div>
+            <div class="h-44 rounded-3xl animate-pulse"
+                 style="background: linear-gradient(135deg, rgba(139,92,246,0.07) 0%, rgba(99,102,241,0.05) 100%); border: 1px solid rgba(255,255,255,0.7)">
+            </div>
         }
     </div>
 }
@@ -49,11 +52,16 @@ else if (_error is not null)
 }
 else if (TemplateItems is not { Count: > 0 })
 {
-    <div class="card dark:bg-slate-800 dark:border-slate-700 flex flex-col items-center justify-center py-20 text-center border-2 border-dashed">
-        <div class="text-5xl mb-4">📝</div>
+    <!-- Empty state -->
+    <div class="float-card p-16 flex flex-col items-center justify-center text-center">
+        <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-100 to-purple-100 dark:from-violet-900/30 dark:to-purple-900/20
+                    flex items-center justify-center mb-6 shadow-lg shadow-violet-500/15 text-4xl animate-float">
+            📝
+        </div>
         <h3 class="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">No templates yet</h3>
-        <p class="text-slate-500 dark:text-slate-400 text-sm mb-6">Create templates to quickly add recurring tasks.</p>
-        <button @onclick="OpenAddDialog" class="btn-primary">
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Create templates to quickly add recurring tasks.</p>
+        <button @onclick="OpenAddDialog"
+                class="btn bg-gradient-to-r from-violet-600 to-brand-600 text-white text-sm px-6 py-2.5 rounded-2xl shadow-lg shadow-violet-500/25 hover:shadow-xl hover:-translate-y-0.5 transition-all">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
@@ -63,78 +71,124 @@ else if (TemplateItems is not { Count: > 0 })
 }
 else
 {
-    @foreach (var group in TemplateItems.GroupBy(t => t.TaskListName).OrderBy(g => g.Key))
-    {
-        <div class="mb-8">
-            <p class="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">@group.Key</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                @foreach (var template in group.OrderBy(t => t.SortOrder).ThenBy(t => t.Title))
-                {
-                    var tmpl = template;
-                    <div class="card-hover dark:bg-slate-800 dark:border-slate-700 p-5 relative">
-                        @if (tmpl.SortOrder != 0)
-                        {
-                            <span class="absolute top-3 right-3 w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold flex items-center justify-center">@tmpl.SortOrder</span>
-                        }
-                        <div class="flex items-start justify-between gap-2 mb-4">
-                            <div class="flex-1 min-w-0">
-                                <h3 class="font-bold text-slate-900 dark:text-white text-sm leading-tight">@tmpl.Title</h3>
-                                <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">@tmpl.TaskListName</p>
-                            </div>
+    <!-- Template grid — floating glass cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        @foreach (var template in TemplateItems.OrderBy(t => t.SortOrder).ThenBy(t => t.Title))
+        {
+            var t = template;
+            <div class="float-card p-5 flex flex-col gap-3 group relative overflow-hidden">
+                <!-- Hover shimmer line -->
+                <div class="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-violet-400/0 via-violet-500/70 to-brand-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-full"></div>
+
+                <div class="flex items-start justify-between gap-2">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-100 to-brand-100 dark:from-violet-900/50 dark:to-brand-900/40
+                                    flex items-center justify-center flex-shrink-0 shadow-sm
+                                    group-hover:scale-110 group-hover:shadow-md transition-all duration-200">
+                            <svg class="w-4 h-4 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
                         </div>
-                        <div class="flex flex-wrap gap-1.5 mb-4">
-                            @if (tmpl.DueDateToday)
-                            {
-                                <span class="chip chip-warning">⏰ Due Today</span>
-                            }
-                            @if (tmpl.ReminderTime is not null)
-                            {
-                                <span class="chip chip-info">🔔 @tmpl.ReminderTime.Value.ToString("HH:mm")</span>
-                            }
-                        </div>
-                        <div class="flex gap-2">
-                            <button @onclick="() => CreateTaskFromTemplate(tmpl)" class="btn-primary btn-sm flex-1">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                                </svg>
-                                Create
-                            </button>
-                            <button @onclick="() => OpenEditDialog(tmpl)" class="btn-ghost btn-sm" title="Edit">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                </svg>
-                            </button>
-                            <button @onclick="() => PromptDelete(tmpl.Id)" class="btn-ghost btn-sm text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30" title="Delete">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                </svg>
-                            </button>
+                        <div class="min-w-0">
+                            <p class="font-bold text-slate-900 dark:text-white text-sm leading-tight">@t.Title</p>
+                            <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5">@t.TaskListName</p>
                         </div>
                     </div>
-                }
+                    <!-- Context menu (3-dot) -->
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                        <button @onclick="() => OpenEditDialog(t)"
+                                class="p-1.5 rounded-xl text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors"
+                                title="Edit">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                            </svg>
+                        </button>
+                        <button @onclick="() => PromptDelete(t.Id)"
+                                class="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors"
+                                title="Delete">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Badges -->
+                <div class="flex items-center gap-2 flex-wrap">
+                    @if (t.DueDateToday)
+                    {
+                        <span class="chip chip-warning">📅 Due Today</span>
+                    }
+                    @if (t.ReminderTime.HasValue)
+                    {
+                        <span class="chip chip-info">⏰ @t.ReminderTime.Value.ToString("HH:mm")</span>
+                    }
+                    <span class="chip bg-slate-100 dark:bg-slate-700/60 text-slate-500 dark:text-slate-400"># @t.SortOrder</span>
+                </div>
+
+                <!-- Execute button -->
+                <button @onclick="() => CreateTaskFromTemplate(t)"
+                        disabled="@_saving"
+                        class="mt-auto btn bg-gradient-to-r from-violet-600 to-brand-600 hover:from-violet-500 hover:to-brand-500 text-white text-xs px-4 py-2 rounded-xl w-full shadow-md shadow-violet-500/15 hover:shadow-lg hover:shadow-violet-500/25 active:scale-[.97] disabled:opacity-50">
+                    @if (_saving)
+                    {
+                        <svg class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        <span>Creating…</span>
+                    }
+                    else
+                    {
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span>Create Task</span>
+                    }
+                </button>
             </div>
-        </div>
-    }
+        }
+    </div>
 }
 
-<!-- Add/Edit Modal -->
+<!-- ░░ MODAL DIALOG ░░ -->
 @if (_dialogVisible)
 {
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @onclick="CloseDialog"></div>
-        <div class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 dark:border-slate-700 animate-fade-in">
-            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-700">
-                <h2 class="text-lg font-bold text-slate-900 dark:text-white">@(_editingTemplateId is not null ? "Edit Template" : "New Template")</h2>
-                <button @onclick="CloseDialog" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!-- Backdrop -->
+    <div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @onclick="CloseDialog"></div>
+
+        <!-- Panel — floating glass -->
+        <div class="relative z-10 w-full max-w-md animate-slide-up
+                    bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl
+                    rounded-3xl border border-white/80 dark:border-white/10
+                    shadow-2xl shadow-slate-900/30
+                    p-6 sm:p-7">
+
+            <!-- Dialog header -->
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-2xl bg-gradient-to-br from-violet-500 to-brand-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <h2 id="dialog-title" class="text-lg font-extrabold text-slate-900 dark:text-white">
+                        @(_editingTemplateId is null ? "New Template" : "Edit Template")
+                    </h2>
+                </div>
+                <button @onclick="CloseDialog" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                     </svg>
                 </button>
             </div>
-            <div class="px-6 py-5 space-y-4">
+
+            <!-- Form -->
+            <div class="space-y-4">
                 <div>
                     <label class="label">Title</label>
-                    <input @bind="_formTitle" @bind:event="oninput" type="text" placeholder="e.g. Morning standup notes" class="input" />
+                    <input @bind="_formTitle" type="text" class="input" placeholder="e.g. Morning standup notes" />
                 </div>
                 <div>
                     <label class="label">Task List</label>
@@ -151,12 +205,12 @@ else
                 </div>
                 <div>
                     <label class="label">Sort Order</label>
-                    <input @bind="_formSortOrder" type="number" class="input w-24" />
+                    <input @bind="_formSortOrder" type="number" min="0" class="input" />
                 </div>
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-3 py-2">
                     <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" class="sr-only peer" checked="@_formDueDateToday" @onchange="e => OnDueDateTodayChanged((bool)(e.Value ?? false))" />
-                        <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+                        <input type="checkbox" @bind="_formDueDateToday" class="sr-only peer" />
+                        <div class="w-10 h-5 bg-slate-200 dark:bg-slate-700 peer-focus:ring-2 peer-focus:ring-brand-400 rounded-full peer peer-checked:bg-gradient-to-r peer-checked:from-brand-500 peer-checked:to-violet-500 after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
                     </label>
                     <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Due Today</span>
                 </div>
@@ -169,20 +223,26 @@ else
                 }
                 @if (_formError is not null)
                 {
-                    <div class="rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-4 py-3 text-sm">@_formError</div>
+                    <p class="text-sm text-rose-600 dark:text-rose-400 font-medium">⚠ @_formError</p>
                 }
             </div>
-            <div class="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-700">
-                <button @onclick="CloseDialog" class="btn-ghost">Cancel</button>
-                <button @onclick="SaveTemplate" disabled="@_saving" class="btn-primary">
+
+            <!-- Actions -->
+            <div class="flex gap-3 mt-7">
+                <button @onclick="CloseDialog" class="btn-ghost flex-1 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300">
+                    Cancel
+                </button>
+                <button @onclick="SaveTemplate" disabled="@_saving"
+                        class="btn bg-gradient-to-r from-violet-600 to-brand-600 hover:from-violet-500 hover:to-brand-500 text-white flex-1 py-2.5 rounded-2xl shadow-lg shadow-violet-500/25 disabled:opacity-50">
                     @if (_saving)
                     {
                         <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                         </svg>
+                        <span>Saving…</span>
                     }
-                    @(_editingTemplateId is not null ? "Update" : "Create")
+                    else { <span>@(_editingTemplateId is null ? "Create" : "Save")</span> }
                 </button>
             </div>
         </div>

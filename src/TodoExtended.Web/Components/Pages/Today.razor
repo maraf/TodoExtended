@@ -11,14 +11,20 @@
 <!-- Page header -->
 <div class="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
     <div class="flex items-center gap-4">
-        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30 flex-shrink-0">
-            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <!-- Floating icon -->
+        <div class="w-14 h-14 rounded-3xl bg-gradient-to-br from-amber-400 to-orange-500
+                    flex items-center justify-center
+                    shadow-2xl shadow-amber-500/40
+                    flex-shrink-0 animate-float">
+            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
             </svg>
         </div>
         <div>
             <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Today</h1>
-            <p class="text-slate-500 dark:text-slate-400 text-sm mt-0.5">@DateTime.Today.ToString("dddd, MMMM d", System.Globalization.CultureInfo.InvariantCulture)</p>
+            <p class="text-slate-400 dark:text-slate-500 text-sm mt-0.5">
+                @DateTime.Today.ToString("dddd, MMMM d", System.Globalization.CultureInfo.InvariantCulture)
+            </p>
         </div>
     </div>
     @if (TodayTasks is { Count: > 0 })
@@ -35,14 +41,14 @@
 
 @if (_loading)
 {
-    <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
-        <div class="h-1 bg-gradient-to-r from-brand-500 via-violet-500 to-fuchsia-500 animate-pulse"></div>
+    <!-- Skeleton pills -->
+    <div class="space-y-3">
         @for (int i = 0; i < 4; i++)
         {
-            <div class="task-row">
-                <div class="w-5 h-5 rounded bg-slate-200 dark:bg-slate-700 flex-shrink-0 animate-pulse"></div>
-                <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
-                <div class="w-16 h-5 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
+            <div class="task-pill opacity-60 animate-pulse">
+                <div class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 flex-shrink-0"></div>
+                <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full"></div>
+                <div class="w-20 h-5 bg-slate-100 dark:bg-slate-700 rounded-full hidden sm:block"></div>
             </div>
         }
     </div>
@@ -53,41 +59,46 @@ else if (_error is not null)
 }
 else if (TodayTasks is not { Count: > 0 })
 {
-    <div class="card dark:bg-slate-800 dark:border-slate-700 flex flex-col items-center justify-center py-20 text-center">
-        <div class="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-5">
-            <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <!-- Empty state -->
+    <div class="float-card p-16 flex flex-col items-center justify-center text-center">
+        <div class="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-100 to-green-100 dark:from-emerald-900/30 dark:to-green-900/20
+                    flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/15 animate-float">
+            <svg class="w-10 h-10 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
         </div>
-        <h3 class="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">All caught up! 🎉</h3>
-        <p class="text-slate-500 dark:text-slate-400 text-sm">No tasks due today. Enjoy your free time.</p>
+        <h3 class="text-2xl font-extrabold text-slate-700 dark:text-slate-300 mb-2">All caught up! 🎉</h3>
+        <p class="text-slate-400 dark:text-slate-500 text-sm">No tasks due today. Enjoy your free time.</p>
     </div>
 }
 else
 {
-    <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
-        <!-- Progress bar -->
-        @{
-            var pct = TodayTasks.Count > 0 ? (int)(100.0 * TodayTasks.Count(t => t.IsCompleted) / TodayTasks.Count) : 0;
-        }
-        <div class="h-1.5 bg-slate-100 dark:bg-slate-700">
-            <div class="h-full bg-gradient-to-r from-brand-500 to-emerald-500 rounded-r-full transition-all duration-500" style="width: @(pct)%"></div>
+    <!-- Progress bar floating above the list — pct computed inline -->
+    <div class="mb-4 flex items-center gap-3">
+        <div class="flex-1 h-2 bg-slate-200/60 dark:bg-slate-700/60 rounded-full overflow-hidden backdrop-blur-sm">
+            <div class="h-full bg-gradient-to-r from-amber-400 via-orange-400 to-emerald-400 rounded-full transition-all duration-700 shadow-sm"
+                 style="width: @(TodayTasks!.Count > 0 ? (int)(100.0 * TodayTasks.Count(t => t.IsCompleted) / TodayTasks.Count) : 0)%"></div>
         </div>
+        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400 tabular-nums flex-shrink-0">@(TodayTasks!.Count > 0 ? (int)(100.0 * TodayTasks.Count(t => t.IsCompleted) / TodayTasks.Count) : 0)%</span>
+    </div>
 
-        @foreach (var (task, idx) in TodayTasks.Select((t, i) => (t, i)))
+    <!-- Individual floating task pills -->
+    <div class="space-y-2.5">
+        @foreach (var task in TodayTasks)
         {
-            <div class="task-row @(task.IsCompleted ? "opacity-50" : "")">
+            <div class="task-pill @(task.IsCompleted ? "opacity-60" : "")">
                 <TaskStatusCheckbox TaskId="@task.Id"
                                     ListId="@task.ListId"
                                     IsCompleted="@task.IsCompleted"
                                     TaskTitle="@task.Title"
                                     OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
                                     OnError="(msg) => Notifications.Add(msg, NotifySeverity.Warning)" />
-                <span class="flex-1 min-w-0 text-sm font-medium text-slate-800 dark:text-slate-200 @(task.IsCompleted ? "line-through text-slate-400 dark:text-slate-500" : "") truncate">
+                <span class="flex-1 min-w-0 text-sm font-medium text-slate-800 dark:text-slate-200
+                             @(task.IsCompleted ? "line-through text-slate-400 dark:text-slate-500" : "") truncate">
                     @task.Title
                 </span>
-                <div class="flex items-center gap-1.5 flex-shrink-0">
-                    <span class="chip chip-info text-xs hidden sm:inline-flex">@task.ListName</span>
+                <div class="flex items-center gap-2 flex-shrink-0">
+                    <span class="chip chip-info hidden sm:inline-flex">@task.ListName</span>
                     @if (task.Importance == "High")
                     {
                         <span class="chip chip-error" title="High priority">!</span>
@@ -118,7 +129,6 @@ else
         {
             Logger.LogDebug("OnInitializedAsync: TodayTasks not in persistent state, fetching fresh");
             TodayTasks = await TodoService.GetTodayTasksAsync();
-            Logger.LogDebug("OnInitializedAsync: Fetched {Count} tasks", TodayTasks?.Count ?? 0);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -129,15 +139,11 @@ else
         {
             _error = $"Failed to load today's tasks: {ex.Message}";
         }
-        finally
-        {
-            _loading = false;
-        }
+        finally { _loading = false; }
     }
 
     private void HandleTaskStatusChanged(string taskId, bool newStatus)
     {
-        Logger.LogDebug("HandleTaskStatusChanged: TaskId={TaskId}, NewStatus={NewStatus}", taskId, newStatus);
         TodayTasks = TodayTasks!.Select(t => t.Id == taskId ? t with { IsCompleted = newStatus } : t).ToList();
     }
 }

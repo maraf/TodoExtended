@@ -8,25 +8,28 @@
 <PageTitle>Sync Settings</PageTitle>
 
 <div class="mb-8 flex items-center gap-4">
-    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/30 flex-shrink-0">
-        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="w-14 h-14 rounded-3xl bg-gradient-to-br from-sky-400 to-blue-600
+                flex items-center justify-center
+                shadow-2xl shadow-sky-500/40
+                flex-shrink-0 animate-float">
+        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
         </svg>
     </div>
     <div>
         <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Sync Settings</h1>
-        <p class="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Configure which task lists are synced.</p>
+        <p class="text-slate-400 dark:text-slate-500 text-sm mt-0.5">Configure which task lists are synced.</p>
     </div>
 </div>
 
 @if (_loading)
 {
-    <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden max-w-lg">
-        <div class="h-1 bg-gradient-to-r from-sky-500 to-blue-500 animate-pulse"></div>
+    <div class="max-w-lg space-y-2.5">
         @for (int i = 0; i < 4; i++)
         {
-            <div class="task-row">
-                <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
+            <div class="task-pill opacity-60 animate-pulse">
+                <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full"></div>
+                <div class="w-16 h-6 bg-slate-100 dark:bg-slate-700 rounded-xl"></div>
             </div>
         }
     </div>
@@ -38,14 +41,15 @@ else if (_error is not null)
 else
 {
     <div class="max-w-lg">
-        <!-- Tab buttons -->
-        <div class="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 mb-4 w-fit">
+        <!-- Floating tab pills -->
+        <div class="flex gap-1.5 bg-white/60 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl p-1.5 mb-5 w-fit
+                    border border-white dark:border-slate-700/50 shadow-lg shadow-slate-900/5">
             <button @onclick="() => _activeTab = 0"
-                    class="@(_activeTab == 0 ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300") px-4 py-2 rounded-lg text-sm font-semibold transition-all">
+                    class="@(_activeTab == 0 ? "bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-md shadow-brand-500/25" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300") px-4 py-2 rounded-xl text-sm font-bold transition-all duration-150">
                 Synced (@_syncedLists.Count)
             </button>
             <button @onclick="SwitchToNotSynced"
-                    class="@(_activeTab == 1 ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300") px-4 py-2 rounded-lg text-sm font-semibold transition-all">
+                    class="@(_activeTab == 1 ? "bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-md shadow-brand-500/25" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300") px-4 py-2 rounded-xl text-sm font-bold transition-all duration-150">
                 Not Synced
             </button>
         </div>
@@ -54,7 +58,7 @@ else
         {
             @if (_selectionMode && _syncedLists.Count > 0)
             {
-                <div class="flex items-center gap-3 mb-3 px-1">
+                <div class="flex items-center gap-3 mb-3">
                     <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer">
                         <input type="checkbox"
                                checked="@(_syncedLists.Count > 0 && _selectedListIds.SetEquals(_syncedLists.Select(l => l.Id)))"
@@ -66,7 +70,7 @@ else
                     @if (_selectedListIds.Any(id => _syncedLists.Any(l => l.Id == id)))
                     {
                         <button @onclick="BulkRemoveFromSync" disabled="@(_syncingListId is not null)"
-                                class="btn bg-amber-500 hover:bg-amber-600 text-white text-xs px-3 py-1.5 rounded-lg font-semibold">
+                                class="btn bg-amber-500 hover:bg-amber-600 text-white text-xs px-3 py-1.5 rounded-xl font-bold shadow-md shadow-amber-500/20">
                             Remove Selected
                         </button>
                     }
@@ -75,16 +79,16 @@ else
 
             @if (_syncedLists.Count == 0)
             {
-                <div class="card dark:bg-slate-800 dark:border-slate-700 py-10 text-center">
+                <div class="float-card p-10 text-center">
                     <p class="text-slate-400 dark:text-slate-500 text-sm">No synced lists.</p>
                 </div>
             }
             else
             {
-                <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
-                    @foreach (var (list, idx) in _syncedLists.Select((l, i) => (l, i)))
+                <div class="space-y-2.5">
+                    @foreach (var list in _syncedLists)
                     {
-                        <div class="task-row">
+                        <div class="task-pill">
                             @if (_selectionMode)
                             {
                                 <input type="checkbox"
@@ -92,8 +96,8 @@ else
                                        @onchange="e => ToggleListSelection(list.Id, (bool)(e.Value ?? false))"
                                        class="w-4 h-4 rounded accent-brand-600 flex-shrink-0" />
                             }
-                            <span class="flex-1 text-sm font-medium text-slate-800 dark:text-slate-200">@list.DisplayName</span>
-                            @if (_syncingListId == list.Id)
+                            <span class="flex-1 text-sm font-semibold text-slate-800 dark:text-slate-200">@list.DisplayName</span>
+                            @if (_syncingListId == list.Id || _syncingListId == "bulk")
                             {
                                 <svg class="animate-spin w-4 h-4 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -103,7 +107,7 @@ else
                             else if (!_selectionMode)
                             {
                                 <button @onclick="() => RemoveFromSync(list.Id)"
-                                        class="text-xs text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors">
+                                        class="text-xs text-rose-500 hover:text-rose-700 font-semibold flex items-center gap-1 px-2 py-1.5 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
                                     </svg>
@@ -119,26 +123,26 @@ else
         {
             @if (_loadingNotSynced)
             {
-                <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+                <div class="space-y-2.5">
                     @for (int i = 0; i < 3; i++)
                     {
-                        <div class="task-row">
-                            <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
+                        <div class="task-pill opacity-60 animate-pulse">
+                            <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full"></div>
                         </div>
                     }
                 </div>
             }
             else if (_notSyncedLists.Count == 0)
             {
-                <div class="card dark:bg-slate-800 dark:border-slate-700 py-10 text-center">
-                    <p class="text-emerald-600 dark:text-emerald-400 text-sm font-medium">✓ All lists are synced</p>
+                <div class="float-card p-10 text-center">
+                    <p class="text-emerald-600 dark:text-emerald-400 text-sm font-semibold">✓ All lists are synced</p>
                 </div>
             }
             else
             {
                 @if (_selectionMode)
                 {
-                    <div class="flex items-center gap-3 mb-3 px-1">
+                    <div class="flex items-center gap-3 mb-3">
                         <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer">
                             <input type="checkbox"
                                    checked="@(_notSyncedLists.Count > 0 && _selectedListIds.SetEquals(_notSyncedLists.Select(l => l.Id)))"
@@ -150,17 +154,16 @@ else
                         @if (_selectedListIds.Any(id => _notSyncedLists.Any(l => l.Id == id)))
                         {
                             <button @onclick="BulkAddToSync" disabled="@(_syncingListId is not null)"
-                                    class="btn bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg font-semibold">
+                                    class="btn bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-xl font-bold shadow-md shadow-emerald-500/20">
                                 Add Selected
                             </button>
                         }
                     </div>
                 }
-
-                <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+                <div class="space-y-2.5">
                     @foreach (var list in _notSyncedLists)
                     {
-                        <div class="task-row">
+                        <div class="task-pill">
                             @if (_selectionMode)
                             {
                                 <input type="checkbox"
@@ -168,8 +171,8 @@ else
                                        @onchange="e => ToggleListSelection(list.Id, (bool)(e.Value ?? false))"
                                        class="w-4 h-4 rounded accent-brand-600 flex-shrink-0" />
                             }
-                            <span class="flex-1 text-sm text-slate-500 dark:text-slate-400">@list.DisplayName</span>
-                            @if (_syncingListId == list.Id)
+                            <span class="flex-1 text-sm text-slate-600 dark:text-slate-400 font-medium">@list.DisplayName</span>
+                            @if (_syncingListId == list.Id || _syncingListId == "bulk")
                             {
                                 <svg class="animate-spin w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -179,7 +182,7 @@ else
                             else if (!_selectionMode)
                             {
                                 <button @onclick="() => AddToSync(list.Id)"
-                                        class="text-xs text-emerald-600 hover:text-emerald-800 font-medium flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors">
+                                        class="text-xs text-emerald-600 hover:text-emerald-800 font-semibold flex items-center gap-1 px-2 py-1.5 rounded-xl hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors">
                                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                                     </svg>
@@ -193,10 +196,9 @@ else
         }
 
         <!-- Selection mode toggle -->
-        <div class="flex justify-end mt-4">
+        <div class="flex justify-end mt-5">
             <button @onclick="() => OnSelectionModeChanged(!_selectionMode)"
-                    class="@(_selectionMode ? "btn-primary btn-sm" : "btn-ghost btn-sm") flex items-center gap-1.5"
-                    title="@(_selectionMode ? "Exit selection" : "Select multiple lists")">
+                    class="@(_selectionMode ? "btn bg-brand-600 text-white shadow-md shadow-brand-500/20" : "btn-ghost border border-slate-200 dark:border-slate-700") flex items-center gap-2 text-xs px-4 py-2 rounded-xl font-semibold transition-all">
                 @if (_selectionMode)
                 {
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
