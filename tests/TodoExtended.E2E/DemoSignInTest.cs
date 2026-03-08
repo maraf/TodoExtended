@@ -25,12 +25,17 @@ public class DemoSignInTest : PageTest
         var demoButton = Page.GetByRole(AriaRole.Link, new() { Name = "Try Demo" });
         await Expect(demoButton).ToBeVisibleAsync();
 
-        // Click the demo sign-in button
+        // Click "Try Demo" — data-enhance-nav="false" on the button forces a real browser
+        // navigation (not Blazor's fetch-based enhanced nav), ensuring the Set-Cookie header
+        // from /auth/demo-signin is stored before / is loaded.
         await demoButton.ClickAsync();
 
         // After sign-in we land back on the home page — wait for the "Sign out" link
-        // which only appears in the authenticated layout (unique, so no strict-mode violation)
-        await Expect(Page.GetByRole(AriaRole.Link, new() { Name = "Sign out" })).ToBeVisibleAsync();
+        // which only appears in the authenticated layout (MainLayout.Authorized).
+        // Playwright's Expect polls continuously across the navigation (demo-signin → / ),
+        // so a generous timeout is sufficient; no separate navigation wait is needed.
+        await Expect(Page.GetByRole(AriaRole.Link, new() { Name = "Sign out" }))
+            .ToBeVisibleAsync(new() { Timeout = 15_000 });
 
         // Take and save the screenshot.
         // AppContext.BaseDirectory is e.g. bin/Debug/net10.0/ — navigate up three levels
