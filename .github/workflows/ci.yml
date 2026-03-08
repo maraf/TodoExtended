@@ -80,6 +80,9 @@ jobs:
               return;
             }
 
+            const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const artifactLink = `[Download all screenshots](${runUrl})`;
+
             // Upload image to GitHub's asset hosting for issues
             const imageData = fs.readFileSync(screenshotPath);
             const uploadResponse = await fetch(
@@ -98,10 +101,10 @@ jobs:
             if (uploadResponse.ok) {
               const uploadResult = await uploadResponse.json();
               const imageUrl = uploadResult.href || uploadResult.url;
-              body = `## 📸 E2E Screenshot\n\n![Home page after demo sign-in](${imageUrl})`;
+              body = `## 📸 E2E Screenshot\n\n![Home page after demo sign-in](${imageUrl})\n\n${artifactLink}`;
             } else {
               console.log(`Image upload failed (${uploadResponse.status}), linking to run instead`);
-              body = `## 📸 E2E Screenshots\n\nScreenshots captured. [Download from this run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
+              body = `## 📸 E2E Screenshots\n\nScreenshots captured. ${artifactLink}`;
             }
 
             await github.rest.issues.createComment({
