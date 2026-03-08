@@ -24,6 +24,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      issues: write
     steps:
       - uses: actions/checkout@v4
 
@@ -85,25 +86,19 @@ jobs:
 
             // Upload image to GitHub's asset hosting for issues
             const imageData = fs.readFileSync(screenshotPath);
-            const uploadResponse = await fetch(
-              `https://uploads.github.com/repos/${context.repo.owner}/${context.repo.repo}/issues/${context.issue.number}/assets?name=home-authenticated.png`,
-              {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-                  'Content-Type': 'image/png',
-                },
-                body: imageData,
-              }
-            );
-
             let body;
-            if (uploadResponse.ok) {
-              const uploadResult = await uploadResponse.json();
-              const imageUrl = uploadResult.href || uploadResult.url;
+            try {
+              const uploadResponse = await github.request(
+                `POST https://uploads.github.com/repos/${context.repo.owner}/${context.repo.repo}/issues/${context.issue.number}/assets?name=home-authenticated.png`,
+                {
+                  headers: { 'content-type': 'image/png' },
+                  data: imageData,
+                }
+              );
+              const imageUrl = uploadResponse.data.href || uploadResponse.data.url;
               body = `## 📸 E2E Screenshot\n\n![Home page after demo sign-in](${imageUrl})\n\n${artifactLink}`;
-            } else {
-              console.log(`Image upload failed (${uploadResponse.status}), linking to run instead`);
+            } catch (uploadError) {
+              console.log(`Image upload failed: ${uploadError.status || uploadError.message}, linking to run instead`);
               body = `## 📸 E2E Screenshots\n\nScreenshots captured. ${artifactLink}`;
             }
 
