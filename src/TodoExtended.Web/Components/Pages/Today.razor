@@ -4,84 +4,98 @@
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
 @inject ILogger<Today> Logger
-@inject ISnackbar Snackbar
+@inject INotificationService Notifications
 
 <PageTitle>Today</PageTitle>
 
-<div class="page-header mb-6">
-    <div class="d-flex align-center">
-        <div class="page-icon-wrap mr-3" style="background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);">
-            <MudIcon Icon="@Icons.Material.Filled.Today" Style="color: #4F46E5;" />
+<!-- Page header -->
+<div class="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+    <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/30 flex-shrink-0">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
         </div>
         <div>
-            <MudText Typo="Typo.h4" Class="page-title">Today</MudText>
-            <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">@DateTime.Today.ToString("dddd, MMMM d", System.Globalization.CultureInfo.InvariantCulture)</MudText>
+            <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Today</h1>
+            <p class="text-slate-500 dark:text-slate-400 text-sm mt-0.5">@DateTime.Today.ToString("dddd, MMMM d", System.Globalization.CultureInfo.InvariantCulture)</p>
         </div>
     </div>
+    @if (TodayTasks is { Count: > 0 })
+    {
+        <div class="flex items-center gap-2">
+            <span class="chip chip-primary">@TodayTasks.Count(t => !t.IsCompleted) remaining</span>
+            @if (TodayTasks.Any(t => t.IsCompleted))
+            {
+                <span class="chip chip-success">@TodayTasks.Count(t => t.IsCompleted) done</span>
+            }
+        </div>
+    }
 </div>
 
 @if (_loading)
 {
-    <MudPaper Elevation="2" Class="pa-6" Style="border-radius: 16px;">
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Rounded="true" />
+    <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+        <div class="h-1 bg-gradient-to-r from-brand-500 via-violet-500 to-fuchsia-500 animate-pulse"></div>
         @for (int i = 0; i < 4; i++)
         {
-            <MudSkeleton Height="52px" Class="mb-2" />
+            <div class="task-row">
+                <div class="w-5 h-5 rounded bg-slate-200 dark:bg-slate-700 flex-shrink-0 animate-pulse"></div>
+                <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
+                <div class="w-16 h-5 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
+            </div>
         }
-    </MudPaper>
+    </div>
 }
 else if (_error is not null)
 {
-    <MudAlert Severity="Severity.Error" Variant="Variant.Filled" Style="border-radius: 12px;">@_error</MudAlert>
+    <div class="rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-5 py-4 text-sm font-medium">⚠ @_error</div>
 }
 else if (TodayTasks is not { Count: > 0 })
 {
-    <MudPaper Elevation="2" Class="pa-8 d-flex flex-column align-center" Style="border-radius: 16px; text-align: center;">
-        <div style="font-size: 3rem; margin-bottom: 16px;">🎉</div>
-        <MudText Typo="Typo.h5" Class="mb-2" Style="font-weight: 600;">All caught up!</MudText>
-        <MudText Typo="Typo.body1" Style="color: var(--mud-palette-text-secondary);">No tasks due today. Enjoy your free time.</MudText>
-    </MudPaper>
+    <div class="card dark:bg-slate-800 dark:border-slate-700 flex flex-col items-center justify-center py-20 text-center">
+        <div class="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-5">
+            <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+        </div>
+        <h3 class="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">All caught up! 🎉</h3>
+        <p class="text-slate-500 dark:text-slate-400 text-sm">No tasks due today. Enjoy your free time.</p>
+    </div>
 }
 else
 {
-    <div class="d-flex align-center mb-4">
-        <MudChip T="string" Color="Color.Primary" Size="Size.Small" Style="font-weight: 600; border-radius: 8px;">
-            @TodayTasks.Count(t => !t.IsCompleted) remaining
-        </MudChip>
-        @if (TodayTasks.Any(t => t.IsCompleted))
-        {
-            <MudChip T="string" Color="Color.Success" Size="Size.Small" Class="ml-2" Style="font-weight: 600; border-radius: 8px;">
-                @TodayTasks.Count(t => t.IsCompleted) done
-            </MudChip>
+    <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+        <!-- Progress bar -->
+        @{
+            var pct = TodayTasks.Count > 0 ? (int)(100.0 * TodayTasks.Count(t => t.IsCompleted) / TodayTasks.Count) : 0;
         }
-    </div>
+        <div class="h-1.5 bg-slate-100 dark:bg-slate-700">
+            <div class="h-full bg-gradient-to-r from-brand-500 to-emerald-500 rounded-r-full transition-all duration-500" style="width: @(pct)%"></div>
+        </div>
 
-    <MudPaper Elevation="2" Class="pa-0" Style="border-radius: 16px; overflow: hidden;">
         @foreach (var (task, idx) in TodayTasks.Select((t, i) => (t, i)))
         {
-            <div class="today-task-row @(task.IsCompleted ? "task-completed" : "") @(idx > 0 ? "task-divider" : "")">
+            <div class="task-row @(task.IsCompleted ? "opacity-50" : "")">
                 <TaskStatusCheckbox TaskId="@task.Id"
                                     ListId="@task.ListId"
                                     IsCompleted="@task.IsCompleted"
                                     TaskTitle="@task.Title"
                                     OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
-                                    OnError="(msg) => Snackbar.Add(msg, Severity.Warning)" />
-                <div class="task-text-wrap">
-                    <MudText Style="@(task.IsCompleted ? "text-decoration: line-through; opacity: 0.45;" : "font-weight: 500;")">
-                        @task.Title
-                    </MudText>
-                </div>
-                <MudSpacer />
-                <div class="d-flex align-center gap-1">
-                    <MudChip T="string" Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined" Style="border-radius: 6px; font-size: 0.75rem;">@task.ListName</MudChip>
+                                    OnError="(msg) => Notifications.Add(msg, NotifySeverity.Warning)" />
+                <span class="flex-1 min-w-0 text-sm font-medium text-slate-800 dark:text-slate-200 @(task.IsCompleted ? "line-through text-slate-400 dark:text-slate-500" : "") truncate">
+                    @task.Title
+                </span>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                    <span class="chip chip-info text-xs hidden sm:inline-flex">@task.ListName</span>
                     @if (task.Importance == "High")
                     {
-                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Filled" Style="border-radius: 6px; min-width: 28px;">!</MudChip>
+                        <span class="chip chip-error" title="High priority">!</span>
                     }
                 </div>
             </div>
         }
-    </MudPaper>
+    </div>
 }
 
 @code {

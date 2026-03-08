@@ -5,175 +5,215 @@
 @using TodoExtended.Web.Services
 @inject ITemplateService TemplateService
 @inject NavigationManager NavigationManager
-@inject ISnackbar Snackbar
+@inject INotificationService Notifications
 @inject IOptions<DemoOptions> DemoOptions
 
 <PageTitle>Dashboard</PageTitle>
 
 <AuthorizeView>
     <Authorized>
-        <div class="page-header mb-6">
-            <MudText Typo="Typo.h4" Class="page-title">Dashboard</MudText>
-            <MudText Typo="Typo.body1" Style="color: var(--mud-palette-text-secondary);">Welcome back! Here's your quick overview.</MudText>
+        <!-- Page header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Dashboard</h1>
+            <p class="mt-1 text-slate-500 dark:text-slate-400">Welcome back! Here's your quick overview.</p>
         </div>
 
         @if (_loading)
         {
-            <MudGrid Spacing="3">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 @for (int i = 0; i < 3; i++)
                 {
-                    <MudItem xs="12" sm="6" md="4">
-                        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="120px" Class="rounded-xl" />
-                    </MudItem>
+                    <div class="h-32 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse"></div>
                 }
-            </MudGrid>
+            </div>
         }
         else if (_templateError is not null)
         {
-            <MudAlert Severity="Severity.Error" Class="mb-4" Variant="Variant.Filled">@_templateError</MudAlert>
+            <div class="rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 px-5 py-4 text-sm font-medium">⚠ @_templateError</div>
         }
         else if (_templates is { Count: > 0 })
         {
-            <div class="section-header mb-4">
-                <MudIcon Icon="@Icons.Material.Filled.FlashOn" Class="mr-2" Style="color: #4F46E5; vertical-align: middle;" />
-                <MudText Typo="Typo.h6" Style="display: inline; font-weight: 600;">Quick Create</MudText>
+            <div class="flex items-center gap-2 mb-5">
+                <div class="w-8 h-8 rounded-lg bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center text-brand-600 dark:text-brand-400">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-bold text-slate-800 dark:text-white">Quick Create</h2>
             </div>
-            <MudGrid Spacing="3">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 @foreach (var template in _templates)
                 {
                     var t = template;
-                    <MudItem xs="12" sm="6" md="4">
-                        <MudPaper Elevation="2" Class="template-quick-card pa-4" Style="border-radius: 14px; border: 1px solid var(--mud-palette-divider);">
-                            <div class="d-flex align-center mb-3">
-                                <div class="template-quick-icon mr-3">
-                                    <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" />
-                                </div>
-                                <div>
-                                    <MudText Typo="Typo.subtitle1" Style="font-weight: 600; line-height: 1.2;">@t.Title</MudText>
-                                    @if (!string.IsNullOrEmpty(t.TaskListName))
-                                    {
-                                        <MudText Typo="Typo.caption" Style="color: var(--mud-palette-text-secondary);">@t.TaskListName</MudText>
-                                    }
-                                </div>
+                    <div class="card-hover p-5 flex flex-col gap-4 dark:bg-slate-800 dark:border-slate-700">
+                        <div class="flex items-start gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center flex-shrink-0">
+                                <svg class="w-4 h-4 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
                             </div>
-                            @if (_executingTemplateId == t.Id)
-                            {
-                                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Rounded="true" />
-                            }
-                            else
-                            {
-                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                                           StartIcon="@Icons.Material.Filled.Add"
-                                           OnClick="() => ExecuteTemplate(t)"
-                                           FullWidth="true"
-                                           Style="border-radius: 8px; font-weight: 600;">
-                                    Create Task
-                                </MudButton>
-                            }
-                        </MudPaper>
-                    </MudItem>
+                            <div class="min-w-0">
+                                <p class="font-semibold text-slate-900 dark:text-white text-sm leading-tight">@t.Title</p>
+                                @if (!string.IsNullOrEmpty(t.TaskListName))
+                                {
+                                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">@t.TaskListName</p>
+                                }
+                            </div>
+                        </div>
+                        @if (_executingTemplateId == t.Id)
+                        {
+                            <div class="h-1.5 w-full bg-brand-100 rounded-full overflow-hidden">
+                                <div class="h-full bg-brand-500 rounded-full animate-pulse w-2/3"></div>
+                            </div>
+                        }
+                        else
+                        {
+                            <button @onclick="() => ExecuteTemplate(t)"
+                                    class="btn-primary w-full text-xs">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                Create Task
+                            </button>
+                        }
+                    </div>
                 }
-            </MudGrid>
+            </div>
+        }
+        else
+        {
+            <div class="flex flex-col items-center justify-center py-16 text-center">
+                <div class="text-5xl mb-4">📋</div>
+                <h3 class="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-1">No templates yet</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Set up templates to create tasks instantly from here.</p>
+                <a href="/templates" class="btn-primary text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Create Template
+                </a>
+            </div>
         }
 
-        <div class="mt-5">
-            <MudLink Href="templates" Style="color: var(--mud-palette-primary); font-weight: 500;">
-                <MudIcon Icon="@Icons.Material.Filled.Settings" Size="Size.Small" Class="mr-1" Style="vertical-align: middle;" />
+        <div class="mt-8 pt-6 border-t border-slate-100 dark:border-slate-700">
+            <a href="/templates" class="inline-flex items-center gap-1.5 text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
                 Manage templates →
-            </MudLink>
+            </a>
         </div>
     </Authorized>
+
     <NotAuthorized>
-        <div class="hero-container">
-            <div class="hero-bg"></div>
-            <MudContainer MaxWidth="MaxWidth.Medium" Class="d-flex flex-column align-center justify-center" Style="min-height: 100vh; position: relative; z-index: 1;">
-                <div class="hero-content d-flex flex-column align-center" style="text-align: center; max-width: 640px; width: 100%;">
-                    
-                    <div class="hero-badge mb-6">
-                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-1" />
-                        <span>Powered by Microsoft To Do</span>
+        <!-- Eye-catching landing page -->
+        <div class="min-h-screen relative overflow-hidden bg-slate-950">
+            <!-- Gradient orbs background -->
+            <div class="absolute inset-0 overflow-hidden pointer-events-none">
+                <div class="absolute -top-40 -right-40 w-96 h-96 bg-brand-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+                <div class="absolute -bottom-40 -left-40 w-96 h-96 bg-violet-600 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse" style="animation-delay: 1s;"></div>
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-fuchsia-600 rounded-full mix-blend-multiply filter blur-3xl opacity-10 animate-pulse" style="animation-delay: 2s;"></div>
+            </div>
+
+            <!-- Dot grid overlay -->
+            <div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle, #6366f1 1px, transparent 1px); background-size: 32px 32px;"></div>
+
+            <div class="relative z-10 flex flex-col min-h-screen">
+                <!-- Nav bar -->
+                <header class="flex items-center justify-between px-6 py-5 max-w-7xl mx-auto w-full">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center text-white font-black text-sm shadow-lg">✓</div>
+                        <span class="text-white font-bold text-lg tracking-tight">TodoExtended</span>
                     </div>
-
-                    <MudText Typo="Typo.h2" Class="hero-title mb-3">
-                        Todo<span class="hero-title-accent">Extended</span>
-                    </MudText>
-                    <MudText Typo="Typo.h5" Class="hero-subtitle mb-8">
-                        Supercharge your productivity with templates, Garmin watch support, and more.
-                    </MudText>
-
-                    <div class="d-flex flex-wrap justify-center gap-3 mb-10">
-                        <MudButton Href="MicrosoftIdentity/Account/SignIn"
-                                   Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   Size="Size.Large"
-                                   StartIcon="@Icons.Material.Filled.Login"
-                                   Class="hero-btn-primary"
-                                   Style="padding: 14px 36px; font-size: 1rem; font-weight: 600; border-radius: 12px;">
-                            Sign in with Microsoft
-                        </MudButton>
-
+                    <div class="flex items-center gap-3">
+                        <a href="MicrosoftIdentity/Account/SignIn" class="text-white/70 hover:text-white text-sm font-medium transition-colors">Sign in</a>
                         @if (DemoOptions.Value.Enabled)
                         {
-                            <MudButton Href="/auth/demo-signin"
-                                       Variant="Variant.Outlined"
-                                       Color="Color.Primary"
-                                       Size="Size.Large"
-                                       StartIcon="@Icons.Material.Filled.PlayCircle"
-                                       Style="padding: 14px 36px; font-size: 1rem; font-weight: 600; border-radius: 12px;"
-                                       UserAttributes="@(new Dictionary<string, object> { { "data-enhance-nav", "false" } })">
-                                Try Demo
-                            </MudButton>
+                            <a href="/auth/demo-signin"
+                               class="btn bg-white/10 hover:bg-white/20 text-white border border-white/20 text-sm px-4 py-2 rounded-xl backdrop-blur-sm"
+                               data-enhance-nav="false">
+                                Try Demo →
+                            </a>
+                        }
+                    </div>
+                </header>
+
+                <!-- Hero section -->
+                <main class="flex-1 flex flex-col items-center justify-center text-center px-4 py-16">
+                    <div class="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white/80 text-xs font-semibold rounded-full px-4 py-1.5 mb-8 border border-white/10">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Powered by Microsoft To Do
+                    </div>
+
+                    <h1 class="text-5xl sm:text-7xl font-black text-white tracking-tighter leading-none mb-6 max-w-3xl">
+                        Todo<span class="bg-gradient-to-r from-brand-400 via-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Extended</span>
+                    </h1>
+                    <p class="text-lg sm:text-xl text-white/60 max-w-xl mb-10 leading-relaxed">
+                        Supercharge your productivity — templates, Garmin watch support, and powerful task management in one place.
+                    </p>
+
+                    <div class="flex flex-wrap items-center justify-center gap-4 mb-20">
+                        <a href="MicrosoftIdentity/Account/SignIn"
+                           class="btn bg-gradient-to-r from-brand-600 to-violet-600 hover:from-brand-500 hover:to-violet-500 text-white shadow-xl shadow-brand-500/30 text-sm px-8 py-3.5 rounded-2xl font-bold">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/>
+                            </svg>
+                            Sign in with Microsoft
+                        </a>
+                        @if (DemoOptions.Value.Enabled)
+                        {
+                            <a href="/auth/demo-signin"
+                               class="btn bg-white/10 hover:bg-white/20 text-white border border-white/20 backdrop-blur-sm text-sm px-8 py-3.5 rounded-2xl font-bold"
+                               data-enhance-nav="false">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                Live Demo
+                            </a>
                         }
                     </div>
 
-                    <MudGrid Spacing="3" Justify="Justify.Center" Class="w-100">
-                        <MudItem xs="12" sm="6">
-                            <MudPaper Elevation="2" Class="feature-card pa-5 d-flex flex-column align-start" Style="height: 100%; border-radius: 16px;">
-                                <div class="feature-icon-wrap mb-3" style="background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);">
-                                    <MudIcon Icon="@Icons.Material.Filled.Today" Style="color: #4F46E5;" Size="Size.Medium" />
-                                </div>
-                                <MudText Typo="Typo.h6" Class="mb-1" Style="font-weight: 600;">Today View</MudText>
-                                <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">
-                                    Focus on what matters. See all tasks due today across all your lists in one place.
-                                </MudText>
-                            </MudPaper>
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudPaper Elevation="2" Class="feature-card pa-5 d-flex flex-column align-start" Style="height: 100%; border-radius: 16px;">
-                                <div class="feature-icon-wrap mb-3" style="background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%);">
-                                    <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Style="color: #7C3AED;" Size="Size.Medium" />
-                                </div>
-                                <MudText Typo="Typo.h6" Class="mb-1" Style="font-weight: 600;">Task Templates</MudText>
-                                <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">
-                                    Create recurring tasks instantly. Set up templates and create tasks with one click.
-                                </MudText>
-                            </MudPaper>
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudPaper Elevation="2" Class="feature-card pa-5 d-flex flex-column align-start" Style="height: 100%; border-radius: 16px;">
-                                <div class="feature-icon-wrap mb-3" style="background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);">
-                                    <MudIcon Icon="@Icons.Material.Filled.FlashOn" Style="color: #059669;" Size="Size.Medium" />
-                                </div>
-                                <MudText Typo="Typo.h6" Class="mb-1" Style="font-weight: 600;">Quick Create</MudText>
-                                <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">
-                                    Lightning-fast task creation from your templates right from the home screen.
-                                </MudText>
-                            </MudPaper>
-                        </MudItem>
-                        <MudItem xs="12" sm="6">
-                            <MudPaper Elevation="2" Class="feature-card pa-5 d-flex flex-column align-start" Style="height: 100%; border-radius: 16px;">
-                                <div class="feature-icon-wrap mb-3" style="background: linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%);">
-                                    <MudIcon Icon="@Icons.Material.Filled.Watch" Style="color: #EA580C;" Size="Size.Medium" />
-                                </div>
-                                <MudText Typo="Typo.h6" Class="mb-1" Style="font-weight: 600;">Garmin Companion</MudText>
-                                <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);">
-                                    Check and complete tasks directly from your Garmin smartwatch.
-                                </MudText>
-                            </MudPaper>
-                        </MudItem>
-                    </MudGrid>
-                </div>
-            </MudContainer>
+                    <!-- Feature cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl w-full text-left">
+                        <div class="bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl p-5 transition-all duration-200 hover:-translate-y-1">
+                            <div class="w-10 h-10 rounded-xl bg-brand-500/20 flex items-center justify-center mb-4">
+                                <span class="text-xl">☀️</span>
+                            </div>
+                            <h3 class="text-white font-bold mb-1.5 text-sm">Today View</h3>
+                            <p class="text-white/50 text-xs leading-relaxed">All tasks due today across every list in one focused view.</p>
+                        </div>
+                        <div class="bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl p-5 transition-all duration-200 hover:-translate-y-1">
+                            <div class="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center mb-4">
+                                <span class="text-xl">⚡</span>
+                            </div>
+                            <h3 class="text-white font-bold mb-1.5 text-sm">Task Templates</h3>
+                            <p class="text-white/50 text-xs leading-relaxed">Create recurring tasks instantly with one click from templates.</p>
+                        </div>
+                        <div class="bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl p-5 transition-all duration-200 hover:-translate-y-1">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center mb-4">
+                                <span class="text-xl">🚀</span>
+                            </div>
+                            <h3 class="text-white font-bold mb-1.5 text-sm">Quick Create</h3>
+                            <p class="text-white/50 text-xs leading-relaxed">Lightning-fast task creation right from your dashboard.</p>
+                        </div>
+                        <div class="bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-white/10 rounded-2xl p-5 transition-all duration-200 hover:-translate-y-1">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center mb-4">
+                                <span class="text-xl">⌚</span>
+                            </div>
+                            <h3 class="text-white font-bold mb-1.5 text-sm">Garmin Watch</h3>
+                            <p class="text-white/50 text-xs leading-relaxed">Check and complete tasks directly from your Garmin smartwatch.</p>
+                        </div>
+                    </div>
+                </main>
+
+                <!-- Footer -->
+                <footer class="text-center pb-8 text-white/30 text-xs">
+                    Powered by Microsoft To Do · TodoExtended
+                </footer>
+            </div>
         </div>
     </NotAuthorized>
 </AuthorizeView>
@@ -221,7 +261,7 @@
         try
         {
             await TemplateService.ExecuteTemplateAsync(template.Id);
-            Snackbar.Add($"Created task \"{template.Title}\" successfully!", Severity.Success);
+            Notifications.Add($"Created task \"{template.Title}\" successfully!", NotifySeverity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -230,7 +270,7 @@
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to create task: {ex.Message}", Severity.Error);
+            Notifications.Add($"Failed to create task: {ex.Message}", NotifySeverity.Error);
         }
         finally
         {

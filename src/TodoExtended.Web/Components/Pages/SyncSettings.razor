@@ -3,152 +3,217 @@
 @using Microsoft.Identity.Web
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
-@inject ISnackbar Snackbar
+@inject INotificationService Notifications
 
 <PageTitle>Sync Settings</PageTitle>
 
-<MudText Typo="Typo.h4" Class="page-title mb-1">Sync Settings</MudText>
-<MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary);" Class="mb-6">Configure which task lists are synced.</MudText>
+<div class="mb-8 flex items-center gap-4">
+    <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center shadow-lg shadow-sky-500/30 flex-shrink-0">
+        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+    </div>
+    <div>
+        <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Sync Settings</h1>
+        <p class="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Configure which task lists are synced.</p>
+    </div>
+</div>
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
-    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="300px" />
+    <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden max-w-lg">
+        <div class="h-1 bg-gradient-to-r from-sky-500 to-blue-500 animate-pulse"></div>
+        @for (int i = 0; i < 4; i++)
+        {
+            <div class="task-row">
+                <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
+            </div>
+        }
+    </div>
 }
 else if (_error is not null)
 {
-    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    <div class="rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-5 py-4 text-sm font-medium">⚠ @_error</div>
 }
 else
 {
-    <MudPaper Elevation="2" Class="pa-2" Style="max-width:480px">
-        <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true">
-            <MudTabPanel Text="Synced">
-                @if (_selectionMode)
-                {
-                    <div class="d-flex align-center pa-1">
-                        <MudCheckBox T="bool"
-                                     Value="@(_syncedLists.Count > 0 && _selectedListIds.SetEquals(_syncedLists.Select(l => l.Id)))"
-                                     ValueChanged="v => SelectAllSynced(v)"
-                                     Label="Select all"
-                                     Size="Size.Small"
-                                     Dense="true" />
-                        <MudSpacer />
-                        @if (_selectedListIds.Any(id => _syncedLists.Any(l => l.Id == id)))
-                        {
-                            <MudButton Size="Size.Small" Color="Color.Warning" Variant="Variant.Filled"
-                                       OnClick="BulkRemoveFromSync" Disabled="_syncingListId is not null">
-                                Remove from Sync
-                            </MudButton>
-                        }
-                    </div>
-                }
-                <MudList T="string" Dense="true">
-                    @foreach (var list in _syncedLists)
+    <div class="max-w-lg">
+        <!-- Tab buttons -->
+        <div class="flex gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1 mb-4 w-fit">
+            <button @onclick="() => _activeTab = 0"
+                    class="@(_activeTab == 0 ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300") px-4 py-2 rounded-lg text-sm font-semibold transition-all">
+                Synced (@_syncedLists.Count)
+            </button>
+            <button @onclick="SwitchToNotSynced"
+                    class="@(_activeTab == 1 ? "bg-white dark:bg-slate-700 shadow-sm text-slate-900 dark:text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300") px-4 py-2 rounded-lg text-sm font-semibold transition-all">
+                Not Synced
+            </button>
+        </div>
+
+        @if (_activeTab == 0)
+        {
+            @if (_selectionMode && _syncedLists.Count > 0)
+            {
+                <div class="flex items-center gap-3 mb-3 px-1">
+                    <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer">
+                        <input type="checkbox"
+                               checked="@(_syncedLists.Count > 0 && _selectedListIds.SetEquals(_syncedLists.Select(l => l.Id)))"
+                               @onchange="e => SelectAllSynced((bool)(e.Value ?? false))"
+                               class="w-4 h-4 rounded accent-brand-600" />
+                        Select all
+                    </label>
+                    <div class="flex-1"></div>
+                    @if (_selectedListIds.Any(id => _syncedLists.Any(l => l.Id == id)))
                     {
-                        <MudListItem T="string">
-                            <div class="d-flex align-center" style="width:100%">
-                                @if (_selectionMode)
-                                {
-                                    <MudCheckBox T="bool"
-                                                 Value="@_selectedListIds.Contains(list.Id)"
-                                                 ValueChanged="v => ToggleListSelection(list.Id, v)"
-                                                 Size="Size.Small"
-                                                 Dense="true"
-                                                 StopClickPropagation="true"
-                                                 Class="mr-1" />
-                                }
-                                <MudText>@list.DisplayName</MudText>
-                                <MudSpacer />
-                                @if (_syncingListId == list.Id)
-                                {
-                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                                }
-                                else if (!_selectionMode)
-                                {
-                                    <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight">
-                                        <MudMenuItem Icon="@Icons.Material.Filled.SyncDisabled" OnClick="() => RemoveFromSync(list.Id)">Remove from Sync</MudMenuItem>
-                                    </MudMenu>
-                                }
-                            </div>
-                        </MudListItem>
+                        <button @onclick="BulkRemoveFromSync" disabled="@(_syncingListId is not null)"
+                                class="btn bg-amber-500 hover:bg-amber-600 text-white text-xs px-3 py-1.5 rounded-lg font-semibold">
+                            Remove Selected
+                        </button>
                     }
-                </MudList>
-            </MudTabPanel>
-            <MudTabPanel Text="Not Synced" OnClick="EnsureNotSyncedLoaded">
-                @if (_loadingNotSynced)
-                {
-                    <MudProgressLinear Indeterminate="true" Color="Color.Secondary" />
-                }
-                else if (_notSyncedLists.Count == 0)
-                {
-                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-2">All lists are synced.</MudText>
-                }
-                else
-                {
-                    @if (_selectionMode)
+                </div>
+            }
+
+            @if (_syncedLists.Count == 0)
+            {
+                <div class="card dark:bg-slate-800 dark:border-slate-700 py-10 text-center">
+                    <p class="text-slate-400 dark:text-slate-500 text-sm">No synced lists.</p>
+                </div>
+            }
+            else
+            {
+                <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+                    @foreach (var (list, idx) in _syncedLists.Select((l, i) => (l, i)))
                     {
-                        <div class="d-flex align-center pa-1">
-                            <MudCheckBox T="bool"
-                                         Value="@(_notSyncedLists.Count > 0 && _selectedListIds.SetEquals(_notSyncedLists.Select(l => l.Id)))"
-                                         ValueChanged="v => SelectAllNotSynced(v)"
-                                         Label="Select all"
-                                         Size="Size.Small"
-                                         Dense="true" />
-                            <MudSpacer />
-                            @if (_selectedListIds.Any(id => _notSyncedLists.Any(l => l.Id == id)))
+                        <div class="task-row">
+                            @if (_selectionMode)
                             {
-                                <MudButton Size="Size.Small" Color="Color.Success" Variant="Variant.Filled"
-                                           OnClick="BulkAddToSync" Disabled="_syncingListId is not null">
-                                    Add to Sync
-                                </MudButton>
+                                <input type="checkbox"
+                                       checked="@_selectedListIds.Contains(list.Id)"
+                                       @onchange="e => ToggleListSelection(list.Id, (bool)(e.Value ?? false))"
+                                       class="w-4 h-4 rounded accent-brand-600 flex-shrink-0" />
+                            }
+                            <span class="flex-1 text-sm font-medium text-slate-800 dark:text-slate-200">@list.DisplayName</span>
+                            @if (_syncingListId == list.Id)
+                            {
+                                <svg class="animate-spin w-4 h-4 text-brand-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                            }
+                            else if (!_selectionMode)
+                            {
+                                <button @onclick="() => RemoveFromSync(list.Id)"
+                                        class="text-xs text-rose-500 hover:text-rose-700 font-medium flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+                                    </svg>
+                                    Remove
+                                </button>
                             }
                         </div>
                     }
-                    <MudList T="string" Dense="true">
-                        @foreach (var list in _notSyncedLists)
+                </div>
+            }
+        }
+        else
+        {
+            @if (_loadingNotSynced)
+            {
+                <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+                    @for (int i = 0; i < 3; i++)
+                    {
+                        <div class="task-row">
+                            <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
+                        </div>
+                    }
+                </div>
+            }
+            else if (_notSyncedLists.Count == 0)
+            {
+                <div class="card dark:bg-slate-800 dark:border-slate-700 py-10 text-center">
+                    <p class="text-emerald-600 dark:text-emerald-400 text-sm font-medium">✓ All lists are synced</p>
+                </div>
+            }
+            else
+            {
+                @if (_selectionMode)
+                {
+                    <div class="flex items-center gap-3 mb-3 px-1">
+                        <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer">
+                            <input type="checkbox"
+                                   checked="@(_notSyncedLists.Count > 0 && _selectedListIds.SetEquals(_notSyncedLists.Select(l => l.Id)))"
+                                   @onchange="e => SelectAllNotSynced((bool)(e.Value ?? false))"
+                                   class="w-4 h-4 rounded accent-brand-600" />
+                            Select all
+                        </label>
+                        <div class="flex-1"></div>
+                        @if (_selectedListIds.Any(id => _notSyncedLists.Any(l => l.Id == id)))
                         {
-                            <MudListItem T="string">
-                                <div class="d-flex align-center" style="width:100%">
-                                    @if (_selectionMode)
-                                    {
-                                        <MudCheckBox T="bool"
-                                                     Value="@_selectedListIds.Contains(list.Id)"
-                                                     ValueChanged="v => ToggleListSelection(list.Id, v)"
-                                                     Size="Size.Small"
-                                                     Dense="true"
-                                                     StopClickPropagation="true"
-                                                     Class="mr-1" />
-                                    }
-                                    <MudText Color="Color.Secondary">@list.DisplayName</MudText>
-                                    <MudSpacer />
-                                    @if (_syncingListId == list.Id)
-                                    {
-                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" />
-                                    }
-                                    else if (!_selectionMode)
-                                    {
-                                        <MudMenu Icon="@Icons.Material.Filled.MoreVert" Size="Size.Small" Dense="true" AnchorOrigin="Origin.BottomRight">
-                                            <MudMenuItem Icon="@Icons.Material.Filled.Sync" OnClick="() => AddToSync(list.Id)">Add to Sync</MudMenuItem>
-                                        </MudMenu>
-                                    }
-                                </div>
-                            </MudListItem>
+                            <button @onclick="BulkAddToSync" disabled="@(_syncingListId is not null)"
+                                    class="btn bg-emerald-500 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded-lg font-semibold">
+                                Add Selected
+                            </button>
                         }
-                    </MudList>
+                    </div>
                 }
-            </MudTabPanel>
-        </MudTabs>
-        <div class="d-flex justify-end pa-1">
-            <MudTooltip Text="@(_selectionMode ? "Exit selection" : "Select multiple lists")">
-                <MudToggleIconButton Toggled="_selectionMode"
-                                     Icon="@Icons.Material.Filled.CheckBox"
-                                     ToggledIcon="@Icons.Material.Filled.CheckBoxOutlineBlank"
-                                     Size="Size.Small"
-                                     ToggledChanged="OnSelectionModeChanged" />
-            </MudTooltip>
+
+                <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+                    @foreach (var list in _notSyncedLists)
+                    {
+                        <div class="task-row">
+                            @if (_selectionMode)
+                            {
+                                <input type="checkbox"
+                                       checked="@_selectedListIds.Contains(list.Id)"
+                                       @onchange="e => ToggleListSelection(list.Id, (bool)(e.Value ?? false))"
+                                       class="w-4 h-4 rounded accent-brand-600 flex-shrink-0" />
+                            }
+                            <span class="flex-1 text-sm text-slate-500 dark:text-slate-400">@list.DisplayName</span>
+                            @if (_syncingListId == list.Id)
+                            {
+                                <svg class="animate-spin w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                                </svg>
+                            }
+                            else if (!_selectionMode)
+                            {
+                                <button @onclick="() => AddToSync(list.Id)"
+                                        class="text-xs text-emerald-600 hover:text-emerald-800 font-medium flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-colors">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                    </svg>
+                                    Add
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        }
+
+        <!-- Selection mode toggle -->
+        <div class="flex justify-end mt-4">
+            <button @onclick="() => OnSelectionModeChanged(!_selectionMode)"
+                    class="@(_selectionMode ? "btn-primary btn-sm" : "btn-ghost btn-sm") flex items-center gap-1.5"
+                    title="@(_selectionMode ? "Exit selection" : "Select multiple lists")">
+                @if (_selectionMode)
+                {
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                    <span>Done</span>
+                }
+                else
+                {
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
+                    </svg>
+                    <span>Select multiple</span>
+                }
+            </button>
         </div>
-    </MudPaper>
+    </div>
 }
 
 @code {
@@ -161,6 +226,7 @@ else
     private string? _syncingListId;
     private bool _selectionMode;
     private HashSet<string> _selectedListIds = [];
+    private int _activeTab = 0;
     private const string BulkOperationId = "bulk";
 
     protected override async Task OnInitializedAsync()
@@ -184,12 +250,10 @@ else
         }
     }
 
-    private async Task EnsureNotSyncedLoaded()
+    private async Task SwitchToNotSynced()
     {
-        if (!_notSyncedListsLoaded)
-        {
-            await LoadNotSyncedLists();
-        }
+        _activeTab = 1;
+        if (!_notSyncedListsLoaded) await LoadNotSyncedLists();
     }
 
     private async Task LoadNotSyncedLists()
@@ -219,16 +283,13 @@ else
     {
         if (_syncingListId is not null) return;
         _syncingListId = listId;
-
         try
         {
             await TodoService.SetTaskListSyncedAsync(listId, false);
-
             var list = _syncedLists.First(l => l.Id == listId);
             _syncedLists = _syncedLists.Where(l => l.Id != listId).ToList();
             _notSyncedLists = [.. _notSyncedLists, list with { IsSynced = false }];
-
-            Snackbar.Add($"List \"{list.DisplayName}\" removed from sync.", Severity.Success);
+            Notifications.Add($"List \"{list.DisplayName}\" removed from sync.", NotifySeverity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -237,28 +298,22 @@ else
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to remove list from sync: {ex.Message}", Severity.Error);
+            Notifications.Add($"Failed: {ex.Message}", NotifySeverity.Error);
         }
-        finally
-        {
-            _syncingListId = null;
-        }
+        finally { _syncingListId = null; }
     }
 
     private async Task AddToSync(string listId)
     {
         if (_syncingListId is not null) return;
         _syncingListId = listId;
-
         try
         {
             await TodoService.SetTaskListSyncedAsync(listId, true);
-
             var list = _notSyncedLists.First(l => l.Id == listId);
             _notSyncedLists = _notSyncedLists.Where(l => l.Id != listId).ToList();
             _syncedLists = [.. _syncedLists, list with { IsSynced = true }];
-
-            Snackbar.Add($"List \"{list.DisplayName}\" added to sync.", Severity.Success);
+            Notifications.Add($"List \"{list.DisplayName}\" added to sync.", NotifySeverity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -267,65 +322,48 @@ else
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to add list to sync: {ex.Message}", Severity.Error);
+            Notifications.Add($"Failed: {ex.Message}", NotifySeverity.Error);
         }
-        finally
-        {
-            _syncingListId = null;
-        }
+        finally { _syncingListId = null; }
     }
 
     private void ToggleListSelection(string listId, bool selected)
     {
-        if (selected)
-            _selectedListIds.Add(listId);
-        else
-            _selectedListIds.Remove(listId);
+        if (selected) _selectedListIds.Add(listId);
+        else _selectedListIds.Remove(listId);
     }
 
     private void SelectAllSynced(bool selectAll)
     {
-        if (selectAll)
-            foreach (var list in _syncedLists)
-                _selectedListIds.Add(list.Id);
-        else
-            foreach (var list in _syncedLists)
-                _selectedListIds.Remove(list.Id);
+        if (selectAll) foreach (var l in _syncedLists) _selectedListIds.Add(l.Id);
+        else foreach (var l in _syncedLists) _selectedListIds.Remove(l.Id);
     }
 
     private void SelectAllNotSynced(bool selectAll)
     {
-        if (selectAll)
-            foreach (var list in _notSyncedLists)
-                _selectedListIds.Add(list.Id);
-        else
-            foreach (var list in _notSyncedLists)
-                _selectedListIds.Remove(list.Id);
+        if (selectAll) foreach (var l in _notSyncedLists) _selectedListIds.Add(l.Id);
+        else foreach (var l in _notSyncedLists) _selectedListIds.Remove(l.Id);
     }
 
     private void OnSelectionModeChanged(bool toggled)
     {
         _selectionMode = toggled;
-        if (!toggled)
-            _selectedListIds.Clear();
+        if (!toggled) _selectedListIds.Clear();
     }
 
     private async Task BulkRemoveFromSync()
     {
         var ids = _selectedListIds.Where(id => _syncedLists.Any(l => l.Id == id)).ToList();
         if (ids.Count == 0) return;
-
         _syncingListId = BulkOperationId;
         try
         {
             await Task.WhenAll(ids.Select(id => TodoService.SetTaskListSyncedAsync(id, false)));
-
-            var listsToMove = _syncedLists.Where(l => ids.Contains(l.Id)).ToList();
+            var moved = _syncedLists.Where(l => ids.Contains(l.Id)).ToList();
             _syncedLists = _syncedLists.Where(l => !ids.Contains(l.Id)).ToList();
-            _notSyncedLists = [.. _notSyncedLists, .. listsToMove.Select(l => l with { IsSynced = false })];
-
+            _notSyncedLists = [.. _notSyncedLists, .. moved.Select(l => l with { IsSynced = false })];
             _selectedListIds.ExceptWith(ids);
-            Snackbar.Add($"{listsToMove.Count} list(s) removed from sync.", Severity.Success);
+            Notifications.Add($"{moved.Count} list(s) removed from sync.", NotifySeverity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -334,30 +372,24 @@ else
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to update sync: {ex.Message}", Severity.Error);
+            Notifications.Add($"Failed: {ex.Message}", NotifySeverity.Error);
         }
-        finally
-        {
-            _syncingListId = null;
-        }
+        finally { _syncingListId = null; }
     }
 
     private async Task BulkAddToSync()
     {
         var ids = _selectedListIds.Where(id => _notSyncedLists.Any(l => l.Id == id)).ToList();
         if (ids.Count == 0) return;
-
         _syncingListId = BulkOperationId;
         try
         {
             await Task.WhenAll(ids.Select(id => TodoService.SetTaskListSyncedAsync(id, true)));
-
-            var listsToMove = _notSyncedLists.Where(l => ids.Contains(l.Id)).ToList();
+            var moved = _notSyncedLists.Where(l => ids.Contains(l.Id)).ToList();
             _notSyncedLists = _notSyncedLists.Where(l => !ids.Contains(l.Id)).ToList();
-            _syncedLists = [.. _syncedLists, .. listsToMove.Select(l => l with { IsSynced = true })];
-
+            _syncedLists = [.. _syncedLists, .. moved.Select(l => l with { IsSynced = true })];
             _selectedListIds.ExceptWith(ids);
-            Snackbar.Add($"{listsToMove.Count} list(s) added to sync.", Severity.Success);
+            Notifications.Add($"{moved.Count} list(s) added to sync.", NotifySeverity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -366,11 +398,8 @@ else
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to update sync: {ex.Message}", Severity.Error);
+            Notifications.Add($"Failed: {ex.Message}", NotifySeverity.Error);
         }
-        finally
-        {
-            _syncingListId = null;
-        }
+        finally { _syncingListId = null; }
     }
 }
