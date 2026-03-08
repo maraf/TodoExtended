@@ -16,6 +16,11 @@ public class DemoDataStore
             ?? throw new InvalidOperationException("Failed to deserialize demo data.");
 
         _taskLists = data.TaskLists;
+
+        // Set a couple of tasks as due today so the Today view shows items
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        SetDueDate("demo-list-work", "demo-task-w1", today);
+        SetDueDate("demo-list-personal", "demo-task-p1", today);
     }
 
     public IReadOnlyList<DemoTaskList> GetTaskLists() => _taskLists.AsReadOnly();
@@ -53,6 +58,14 @@ public class DemoDataStore
         task.IsCompleted = completed;
         return true;
     }
+
+    private void SetDueDate(string listId, string taskId, DateOnly date)
+    {
+        var list = _taskLists.FirstOrDefault(l => l.Id == listId);
+        var task = list?.Tasks.FirstOrDefault(t => t.Id == taskId);
+        if (task is not null)
+            task.DueDate = date;
+    }
 }
 
 public class DemoData
@@ -75,3 +88,4 @@ public class DemoTaskItem
     public DateOnly? DueDate { get; set; }
     public string? Importance { get; set; }
 }
+

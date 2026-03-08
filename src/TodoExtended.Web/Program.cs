@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -40,7 +41,7 @@ if (isDemoMode)
         });
 
     builder.Services.AddSingleton<DemoDataStore>();
-    builder.Services.AddScoped<ITodoService, DemoTodoService>();
+    builder.Services.AddScoped<IGraphTodoClient, DemoGraphTodoClient>();
 }
 else
 {
@@ -58,8 +59,6 @@ else
             ApiKeyAuthenticationOptions.DefaultScheme,
             options => { });
 
-    builder.Services.AddScoped<GraphTodoService>();
-    builder.Services.AddScoped<ITodoService, CachedTodoService>();
     builder.Services.AddSingleton<ApiKeyGraphClientFactory>();
 
     // Override GraphServiceClient to handle both OIDC and API key authentication
@@ -87,7 +86,13 @@ else
 
         return new Microsoft.Graph.GraphServiceClient(authProvider);
     });
+
+    builder.Services.AddScoped<IGraphTodoClient, HttpGraphTodoClient>();
 }
+
+// Both modes use GraphTodoService + CachedTodoService through IGraphTodoClient
+builder.Services.AddScoped<GraphTodoService>();
+builder.Services.AddScoped<ITodoService, CachedTodoService>();
 
 builder.Services.AddAuthorization(options =>
 {
