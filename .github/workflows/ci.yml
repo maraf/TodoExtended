@@ -18,3 +18,49 @@ jobs:
 
       - name: Build TodoExtended.Web
         run: dotnet build src/TodoExtended.Web/TodoExtended.Web.csproj --configuration Release
+
+  e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish web app
+        run: dotnet publish src/TodoExtended.Web/TodoExtended.Web.csproj --configuration Release -o /tmp/todoextended-publish
+
+      - name: Build E2E tests
+        run: dotnet build tests/TodoExtended.E2E/TodoExtended.E2E.csproj --configuration Debug
+
+      - name: Install Playwright browsers
+        run: pwsh tests/TodoExtended.E2E/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Start app in demo mode
+        run: |
+          cd /tmp/todoextended-publish && dotnet TodoExtended.Web.dll &
+          # Wait until the app responds
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5000/ && break || sleep 2
+          done
+        env:
+          Demo__Enabled: "true"
+          ASPNETCORE_URLS: "http://localhost:5000"
+          ConnectionStrings__DefaultConnection: "Data Source=/tmp/e2e-todoextended.db"
+
+      - name: Run E2E tests
+        run: dotnet test tests/TodoExtended.E2E/TodoExtended.E2E.csproj --configuration Debug --no-build
+        env:
+          E2E_BASE_URL: "http://localhost:5000"
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: tests/TodoExtended.E2E/screenshots/
+          if-no-files-found: warn

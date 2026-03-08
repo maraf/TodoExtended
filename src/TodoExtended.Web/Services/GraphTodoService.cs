@@ -1,26 +1,22 @@
 using System.Globalization;
-using Microsoft.Graph;
 
 namespace TodoExtended.Web.Services;
 
-public class GraphTodoService(GraphServiceClient graphClient, IUserTimeZoneService userTimeZoneService, ILogger<GraphTodoService> logger) : ITodoService
+public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService userTimeZoneService, ILogger<GraphTodoService> logger) : ITodoService
 {
     public async Task<IReadOnlyList<TodoTaskList>> GetTaskListsAsync()
     {
-        var response = await graphClient.Me.Todo.Lists.GetAsync();
-        if (response?.Value is null) return [];
-
-        return response.Value
+        var response = await graphClient.GetTaskListsAsync();
+        return response
             .Select(l => new TodoTaskList(l.Id!, l.DisplayName ?? "Untitled"))
             .ToList();
     }
 
     public async Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId)
     {
-        var response = await graphClient.Me.Todo.Lists[taskListId].Tasks.GetAsync();
-        if (response?.Value is null) return [];
+        var response = await graphClient.GetTasksAsync(taskListId);
 
-        return response.Value
+        return response
             .Select(t =>
             {
                 if (t.DueDateTime is not null)
@@ -54,13 +50,9 @@ public class GraphTodoService(GraphServiceClient graphClient, IUserTimeZoneServi
 
         foreach (var list in lists)
         {
-            var response = await graphClient.Me.Todo.Lists[list.Id].Tasks.GetAsync(config =>
-            {
-                config.QueryParameters.Filter = filter;
-            });
-            if (response?.Value is null) continue;
+            var response = await graphClient.GetTasksAsync(list.Id, filter);
 
-            foreach (var t in response.Value)
+            foreach (var t in response)
             {
                 logger.LogDebug("GetTodayTasksAsync: Task '{Title}' raw dueDateTime='{DateTime}' timeZone='{TimeZone}'", t.Title, t.DueDateTime?.DateTime, t.DueDateTime?.TimeZone);
 
@@ -108,8 +100,7 @@ public class GraphTodoService(GraphServiceClient graphClient, IUserTimeZoneServi
             };
         }
 
-        var created = await graphClient.Me.Todo.Lists[taskListId].Tasks.PostAsync(newTask)
-            ?? throw new InvalidOperationException("Graph API returned null when creating task.");
+        var created = await graphClient.CreateTaskAsync(taskListId, newTask);
 
         return new TodoTask(
             created.Id!,
@@ -132,7 +123,7 @@ public class GraphTodoService(GraphServiceClient graphClient, IUserTimeZoneServi
         };
 
         logger.LogDebug("UpdateTaskStatusAsync: Sending PatchAsync for taskId={TaskId}, status={Status}", taskId, patch.Status);
-        await graphClient.Me.Todo.Lists[taskListId].Tasks[taskId].PatchAsync(patch);
+        await graphClient.PatchTaskAsync(taskListId, taskId, patch);
         logger.LogDebug("UpdateTaskStatusAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
     }
 
@@ -161,3 +152,4 @@ public class GraphTodoService(GraphServiceClient graphClient, IUserTimeZoneServi
         return result;
     }
 }
+

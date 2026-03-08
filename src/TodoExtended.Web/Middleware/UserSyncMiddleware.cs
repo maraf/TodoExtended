@@ -10,16 +10,17 @@ namespace TodoExtended.Web.Middleware;
 
 public class UserSyncMiddleware(RequestDelegate next, ILogger<UserSyncMiddleware> logger)
 {
-    public async Task InvokeAsync(HttpContext context, AppDbContext dbContext, ITokenAcquisition tokenAcquisition)
+    public async Task InvokeAsync(HttpContext context, AppDbContext dbContext)
     {
         if (context.User.Identity?.IsAuthenticated == true)
         {
-            // Sync for OIDC/cookie-authenticated users, not API key users.
+            // Sync for OIDC/cookie-authenticated users, not API key or demo users.
             // After initial OIDC sign-in, subsequent requests use cookie auth,
             // so we check for the OID claim rather than AuthenticationType.
             var isApiKeyAuth = context.User.HasClaim(c => c.Type == "apikey" && c.Value == "true");
+            var isDemoUser = context.User.HasClaim(c => c.Type == "demo" && c.Value == "true");
 
-            if (!isApiKeyAuth)
+            if (!isApiKeyAuth && !isDemoUser)
             {
                 var oid = context.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
                 var tid = context.User.FindFirst("http://schemas.microsoft.com/identity/claims/tenantid")?.Value;
@@ -61,7 +62,9 @@ public class UserSyncMiddleware(RequestDelegate next, ILogger<UserSyncMiddleware
                         user.LastSeenUtc = now;
                     }
 
-                    if (string.IsNullOrEmpty(user.TimeZone))
+                    // ITokenAcquisition is only available when OIDC auth is registered (non-demo mode).
+                    var tokenAcquisition = context.RequestServices.GetService<ITokenAcquisition>();
+                    if (tokenAcquisition != null && string.IsNullOrEmpty(user.TimeZone))
                     {
                         try
                         {

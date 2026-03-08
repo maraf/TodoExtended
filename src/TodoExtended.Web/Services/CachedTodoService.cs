@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Graph;
 using Microsoft.Extensions.Options;
 using TodoExtended.Web.Data;
 using System.Globalization;
@@ -8,7 +7,7 @@ namespace TodoExtended.Web.Services;
 
 public class CachedTodoService(
     GraphTodoService graphService,
-    GraphServiceClient graphClient,
+    IGraphTodoClient graphClient,
     IDbContextFactory<AppDbContext> dbContextFactory,
     IOptions<TodoCacheOptions> options,
     IUserTimeZoneService userTimeZoneService,
@@ -426,17 +425,13 @@ public class CachedTodoService(
 
         try
         {
-            var response = string.IsNullOrEmpty(deltaToken)
-                ? await graphClient.Me.Todo.Lists.Delta.GetAsDeltaGetResponseAsync()
-                : await graphClient.Me.Todo.Lists.Delta
-                    .WithUrl(deltaToken)
-                    .GetAsDeltaGetResponseAsync();
+            var page = await graphClient.GetListsDeltaPageAsync(deltaToken);
 
-            while (response != null)
+            while (true)
             {
-                if (response.Value != null)
+                if (page.Value.Count > 0)
                 {
-                    foreach (var graphList in response.Value)
+                    foreach (var graphList in page.Value)
                     {
                         if (graphList.AdditionalData?.ContainsKey("@removed") == true)
                         {
@@ -455,7 +450,7 @@ public class CachedTodoService(
                         {
                             var cachedList = await db.CachedTaskLists.FindAsync(graphList.Id);
                             var now = DateTime.UtcNow;
-                            
+
                             if (cachedList == null)
                             {
                                 logger.LogDebug("Adding new task list {ListId} to cache", graphList.Id);
@@ -479,20 +474,18 @@ public class CachedTodoService(
                             }
                         }
                     }
-                    
+
                     await db.SaveChangesAsync();
                 }
 
-                if (!string.IsNullOrEmpty(response.OdataNextLink))
+                if (!string.IsNullOrEmpty(page.OdataNextLink))
                 {
                     logger.LogDebug("Fetching next page of task lists delta");
-                    response = await graphClient.Me.Todo.Lists.Delta
-                        .WithUrl(response.OdataNextLink)
-                        .GetAsDeltaGetResponseAsync();
+                    page = await graphClient.GetListsDeltaPageAsync(page.OdataNextLink);
                 }
                 else
                 {
-                    if (!string.IsNullOrEmpty(response.OdataDeltaLink))
+                    if (!string.IsNullOrEmpty(page.OdataDeltaLink))
                     {
                         logger.LogDebug("Storing task lists delta token");
                         if (deltaTokenMetadata == null)
@@ -500,14 +493,14 @@ public class CachedTodoService(
                             deltaTokenMetadata = new SyncMetadata
                             {
                                 Key = TaskListsDeltaTokenKey,
-                                Value = response.OdataDeltaLink,
+                                Value = page.OdataDeltaLink,
                                 UpdatedUtc = DateTime.UtcNow,
                             };
                             db.SyncMetadata.Add(deltaTokenMetadata);
                         }
                         else
                         {
-                            deltaTokenMetadata.Value = response.OdataDeltaLink;
+                            deltaTokenMetadata.Value = page.OdataDeltaLink;
                             deltaTokenMetadata.UpdatedUtc = DateTime.UtcNow;
                         }
                         await db.SaveChangesAsync();
@@ -536,18 +529,14 @@ public class CachedTodoService(
 
         try
         {
-            var response = string.IsNullOrEmpty(deltaToken)
-                ? await graphClient.Me.Todo.Lists[listId].Tasks.Delta.GetAsDeltaGetResponseAsync()
-                : await graphClient.Me.Todo.Lists[listId].Tasks.Delta
-                    .WithUrl(deltaToken)
-                    .GetAsDeltaGetResponseAsync();
+            var page = await graphClient.GetTasksDeltaPageAsync(listId, deltaToken);
 
-            while (response != null)
+            while (true)
             {
-                if (response.Value != null)
+                if (page.Value.Count > 0)
                 {
-                    logger.LogDebug("Delta page for list {ListId}: {Count} items", listId, response.Value.Count);
-                    foreach (var graphTask in response.Value)
+                    logger.LogDebug("Delta page for list {ListId}: {Count} items", listId, page.Value.Count);
+                    foreach (var graphTask in page.Value)
                     {
                         if (graphTask.AdditionalData?.ContainsKey("@removed") == true)
                         {
@@ -574,7 +563,7 @@ public class CachedTodoService(
                             var cachedTask = await scopedDb.CachedTasks.FindAsync(graphTask.Id);
                             var now = DateTime.UtcNow;
                             var dueDate = ParseDueDate(graphTask.DueDateTime);
-                            
+
                             if (cachedTask == null)
                             {
                                 logger.LogDebug("Adding new task {TaskId} to cache", graphTask.Id);
@@ -608,26 +597,24 @@ public class CachedTodoService(
                             }
                         }
                     }
-                    
+
                     await scopedDb.SaveChangesAsync();
                 }
 
-                if (!string.IsNullOrEmpty(response.OdataNextLink))
+                if (!string.IsNullOrEmpty(page.OdataNextLink))
                 {
                     logger.LogDebug("Fetching next page of tasks delta for list {ListId}", listId);
-                    response = await graphClient.Me.Todo.Lists[listId].Tasks.Delta
-                        .WithUrl(response.OdataNextLink)
-                        .GetAsDeltaGetResponseAsync();
+                    page = await graphClient.GetTasksDeltaPageAsync(listId, page.OdataNextLink);
                 }
                 else
                 {
-                    if (!string.IsNullOrEmpty(response.OdataDeltaLink))
+                    if (!string.IsNullOrEmpty(page.OdataDeltaLink))
                     {
                         logger.LogDebug("Storing delta token for list {ListId}", listId);
                         var cachedList = await scopedDb.CachedTaskLists.FindAsync(listId);
                         if (cachedList != null)
                         {
-                            cachedList.DeltaToken = response.OdataDeltaLink;
+                            cachedList.DeltaToken = page.OdataDeltaLink;
                             cachedList.LastSyncUtc = DateTime.UtcNow;
                             await scopedDb.SaveChangesAsync();
                         }
