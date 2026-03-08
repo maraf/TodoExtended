@@ -32,8 +32,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Build web app
-        run: dotnet build src/TodoExtended.Web/TodoExtended.Web.csproj --configuration Release
+      - name: Publish web app
+        run: dotnet publish src/TodoExtended.Web/TodoExtended.Web.csproj --configuration Release -o /tmp/todoextended-publish
 
       - name: Build E2E tests
         run: dotnet build tests/TodoExtended.E2E/TodoExtended.E2E.csproj --configuration Debug
@@ -43,8 +43,7 @@ jobs:
 
       - name: Start app in demo mode
         run: |
-          dotnet run --project src/TodoExtended.Web/TodoExtended.Web.csproj \
-            --configuration Release --no-build --no-launch-profile &
+          cd /tmp/todoextended-publish && dotnet TodoExtended.Web.dll &
           # Wait until the app responds
           for i in $(seq 1 30); do
             curl -sf http://localhost:5000/ && break || sleep 2
@@ -71,9 +70,9 @@ jobs:
         if: always() && github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
+          github-token: ${{ github.token }}
           script: |
             const fs = require('fs');
-            const path = require('path');
             const screenshotPath = 'tests/TodoExtended.E2E/screenshots/home-authenticated.png';
 
             if (!fs.existsSync(screenshotPath)) {
@@ -81,7 +80,7 @@ jobs:
               return;
             }
 
-            // Upload image to GitHub's asset hosting
+            // Upload image to GitHub's asset hosting for issues
             const imageData = fs.readFileSync(screenshotPath);
             const uploadResponse = await fetch(
               `https://uploads.github.com/repos/${context.repo.owner}/${context.repo.repo}/issues/${context.issue.number}/assets?name=home-authenticated.png`,
@@ -95,19 +94,20 @@ jobs:
               }
             );
 
-            if (!uploadResponse.ok) {
-              console.log(`Failed to upload image: ${uploadResponse.status} ${uploadResponse.statusText}`);
-              return;
+            let body;
+            if (uploadResponse.ok) {
+              const uploadResult = await uploadResponse.json();
+              const imageUrl = uploadResult.href || uploadResult.url;
+              body = `## 📸 E2E Screenshot\n\n![Home page after demo sign-in](${imageUrl})`;
+            } else {
+              console.log(`Image upload failed (${uploadResponse.status}), linking to run instead`);
+              body = `## 📸 E2E Screenshots\n\nScreenshots captured. [Download from this run](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`;
             }
 
-            const uploadResult = await uploadResponse.json();
-            const imageUrl = uploadResult.href;
-
-            // Post a comment with the embedded screenshot
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: `## 📸 E2E Screenshot\n\n![Home page after demo sign-in](${imageUrl})`,
+              body,
             });
 
