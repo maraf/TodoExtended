@@ -28,9 +28,9 @@ public class DemoSignInTest : PageTest
         // Click the demo sign-in button
         await demoButton.ClickAsync();
 
-        // After sign-in we land back on the home page — wait for the app bar title
-        // which only appears in the authenticated layout
-        await Expect(Page.GetByRole(AriaRole.Heading, new() { Name = "TodoExtended" })).ToBeVisibleAsync();
+        // After sign-in we land back on the home page — wait for the "Sign out" link
+        // which only appears in the authenticated layout (unique, so no strict-mode violation)
+        await Expect(Page.GetByRole(AriaRole.Link, new() { Name = "Sign out" })).ToBeVisibleAsync();
 
         // Take and save the screenshot
         const string screenshotsDir = "screenshots";
