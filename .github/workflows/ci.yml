@@ -67,3 +67,47 @@ jobs:
           path: tests/TodoExtended.E2E/screenshots/
           if-no-files-found: warn
 
+      - name: Post screenshot to PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const screenshotPath = 'tests/TodoExtended.E2E/screenshots/home-authenticated.png';
+
+            if (!fs.existsSync(screenshotPath)) {
+              console.log('No screenshot found, skipping PR comment');
+              return;
+            }
+
+            // Upload image to GitHub's asset hosting
+            const imageData = fs.readFileSync(screenshotPath);
+            const uploadResponse = await fetch(
+              `https://uploads.github.com/repos/${context.repo.owner}/${context.repo.repo}/issues/${context.issue.number}/assets?name=home-authenticated.png`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
+                  'Content-Type': 'image/png',
+                },
+                body: imageData,
+              }
+            );
+
+            if (!uploadResponse.ok) {
+              console.log(`Failed to upload image: ${uploadResponse.status} ${uploadResponse.statusText}`);
+              return;
+            }
+
+            const uploadResult = await uploadResponse.json();
+            const imageUrl = uploadResult.href;
+
+            // Post a comment with the embedded screenshot
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## 📸 E2E Screenshot\n\n![Home page after demo sign-in](${imageUrl})`,
+            });
+
