@@ -32,8 +32,11 @@ public class DemoSignInTest : PageTest
         // which only appears in the authenticated layout (unique, so no strict-mode violation)
         await Expect(Page.GetByRole(AriaRole.Link, new() { Name = "Sign out" })).ToBeVisibleAsync();
 
-        // Take and save the screenshot
-        const string screenshotsDir = "screenshots";
+        // Take and save the screenshot.
+        // AppContext.BaseDirectory is e.g. bin/Debug/net10.0/ — navigate up three levels
+        // to reach the test project root so that CI can find the file at
+        // tests/TodoExtended.E2E/screenshots/ as configured in the upload-artifact step.
+        var screenshotsDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "screenshots"));
         Directory.CreateDirectory(screenshotsDir);
         await Page.ScreenshotAsync(new()
         {
