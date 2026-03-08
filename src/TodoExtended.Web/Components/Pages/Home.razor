@@ -1,9 +1,12 @@
 ﻿@page "/"
 @using Microsoft.Identity.Web
+@using Microsoft.Extensions.Options
 @using TodoExtended.Web.Data
+@using TodoExtended.Web.Services
 @inject ITemplateService TemplateService
 @inject NavigationManager NavigationManager
 @inject ISnackbar Snackbar
+@inject IOptions<DemoOptions> DemoOptions
 
 <PageTitle>TodoExtended</PageTitle>
 
@@ -85,6 +88,19 @@
                            Style="padding: 12px 32px; font-size: 1.1rem;">
                     Sign in with Microsoft
                 </MudButton>
+
+                @if (DemoOptions.Value.Enabled)
+                {
+                    <MudButton Href="/auth/demo-signin"
+                               Variant="Variant.Outlined"
+                               Color="Color.Secondary"
+                               Size="Size.Large"
+                               StartIcon="@Icons.Material.Filled.PlayCircle"
+                               Class="mb-8 ml-4"
+                               Style="padding: 12px 32px; font-size: 1.1rem;">
+                        Try Demo
+                    </MudButton>
+                }
 
                 <MudDivider Class="my-8" Style="width: 100%;" />
 

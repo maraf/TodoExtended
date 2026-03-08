@@ -1,0 +1,71 @@
+{
+  "taskLists": [
+    {
+      "id": "demo-list-work",
+      "displayName": "📋 Work",
+      "tasks": [
+        {
+          "id": "demo-task-w1",
+          "title": "Review quarterly report",
+          "isCompleted": false,
+          "dueDate": null,
+          "importance": "High"
+        },
+        {
+          "id": "demo-task-w2",
+          "title": "Prepare sprint retrospective",
+          "isCompleted": false,
+          "dueDate": null,
+          "importance": "Normal"
+        },
+        {
+          "id": "demo-task-w3",
+          "title": "Update project documentation",
+          "isCompleted": true,
+          "dueDate": null,
+          "importance": "Low"
+        }
+      ]
+    },
+    {
+      "id": "demo-list-personal",
+      "displayName": "🏠 Personal",
+      "tasks": [
+        {
+          "id": "demo-task-p1",
+          "title": "Buy groceries",
+          "isCompleted": false,
+          "dueDate": null,
+          "importance": "Normal"
+        },
+        {
+          "id": "demo-task-p2",
+          "title": "Schedule dentist appointment",
+          "isCompleted": false,
+          "dueDate": null,
+          "importance": "High"
+        }
+      ]
+    },
+    {
+      "id": "demo-list-learning",
+      "displayName": "📚 Learning",
+      "tasks": [
+        {
+          "id": "demo-task-l1",
+          "title": "Finish online course on Blazor",
+          "isCompleted": false,
+          "dueDate": null,
+          "importance": "Normal"
+        },
+        {
+          "id": "demo-task-l2",
+          "title": "Read Clean Architecture book",
+          "isCompleted": false,
+          "dueDate": null,
+          "importance": "Normal"
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -23,35 +24,93 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, reloadOnChange: true);
 
+builder.Services.Configure<DemoOptions>(builder.Configuration.GetSection("Demo"));
+var isDemoMode = builder.Configuration.GetValue<bool>("Demo:Enabled");
+
 // Register IDistributedCache backed by SQLite (must be registered before authentication)
 builder.Services.AddSingleton<Microsoft.Extensions.Caching.Distributed.IDistributedCache, SqliteDistributedCache>();
 
-// Authentication with Microsoft Entra ID
-var graphScopes = builder.Configuration.GetSection("Graph:Scopes").Get<string[]>()!;
-builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"))
-    .EnableTokenAcquisitionToCallDownstreamApi(graphScopes)
-    .AddMicrosoftGraph(builder.Configuration.GetSection("Graph"))
-    .AddDistributedTokenCaches();
+if (isDemoMode)
+{
+    // Demo mode: cookie-only authentication, no MS Graph required
+    builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+        .AddCookie(options =>
+        {
+            options.LoginPath = "/";
+        });
 
-// Add API Key authentication
-builder.Services.AddAuthentication()
-    .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
-        ApiKeyAuthenticationOptions.DefaultScheme, 
-        options => { });
+    builder.Services.AddSingleton<DemoDataStore>();
+    builder.Services.AddScoped<ITodoService, DemoTodoService>();
+}
+else
+{
+    // Authentication with Microsoft Entra ID
+    var graphScopes = builder.Configuration.GetSection("Graph:Scopes").Get<string[]>()!;
+    builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+        .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("AzureAd"))
+        .EnableTokenAcquisitionToCallDownstreamApi(graphScopes)
+        .AddMicrosoftGraph(builder.Configuration.GetSection("Graph"))
+        .AddDistributedTokenCaches();
+
+    // Add API Key authentication
+    builder.Services.AddAuthentication()
+        .AddScheme<ApiKeyAuthenticationOptions, ApiKeyAuthenticationHandler>(
+            ApiKeyAuthenticationOptions.DefaultScheme,
+            options => { });
+
+    builder.Services.AddScoped<GraphTodoService>();
+    builder.Services.AddScoped<ITodoService, CachedTodoService>();
+    builder.Services.AddSingleton<ApiKeyGraphClientFactory>();
+
+    // Override GraphServiceClient to handle both OIDC and API key authentication
+    builder.Services.AddScoped<Microsoft.Graph.GraphServiceClient>(sp =>
+    {
+        var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
+        var context = httpContextAccessor.HttpContext;
+        var isApiKey = context?.User.HasClaim("apikey", "true") == true;
+
+        if (isApiKey && context != null)
+        {
+            // API key flow: use factory to create client with MSAL cache lookup
+            var userId = context.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")!.Value;
+            var factory = sp.GetRequiredService<ApiKeyGraphClientFactory>();
+            return factory.CreateForUser(userId);
+        }
+
+        // OIDC flow: delegate to the default GraphServiceClient registered by AddMicrosoftGraph
+        // We need to manually create it since we're overriding the registration
+        var tokenAcquisition = sp.GetRequiredService<Microsoft.Identity.Web.ITokenAcquisition>();
+
+        // Use the TokenAcquisition-based auth provider
+        var authProvider = new Microsoft.Kiota.Abstractions.Authentication.BaseBearerTokenAuthenticationProvider(
+            new OidcTokenProvider(tokenAcquisition, graphScopes));
+
+        return new Microsoft.Graph.GraphServiceClient(authProvider);
+    });
+}
 
 builder.Services.AddAuthorization(options =>
 {
-    options.DefaultPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .AddAuthenticationSchemes(
+    var policyBuilder = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser();
+
+    if (isDemoMode)
+    {
+        policyBuilder.AddAuthenticationSchemes(CookieAuthenticationDefaults.AuthenticationScheme);
+    }
+    else
+    {
+        policyBuilder.AddAuthenticationSchemes(
             OpenIdConnectDefaults.AuthenticationScheme,
-            ApiKeyAuthenticationOptions.DefaultScheme)
-        .Build();
+            ApiKeyAuthenticationOptions.DefaultScheme);
+    }
+
+    options.DefaultPolicy = policyBuilder.Build();
 });
 builder.Services.AddCascadingAuthenticationState();
-builder.Services.AddControllersWithViews()
-    .AddMicrosoftIdentityUI();
+var controllers = builder.Services.AddControllersWithViews();
+if (!isDemoMode)
+    controllers.AddMicrosoftIdentityUI();
 
 // EF Core + SQLite
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
@@ -70,40 +129,11 @@ builder.Services.AddSingleton<IDbContextFactory<AppDbContext>>(provider =>
     new SimpleDbContextFactory(connectionString, provider.GetRequiredService<EnableForeignKeysInterceptor>()));
 
 builder.Services.Configure<TodoCacheOptions>(builder.Configuration.GetSection("TodoCache"));
-builder.Services.AddScoped<GraphTodoService>();
-builder.Services.AddScoped<ITodoService, CachedTodoService>();
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 builder.Services.AddScoped<IUserTimeZoneService, UserTimeZoneService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<IUserPreferenceService, UserPreferenceService>();
-builder.Services.AddSingleton<ApiKeyGraphClientFactory>();
 builder.Services.AddHttpContextAccessor();
-
-// Override GraphServiceClient to handle both OIDC and API key authentication
-builder.Services.AddScoped<Microsoft.Graph.GraphServiceClient>(sp =>
-{
-    var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
-    var context = httpContextAccessor.HttpContext;
-    var isApiKey = context?.User.HasClaim("apikey", "true") == true;
-
-    if (isApiKey && context != null)
-    {
-        // API key flow: use factory to create client with MSAL cache lookup
-        var userId = context.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")!.Value;
-        var factory = sp.GetRequiredService<ApiKeyGraphClientFactory>();
-        return factory.CreateForUser(userId);
-    }
-
-    // OIDC flow: delegate to the default GraphServiceClient registered by AddMicrosoftGraph
-    // We need to manually create it since we're overriding the registration
-    var tokenAcquisition = sp.GetRequiredService<Microsoft.Identity.Web.ITokenAcquisition>();
-    
-    // Use the TokenAcquisition-based auth provider
-    var authProvider = new Microsoft.Kiota.Abstractions.Authentication.BaseBearerTokenAuthenticationProvider(
-        new OidcTokenProvider(tokenAcquisition, graphScopes));
-    
-    return new Microsoft.Graph.GraphServiceClient(authProvider);
-});
 
 builder.Services.AddMudServices();
 
@@ -142,6 +172,31 @@ app.MapStaticAssets();
 app.MapControllers();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Demo auth endpoints (only active in demo mode)
+if (isDemoMode)
+{
+    app.MapGet("/auth/demo-signin", async (HttpContext context) =>
+    {
+        var claims = new[]
+        {
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, "demo-user"),
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "Demo User"),
+            new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, "demo@example.com"),
+            new System.Security.Claims.Claim("demo", "true"),
+        };
+        var identity = new System.Security.Claims.ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new System.Security.Claims.ClaimsPrincipal(identity);
+        await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+        context.Response.Redirect("/");
+    }).AllowAnonymous();
+
+    app.MapGet("/auth/demo-signout", async (HttpContext context) =>
+    {
+        await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        context.Response.Redirect("/");
+    });
+}
 
 // API Endpoints
 var api = app.MapGroup("/api").RequireAuthorization().DisableAntiforgery();
