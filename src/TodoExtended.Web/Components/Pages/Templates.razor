@@ -5,239 +5,189 @@
 @inject ITemplateService TemplateService
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
-@inject ISnackbar Snackbar
-@inject IDialogService DialogService
+@inject INotificationService Notifications
+@inject IJSRuntime JS
 
 <PageTitle>Templates</PageTitle>
 
-@* Header row with title and add button *@
-<div class="d-flex align-center justify-space-between mb-6">
-    <MudText Typo="Typo.h4">Templates</MudText>
+<!-- Page header -->
+<div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/30 flex-shrink-0">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+        </div>
+        <div>
+            <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Templates</h1>
+            <p class="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Manage templates for quick task creation.</p>
+        </div>
+    </div>
     @if (!_loading && _error is null)
     {
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="OpenAddDialog">
+        <button @onclick="OpenAddDialog" class="btn-primary flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
             New Template
-        </MudButton>
+        </button>
     }
 </div>
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
-    <MudGrid Spacing="4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @for (var i = 0; i < 3; i++)
         {
-            <MudItem xs="12" sm="6" md="4">
-                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="160px" Class="rounded-lg" />
-            </MudItem>
+            <div class="h-40 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse"></div>
         }
-    </MudGrid>
+    </div>
 }
 else if (_error is not null)
 {
-    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    <div class="rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-5 py-4 text-sm font-medium">⚠ @_error</div>
 }
 else if (TemplateItems is not { Count: > 0 })
 {
-    @* Empty state *@
-    <MudPaper Elevation="0" Class="d-flex flex-column align-center justify-center pa-12 mt-4" Style="border: 2px dashed var(--mud-palette-lines-default); border-radius: 12px;">
-        <MudIcon Icon="@Icons.Material.Filled.ContentPaste" Size="Size.Large" Color="Color.Secondary" Class="mb-4" Style="font-size: 4rem;" />
-        <MudText Typo="Typo.h5" Color="Color.Secondary" Class="mb-2">No templates yet</MudText>
-        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">Create templates to quickly add recurring tasks with a single click.</MudText>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   Size="Size.Large"
-                   OnClick="OpenAddDialog">
-            Create Your First Template
-        </MudButton>
-    </MudPaper>
+    <div class="card dark:bg-slate-800 dark:border-slate-700 flex flex-col items-center justify-center py-20 text-center border-2 border-dashed">
+        <div class="text-5xl mb-4">📝</div>
+        <h3 class="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">No templates yet</h3>
+        <p class="text-slate-500 dark:text-slate-400 text-sm mb-6">Create templates to quickly add recurring tasks.</p>
+        <button @onclick="OpenAddDialog" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Create First Template
+        </button>
+    </div>
 }
 else
 {
-    @* Group templates by task list *@
     @foreach (var group in TemplateItems.GroupBy(t => t.TaskListName).OrderBy(g => g.Key))
     {
-        <MudText Typo="Typo.subtitle1" Color="Color.Secondary" Class="mb-2 mt-4">
-            @group.Key
-        </MudText>
-
-        <MudGrid Spacing="3" Class="mb-2">
-            @foreach (var template in group.OrderBy(t => t.SortOrder).ThenBy(t => t.Title))
-            {
-                <MudItem xs="12" sm="6" md="4">
-                    <MudCard Elevation="2" Class="template-card" Style="position: relative; height: 100%;">
-                        @* Sort order badge *@
-                        @if (template.SortOrder != 0)
+        <div class="mb-8">
+            <p class="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">@group.Key</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                @foreach (var template in group.OrderBy(t => t.SortOrder).ThenBy(t => t.Title))
+                {
+                    var tmpl = template;
+                    <div class="card-hover dark:bg-slate-800 dark:border-slate-700 p-5 relative">
+                        @if (tmpl.SortOrder != 0)
                         {
-                            <MudBadge Content="@template.SortOrder"
-                                      Color="Color.Default"
-                                      Overlap="true"
-                                      Origin="Origin.TopRight"
-                                      Class="template-sort-badge">
-                                <span></span>
-                            </MudBadge>
+                            <span class="absolute top-3 right-3 w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold flex items-center justify-center">@tmpl.SortOrder</span>
                         }
-                        <MudCardHeader>
-                            <CardHeaderContent>
-                                <MudText Typo="Typo.h6">@template.Title</MudText>
-                            </CardHeaderContent>
-                            <CardHeaderActions>
-                                <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                                         Size="Size.Small"
-                                         AnchorOrigin="Origin.BottomRight"
-                                         TransformOrigin="Origin.TopRight">
-                                    <MudMenuItem Icon="@Icons.Material.Filled.AddTask"
-                                                 IconColor="Color.Primary"
-                                                 OnClick="() => CreateTaskFromTemplate(template)">
-                                        Create Task
-                                    </MudMenuItem>
-                                    <MudMenuItem Icon="@Icons.Material.Filled.Edit"
-                                                 OnClick="() => OpenEditDialog(template)">
-                                        Edit
-                                    </MudMenuItem>
-                                    <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                                 IconColor="Color.Error"
-                                                 OnClick="() => PromptDelete(template.Id)">
-                                        Delete
-                                    </MudMenuItem>
-                                </MudMenu>
-                            </CardHeaderActions>
-                        </MudCardHeader>
-                        <MudCardContent Class="pt-0">
-                            <div class="d-flex gap-2 flex-wrap">
-                                @if (template.DueDateToday)
-                                {
-                                    <MudChip T="string"
-                                             Size="Size.Small"
-                                             Color="Color.Warning"
-                                             Icon="@Icons.Material.Filled.Today"
-                                             Variant="Variant.Filled">
-                                        Due Today
-                                    </MudChip>
-                                }
-                                @if (template.ReminderTime is not null)
-                                {
-                                    <MudChip T="string"
-                                             Size="Size.Small"
-                                             Color="Color.Info"
-                                             Icon="@Icons.Material.Filled.Alarm"
-                                             Variant="Variant.Filled">
-                                        @template.ReminderTime.Value.ToString("HH:mm")
-                                    </MudChip>
-                                }
-                                @if (template.SortOrder != 0)
-                                {
-                                    <MudChip T="string"
-                                             Size="Size.Small"
-                                             Color="Color.Default"
-                                             Variant="Variant.Outlined">
-                                        Order: @template.SortOrder
-                                    </MudChip>
-                                }
+                        <div class="flex items-start justify-between gap-2 mb-4">
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-bold text-slate-900 dark:text-white text-sm leading-tight">@tmpl.Title</h3>
+                                <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">@tmpl.TaskListName</p>
                             </div>
-                        </MudCardContent>
-                    </MudCard>
-                </MudItem>
-            }
-        </MudGrid>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 mb-4">
+                            @if (tmpl.DueDateToday)
+                            {
+                                <span class="chip chip-warning">⏰ Due Today</span>
+                            }
+                            @if (tmpl.ReminderTime is not null)
+                            {
+                                <span class="chip chip-info">🔔 @tmpl.ReminderTime.Value.ToString("HH:mm")</span>
+                            }
+                        </div>
+                        <div class="flex gap-2">
+                            <button @onclick="() => CreateTaskFromTemplate(tmpl)" class="btn-primary btn-sm flex-1">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                Create
+                            </button>
+                            <button @onclick="() => OpenEditDialog(tmpl)" class="btn-ghost btn-sm" title="Edit">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </button>
+                            <button @onclick="() => PromptDelete(tmpl.Id)" class="btn-ghost btn-sm text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30" title="Delete">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
     }
 }
 
-@* Add/Edit Dialog *@
-<MudDialog @bind-Visible="_dialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
-    <TitleContent>
-        <MudText Typo="Typo.h6">
-            <MudIcon Icon="@(_editingTemplateId is not null ? Icons.Material.Filled.Edit : Icons.Material.Filled.Add)" Class="mr-2" Style="vertical-align: middle;" />
-            @(_editingTemplateId is not null ? "Edit Template" : "New Template")
-        </MudText>
-    </TitleContent>
-    <DialogContent>
-        <MudTextField @bind-Value="_formTitle"
-                      Label="Title"
-                      Placeholder="e.g. Morning standup notes"
-                      Variant="Variant.Outlined"
-                      Class="mb-4"
-                      Immediate="true" />
-
-        <MudSelect T="string"
-                   @bind-Value="_formTaskListId"
-                   Label="Task List"
-                   Variant="Variant.Outlined"
-                   Placeholder="Select a list"
-                   Class="mb-4">
-            @if (TaskLists is not null)
-            {
-                @foreach (var list in TaskLists)
+<!-- Add/Edit Modal -->
+@if (_dialogVisible)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @onclick="CloseDialog"></div>
+        <div class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 dark:border-slate-700 animate-fade-in">
+            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-700">
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white">@(_editingTemplateId is not null ? "Edit Template" : "New Template")</h2>
+                <button @onclick="CloseDialog" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="floating-field">
+                    <input @bind="_formTitle" @bind:event="oninput" type="text" placeholder=" " class="floating-input" />
+                    <label class="floating-label">Title</label>
+                </div>
+                <div class="floating-field">
+                    <select @bind="_formTaskListId" class="floating-select">
+                        <option value="">Select a list…</option>
+                        @if (TaskLists is not null)
+                        {
+                            @foreach (var list in TaskLists)
+                            {
+                                <option value="@list.Id">@list.DisplayName</option>
+                            }
+                        }
+                    </select>
+                    <label class="floating-label">Task List</label>
+                </div>
+                <div class="floating-field w-28">
+                    <input @bind="_formSortOrder" type="number" placeholder=" " class="floating-input" />
+                    <label class="floating-label">Sort Order</label>
+                </div>
+                <div class="flex items-center gap-3">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer" checked="@_formDueDateToday" @onchange="e => OnDueDateTodayChanged((bool)(e.Value ?? false))" />
+                        <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+                    </label>
+                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Due Today</span>
+                </div>
+                @if (_formDueDateToday)
                 {
-                    <MudSelectItem T="string" Value="@list.Id">@list.DisplayName</MudSelectItem>
+                    <div class="floating-field">
+                        <input value="@_formReminderTime" @onchange="e => _formReminderTime = e.Value?.ToString()" type="time" placeholder=" " class="floating-input" />
+                        <label class="floating-label">Reminder Time (optional)</label>
+                    </div>
                 }
-            }
-        </MudSelect>
-
-        <MudGrid Spacing="3" Class="mb-2">
-            <MudItem xs="3">
-                <MudNumericField @bind-Value="_formSortOrder"
-                                 Label="Sort Order"
-                                 Variant="Variant.Outlined" />
-            </MudItem>
-        </MudGrid>
-
-        <MudSwitch Value="_formDueDateToday"
-                    ValueChanged="OnDueDateTodayChanged"
-                    Label="Due Today"
-                    Color="Color.Warning"
-                    T="bool" />
-
-        @if (_formDueDateToday)
-        {
-            <MudTimePicker @bind-Time="_formReminderTimeSpan"
-                        Label="Reminder Time"
-                        Variant="Variant.Outlined"
-                        Clearable="true"
-                        Class="mb-4"
-                        HelperText="Optional — set a reminder for today at this time" />
-        }
-
-        @if (_formError is not null)
-        {
-            <MudAlert Severity="Severity.Error" Class="mt-2">@_formError</MudAlert>
-        }
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="CloseDialog">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   OnClick="SaveTemplate"
-                   Disabled="@_saving">
-            @if (_saving)
-            {
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-            }
-            @(_editingTemplateId is not null ? "Update" : "Create")
-        </MudButton>
-    </DialogActions>
-</MudDialog>
-
-<style>
-    .template-card:hover {
-        transform: translateY(-2px);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-
-    .template-card {
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-
-    .template-sort-badge {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-    }
-</style>
+                @if (_formError is not null)
+                {
+                    <div class="rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-4 py-3 text-sm">@_formError</div>
+                }
+            </div>
+            <div class="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-700">
+                <button @onclick="CloseDialog" class="btn-ghost">Cancel</button>
+                <button @onclick="SaveTemplate" disabled="@_saving" class="btn-primary">
+                    @if (_saving)
+                    {
+                        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    }
+                    @(_editingTemplateId is not null ? "Update" : "Create")
+                </button>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     [PersistentState]
@@ -252,11 +202,10 @@ else
     private string? _formError;
     private bool _dialogVisible;
 
-    // Form fields
     private string _formTitle = "";
     private string _formTaskListId = "";
     private bool _formDueDateToday;
-    private TimeSpan? _formReminderTimeSpan;
+    private string? _formReminderTime;
     private int _formSortOrder;
     private Guid? _editingTemplateId;
 
@@ -304,7 +253,7 @@ else
         _formTitle = template.Title;
         _formTaskListId = template.TaskListId;
         _formDueDateToday = template.DueDateToday;
-        _formReminderTimeSpan = template.ReminderTime?.ToTimeSpan();
+        _formReminderTime = template.ReminderTime?.ToString("HH:mm");
         _formSortOrder = template.SortOrder;
         _formError = null;
         _dialogVisible = true;
@@ -339,6 +288,13 @@ else
             return;
         }
 
+        TimeOnly? reminderTime = null;
+        if (_formDueDateToday && !string.IsNullOrEmpty(_formReminderTime)
+            && TimeOnly.TryParseExact(_formReminderTime, "HH:mm", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var t))
+        {
+            reminderTime = t;
+        }
+
         _saving = true;
 
         try
@@ -352,13 +308,12 @@ else
                     existing.TaskListId = selectedList.Id;
                     existing.TaskListName = selectedList.DisplayName;
                     existing.DueDateToday = _formDueDateToday;
-                    existing.ReminderTime = _formDueDateToday && _formReminderTimeSpan.HasValue
-                        ? TimeOnly.FromTimeSpan(_formReminderTimeSpan.Value) : null;
+                    existing.ReminderTime = reminderTime;
                     existing.SortOrder = _formSortOrder;
                     await TemplateService.UpdateAsync(existing);
                 }
 
-                Snackbar.Add("Template updated.", Severity.Success);
+                Notifications.Add("Template updated.", NotifySeverity.Success);
             }
             else
             {
@@ -368,12 +323,11 @@ else
                     TaskListId = selectedList.Id,
                     TaskListName = selectedList.DisplayName,
                     DueDateToday = _formDueDateToday,
-                    ReminderTime = _formDueDateToday && _formReminderTimeSpan.HasValue
-                        ? TimeOnly.FromTimeSpan(_formReminderTimeSpan.Value) : null,
+                    ReminderTime = reminderTime,
                     SortOrder = _formSortOrder
                 };
                 await TemplateService.CreateAsync(template);
-                Snackbar.Add("Template created.", Severity.Success);
+                Notifications.Add("Template created.", NotifySeverity.Success);
             }
 
             await RefreshTemplates();
@@ -401,7 +355,7 @@ else
         {
             DateOnly? dueDate = template.DueDateToday ? DateOnly.FromDateTime(DateTime.Today) : null;
             await TodoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate, template.ReminderTime);
-            Snackbar.Add($"Task \"{template.Title}\" created.", Severity.Success);
+            Notifications.Add($"Task \"{template.Title}\" created.", NotifySeverity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -410,18 +364,14 @@ else
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to create task: {ex.Message}", Severity.Error);
+            Notifications.Add($"Failed to create task: {ex.Message}", NotifySeverity.Error);
         }
     }
 
     private async Task PromptDelete(Guid templateId)
     {
-        var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Delete Template",
-            "Are you sure you want to delete this template?",
-            yesText: "Delete", cancelText: "Cancel");
-
-        if (confirmed == true)
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to delete this template?");
+        if (confirmed)
         {
             await ConfirmDelete(templateId);
         }
@@ -433,7 +383,7 @@ else
         {
             await TemplateService.DeleteAsync(templateId);
             await RefreshTemplates();
-            Snackbar.Add("Template deleted.", Severity.Success);
+            Notifications.Add("Template deleted.", NotifySeverity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -442,7 +392,7 @@ else
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Failed to delete: {ex.Message}", Severity.Error);
+            Notifications.Add($"Failed to delete: {ex.Message}", NotifySeverity.Error);
         }
     }
 
@@ -458,7 +408,7 @@ else
         _formTitle = "";
         _formTaskListId = "";
         _formDueDateToday = false;
-        _formReminderTimeSpan = null;
+        _formReminderTime = null;
         _formSortOrder = 0;
         _formError = null;
     }
@@ -466,9 +416,6 @@ else
     private void OnDueDateTodayChanged(bool value)
     {
         _formDueDateToday = value;
-        if (!value)
-        {
-            _formReminderTimeSpan = null;
-        }
+        if (!value) _formReminderTime = null;
     }
 }

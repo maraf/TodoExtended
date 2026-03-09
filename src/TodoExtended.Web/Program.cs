@@ -10,7 +10,6 @@ using TodoExtended.Web.Authentication;
 using TodoExtended.Web.Components;
 using TodoExtended.Web.Data;
 using TodoExtended.Web.Middleware;
-using MudBlazor.Services;
 using TodoExtended.Web.Services;
 
 
@@ -140,7 +139,7 @@ builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<IUserPreferenceService, UserPreferenceService>();
 builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddMudServices();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 builder.Services.AddSignalR(o => o.MaximumReceiveMessageSize = 512 * 1024); // 512 KB for large PersistentState payloads
 builder.Services.AddRazorComponents()

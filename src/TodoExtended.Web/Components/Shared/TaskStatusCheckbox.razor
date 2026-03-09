@@ -2,11 +2,19 @@
 
 @if (_isToggling)
 {
-    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-3" />
+    <div class="w-5 h-5 mr-3 flex-shrink-0 flex items-center justify-center">
+        <svg class="animate-spin w-4 h-4 text-brand-600" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+    </div>
 }
 else
 {
-    <MudCheckBox T="bool" Value="@IsCompleted" ValueChanged="OnCheckChanged" Color="Color.Primary" Class="mr-1" />
+    <input type="checkbox"
+           checked="@IsCompleted"
+           @onchange="OnCheckChanged"
+           class="w-5 h-5 mr-3 flex-shrink-0 rounded-md border-2 border-slate-300 text-brand-600 cursor-pointer accent-brand-600 focus:ring-brand-500 focus:ring-offset-0 transition-colors" />
 }
 
 @code {
@@ -22,7 +30,7 @@ else
 
     private bool _isToggling;
 
-    private async Task OnCheckChanged(bool value)
+    private async Task OnCheckChanged(ChangeEventArgs e)
     {
         await Toggle();
     }
@@ -34,7 +42,6 @@ else
         _isToggling = true;
         var newStatus = !IsCompleted;
 
-        // Notify parent for optimistic update
         await OnStatusChanged.InvokeAsync(newStatus);
 
         try
@@ -48,7 +55,6 @@ else
         }
         catch (Exception)
         {
-            // Rollback: notify parent with original status
             await OnStatusChanged.InvokeAsync(!newStatus);
             await OnError.InvokeAsync($"Failed to update \"{TaskTitle}\". Please try again.");
         }

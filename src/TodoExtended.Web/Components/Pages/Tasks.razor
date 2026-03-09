@@ -3,70 +3,110 @@
 @using Microsoft.Identity.Web
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
-@inject ISnackbar Snackbar
+@inject INotificationService Notifications
 
 <PageTitle>Tasks</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Tasks</MudText>
-
 @if (_error is not null)
 {
-    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    <div class="rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-5 py-4 text-sm font-medium">⚠ @_error</div>
+}
+else if (ListId is null)
+{
+    <div class="flex flex-col items-center justify-center min-h-[40vh] text-center">
+        <div class="text-6xl mb-5">📋</div>
+        <h2 class="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">Pick a list</h2>
+        <p class="text-slate-500 dark:text-slate-400 text-sm">Select a task list from the sidebar to get started.</p>
+    </div>
 }
 else
 {
-    <MudPaper Elevation="2" Class="pa-4">
-        @if (ListId is not null)
+    <!-- Page header -->
+    <div class="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/30 flex-shrink-0">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Tasks</h1>
+            </div>
+        </div>
+        @if (TaskItems is { Count: > 0 })
         {
-            @if (_loadingTasks)
-            {
-                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
-            }
-            else
-            {
-                @if (TaskItems!.Count == 0)
+            <div class="flex items-center gap-2">
+                <span class="chip chip-primary">@TaskItems.Count(t => !t.IsCompleted) open</span>
+                @if (TaskItems.Any(t => t.IsCompleted))
                 {
-                    <MudAlert Severity="Severity.Info">No tasks in this list.</MudAlert>
+                    <span class="chip chip-success">@TaskItems.Count(t => t.IsCompleted) done</span>
                 }
-                else
-                {
-                    <MudList T="string" Dense="true">
-                        @foreach (var task in TaskItems!)
+            </div>
+        }
+    </div>
+
+    @if (_loadingTasks)
+    {
+        <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+            <div class="h-1 bg-gradient-to-r from-violet-500 via-brand-500 to-sky-500 animate-pulse"></div>
+            @for (int i = 0; i < 5; i++)
+            {
+                <div class="task-row">
+                    <div class="w-5 h-5 rounded bg-slate-200 dark:bg-slate-700 flex-shrink-0 animate-pulse"></div>
+                    <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
+                </div>
+            }
+        </div>
+    }
+    else if (TaskItems!.Count == 0)
+    {
+        <div class="card dark:bg-slate-800 dark:border-slate-700 flex flex-col items-center justify-center py-20 text-center">
+            <div class="text-5xl mb-4">✅</div>
+            <h3 class="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">Empty list</h3>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">No tasks in this list yet.</p>
+        </div>
+    }
+    else
+    {
+        <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+            @{
+                var pct = TaskItems!.Count > 0 ? (int)(100.0 * TaskItems!.Count(t => t.IsCompleted) / TaskItems!.Count) : 0;
+            }
+            <div class="h-1.5 bg-slate-100 dark:bg-slate-700">
+                <div class="h-full bg-gradient-to-r from-violet-500 to-brand-500 rounded-r-full transition-all duration-500" style="width: @(pct)%"></div>
+            </div>
+
+            @foreach (var task in TaskItems!)
+            {
+                <div class="task-row @(task.IsCompleted ? "opacity-50" : "")">
+                    <TaskStatusCheckbox TaskId="@task.Id"
+                                        ListId="@ListId"
+                                        IsCompleted="@task.IsCompleted"
+                                        TaskTitle="@task.Title"
+                                        OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                        OnError="(msg) => Notifications.Add(msg, NotifySeverity.Warning)" />
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-slate-800 dark:text-slate-200 @(task.IsCompleted ? "line-through text-slate-400 dark:text-slate-500" : "") truncate">
+                            @task.Title
+                        </p>
+                        @if (task.DueDate is not null)
                         {
-                            <MudListItem T="string">
-                                <div class="d-flex align-center" style="width:100%">
-                                    <TaskStatusCheckbox TaskId="@task.Id"
-                                                        ListId="@ListId"
-                                                        IsCompleted="@task.IsCompleted"
-                                                        TaskTitle="@task.Title"
-                                                        OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
-                                                        OnError="(msg) => Snackbar.Add(msg, Severity.Warning)" />
-                                    <div>
-                                        <MudText Style="@(task.IsCompleted ? "text-decoration: line-through; opacity: 0.5;" : "")">
-                                            @task.Title
-                                        </MudText>
-                                        @if (task.DueDate is not null)
-                                        {
-                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Due: @task.DueDate.Value.ToString("MMM d, yyyy")</MudText>
-                                        }
-                                    </div>
-                                    <MudSpacer />
-                                    @if (task.Importance == "High")
-                                    {
-                                        <MudChip T="string" Size="Size.Small" Color="Color.Error">!</MudChip>
-                                    }
-                                </div>
-                            </MudListItem>
+                            <p class="text-xs text-slate-400 dark:text-slate-500 mt-0.5 flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                @task.DueDate.Value.ToString("MMM d, yyyy")
+                            </p>
                         }
-                    </MudList>
-                }
+                    </div>
+                    @if (task.Importance == "High")
+                    {
+                        <span class="chip chip-error flex-shrink-0" title="High priority">!</span>
+                    }
+                </div>
             }
-        }
-        else
-        {
-            <MudAlert Severity="Severity.Info">Select a task list from the menu to view tasks.</MudAlert>
-        }
-    </MudPaper>
+        </div>
+    }
 }
 
 @code {

@@ -4,31 +4,32 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<NavMenu> Logger
 
-<MudNavMenu>
+<nav class="py-4 flex flex-col h-full">
     <AuthorizeView>
         <Authorized>
-            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
-            <MudNavLink Href="/today" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Today">Today</MudNavLink>
-            <MudDivider Class="my-2" />
-            <MudNavLink Href="/templates" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ContentCopy">Templates</MudNavLink>
-            <MudNavLink Href="/api-keys" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.VpnKey">API Keys</MudNavLink>
-            <MudDivider Class="my-2" />
-            @foreach (var list in _taskLists)
+            <p class="section-title mt-2">MAIN</p>
+            <NavItem Href="/" Match="NavLinkMatch.All" Icon="grid">Home</NavItem>
+            <NavItem Href="/today" Match="NavLinkMatch.Prefix" Icon="sun">Today</NavItem>
+
+            <p class="section-title mt-5">TOOLS</p>
+            <NavItem Href="/templates" Match="NavLinkMatch.Prefix" Icon="copy">Templates</NavItem>
+            <NavItem Href="/api-keys" Match="NavLinkMatch.Prefix" Icon="key">API Keys</NavItem>
+
+            @if (_taskLists.Count > 0)
             {
-                var (emoji, name) = list.Emoji();
-                var icon = emoji == null ? Icons.Material.Filled.List : null;
-                <MudNavLink Href="@($"/tasks/{list.Id}")" Match="NavLinkMatch.Prefix" Icon="@icon">
-                    @if (emoji != null)
-                    {
-                        <span class="nav-emoji-icon" style="margin-left: -12px;margin-right: 12px;">@emoji</span>
-                    }
-                    @name
-                </MudNavLink>
+                <p class="section-title mt-5">MY LISTS</p>
+                @foreach (var list in _taskLists)
+                {
+                    var (emoji, name) = list.Emoji();
+                    <NavListItem Href="@($"/tasks/{list.Id}")" Emoji="@emoji">@name</NavListItem>
+                }
             }
-            <MudNavLink Href="/sync-settings" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SyncAlt">Sync Settings</MudNavLink>
+
+            <p class="section-title mt-5">SETTINGS</p>
+            <NavItem Href="/sync-settings" Match="NavLinkMatch.Prefix" Icon="refresh">Sync Settings</NavItem>
         </Authorized>
     </AuthorizeView>
-</MudNavMenu>
+</nav>
 
 @code {
     [PersistentState]
@@ -54,8 +55,6 @@
         }
         catch (Exception ex)
         {
-            // Nav menu loads best-effort; a failure here should not break the layout.
-            // Errors surface on the individual task pages when the user navigates there.
             Logger.LogWarning(ex, "NavMenu: failed to load task lists");
         }
     }

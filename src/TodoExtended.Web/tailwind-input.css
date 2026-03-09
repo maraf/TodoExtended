@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { @apply font-sans antialiased; }
+}
+
+@layer components {
+  /* Buttons */
+  .btn { @apply inline-flex items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer; }
+  .btn-primary { @apply btn bg-brand-600 hover:bg-brand-700 text-white focus:ring-brand-500 px-5 py-2.5 text-sm shadow-sm; }
+  .btn-outline { @apply btn border-2 border-brand-600 text-brand-600 hover:bg-brand-50 focus:ring-brand-500 px-5 py-2.5 text-sm; }
+  .btn-ghost { @apply btn text-slate-500 hover:text-slate-700 hover:bg-slate-100 px-3 py-2 text-sm; }
+  .btn-danger { @apply btn bg-rose-600 hover:bg-rose-700 text-white focus:ring-rose-500 px-4 py-2 text-sm; }
+  .btn-sm { @apply px-3 py-1.5 text-xs rounded-lg; }
+  .btn-lg { @apply px-7 py-3.5 text-base rounded-2xl; }
+  
+  /* Form inputs */
+  .input { @apply w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700/60 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500; }
+  .label { @apply block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1; }
+
+  /* ─── Floating label fields ──────────────────────────────── */
+  .floating-field { @apply relative; }
+
+  .floating-field .floating-input {
+    @apply block w-full rounded-xl border border-slate-200 dark:border-slate-600
+           bg-slate-50 dark:bg-slate-700/60
+           px-4 pt-6 pb-2
+           text-sm text-slate-900 dark:text-slate-100
+           shadow-sm transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500;
+    /* placeholder must be set to " " in HTML; hide it visually */
+    color-scheme: light dark;
+  }
+
+  .floating-field .floating-select {
+    @apply block w-full rounded-xl border border-slate-200 dark:border-slate-600
+           bg-slate-50 dark:bg-slate-700/60
+           px-4 pt-6 pb-2
+           text-sm text-slate-900 dark:text-slate-100
+           shadow-sm transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500
+           appearance-none;
+  }
+
+  .floating-field .floating-label {
+    @apply absolute left-4 text-sm font-medium text-slate-500 dark:text-slate-400
+           transition-all duration-150 pointer-events-none select-none;
+    top: 1.05rem;
+  }
+  
+  /* Cards */
+  .card { @apply bg-white rounded-2xl border border-slate-100 shadow-sm; }
+  .card-hover { @apply card transition-all duration-150 hover:shadow-md; }
+  
+  /* Badges/chips */
+  .chip { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold; }
+  .chip-primary { @apply chip bg-brand-100 text-brand-700; }
+  .chip-success { @apply chip bg-emerald-100 text-emerald-700; }
+  .chip-error { @apply chip bg-rose-100 text-rose-700; }
+  .chip-warning { @apply chip bg-amber-100 text-amber-700; }
+  .chip-info { @apply chip bg-sky-100 text-sky-700; }
+  
+  /* Page layout helpers */
+  .page-container { @apply max-w-7xl mx-auto px-4 sm:px-6 py-6; }
+  .section-title { @apply text-xs font-bold uppercase tracking-widest text-slate-400 px-3 mb-1; }
+  
+  /* Task rows */
+  .task-row { @apply flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors; }
+  .task-row + .task-row { @apply border-t border-slate-100; }
+}
+
+/* ─── Floating label: state-driven transitions ────────────── */
+/* Input is empty (placeholder shown): label sits inside as visual placeholder */
+/* Input has value or is focused: label floats to top-left corner */
+
+/* Inputs that use :placeholder-shown trick (placeholder=" " required in HTML) */
+.floating-field .floating-input:focus ~ .floating-label,
+.floating-field .floating-input:not(:placeholder-shown) ~ .floating-label {
+  top: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: theme('colors.brand.600');
+}
+.dark .floating-field .floating-input:focus ~ .floating-label,
+.dark .floating-field .floating-input:not(:placeholder-shown) ~ .floating-label {
+  color: theme('colors.brand.400');
+}
+
+/* Select and time inputs always show label floated (they always display a value) */
+.floating-field .floating-select ~ .floating-label,
+.floating-field .floating-input[type="time"] ~ .floating-label,
+.floating-field .floating-input[type="number"] ~ .floating-label {
+  top: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: theme('colors.brand.600');
+}
+.dark .floating-field .floating-select ~ .floating-label,
+.dark .floating-field .floating-input[type="time"] ~ .floating-label,
+.dark .floating-field .floating-input[type="number"] ~ .floating-label {
+  color: theme('colors.brand.400');
+}
+
+/* Hide native placeholder text (label acts as the placeholder) */
+.floating-field .floating-input::placeholder {
+  color: transparent;
+}
