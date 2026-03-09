@@ -24,7 +24,7 @@
   
   /* Cards */
   .card { @apply bg-white rounded-2xl border border-slate-100 shadow-sm; }
-  .card-hover { @apply card transition-all duration-150 hover:shadow-md hover:-translate-y-0.5; }
+  .card-hover { @apply card transition-all duration-150 hover:shadow-md; }
   
   /* Badges/chips */
   .chip { @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold; }

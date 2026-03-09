@@ -5,7 +5,8 @@
 @inject TodoExtended.Web.Services.IUserPreferenceService UserPreferenceService
 @inject IOptions<DemoOptions> DemoOptions
 
-<div class="@(_isDarkMode ? "dark" : "") min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+<div class="@(_isDarkMode ? "dark" : "")">
+<div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
     <AuthorizeView>
         <Authorized>
             <!-- Top navigation bar -->
@@ -62,7 +63,9 @@
 
             <!-- Sidebar -->
             <aside class="@(_sidebarOpen ? "translate-x-0" : "-translate-x-full") lg:translate-x-0 fixed top-14 left-0 bottom-0 z-20 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 overflow-y-auto transition-transform duration-200 ease-out">
-                <NavMenu />
+                <CascadingValue Name="CloseSidebar" Value="@_closeSidebarAction">
+                    <NavMenu />
+                </CascadingValue>
             </aside>
 
             <!-- Main content -->
@@ -79,6 +82,7 @@
         </NotAuthorized>
     </AuthorizeView>
 </div>
+</div>
 
 @code {
     [CascadingParameter]
@@ -87,6 +91,7 @@
     private bool _isDarkMode = false;
     private bool _sidebarOpen = false;
     private string? _userId;
+    private Action _closeSidebarAction => CloseSidebar;
 
     protected override async Task OnInitializedAsync()
     {
@@ -102,6 +107,12 @@
     }
 
     private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+
+    private void CloseSidebar()
+    {
+        _sidebarOpen = false;
+        StateHasChanged();
+    }
 
     private async Task ToggleDarkMode()
     {
