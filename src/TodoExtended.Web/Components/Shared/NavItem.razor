@@ -1,0 +1,33 @@
+@* NavItem.razor - sidebar nav link with icon *@
+<div @onclick="OnClick">
+<NavLink href="@Href" Match="@Match" ActiveClass="bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-semibold"
+         class="nav-item group flex items-center gap-3 mx-2 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 hover:text-slate-900 dark:hover:text-white transition-all duration-150">
+    <span class="w-5 h-5 flex-shrink-0 text-slate-400 dark:text-slate-500 group-hover:text-brand-600 dark:group-hover:text-brand-400 [.active_&]:text-brand-600">
+        @GetIcon()
+    </span>
+    <span>@ChildContent</span>
+</NavLink>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Href { get; set; } = "";
+    [Parameter] public NavLinkMatch Match { get; set; } = NavLinkMatch.Prefix;
+    [Parameter] public string Icon { get; set; } = "circle";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [CascadingParameter(Name = "CloseSidebar")]
+    private Action? CloseSidebar { get; set; }
+
+    private void OnClick() => CloseSidebar?.Invoke();
+
+    private MarkupString GetIcon() => Icon switch
+    {
+        "grid"    => new MarkupString(@"<svg fill=""none"" stroke=""currentColor"" viewBox=""0 0 24 24""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z""/></svg>"),
+        "sun"     => new MarkupString(@"<svg fill=""none"" stroke=""currentColor"" viewBox=""0 0 24 24""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z""/></svg>"),
+        "copy"    => new MarkupString(@"<svg fill=""none"" stroke=""currentColor"" viewBox=""0 0 24 24""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z""/></svg>"),
+        "key"     => new MarkupString(@"<svg fill=""none"" stroke=""currentColor"" viewBox=""0 0 24 24""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z""/></svg>"),
+        "refresh" => new MarkupString(@"<svg fill=""none"" stroke=""currentColor"" viewBox=""0 0 24 24""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15""/></svg>"),
+        "list"    => new MarkupString(@"<svg fill=""none"" stroke=""currentColor"" viewBox=""0 0 24 24""><path stroke-linecap=""round"" stroke-linejoin=""round"" stroke-width=""2"" d=""M4 6h16M4 10h16M4 14h16M4 18h16""/></svg>"),
+        _         => new MarkupString(@"<svg fill=""none"" stroke=""currentColor"" viewBox=""0 0 24 24""><circle cx=""12"" cy=""12"" r=""5"" stroke-width=""2""/></svg>"),
+    };
+}

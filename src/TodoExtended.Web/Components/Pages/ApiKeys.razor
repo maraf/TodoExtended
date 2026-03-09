@@ -4,176 +4,170 @@
 @using TodoExtended.Web.Services
 @inject IApiKeyService ApiKeyService
 @inject NavigationManager NavigationManager
-@inject ISnackbar Snackbar
-@inject IDialogService DialogService
+@inject INotificationService Notifications
 @inject IJSRuntime JS
 
 <PageTitle>API Keys</PageTitle>
 
-@* Header row with title and add button *@
-<div class="d-flex align-center justify-space-between mb-6">
-    <div>
-        <MudText Typo="Typo.h4">API Keys</MudText>
-        <MudText Typo="Typo.subtitle1" Color="Color.Secondary">Manage API keys for external integrations.</MudText>
+<!-- Page header -->
+<div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/30 flex-shrink-0">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+            </svg>
+        </div>
+        <div>
+            <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">API Keys</h1>
+            <p class="text-slate-500 dark:text-slate-400 text-sm mt-0.5">Manage keys for external integrations.</p>
+        </div>
     </div>
     @if (!_loading && _error is null)
     {
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="OpenCreateDialog">
+        <button @onclick="OpenCreateDialog" class="btn-primary flex-shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
             New API Key
-        </MudButton>
+        </button>
     }
 </div>
 
 @if (_newlyCreatedKey is not null)
 {
-    <MudAlert Severity="Severity.Warning" Class="mb-6" Variant="Variant.Filled" ShowCloseIcon="true" CloseIconClicked="() => _newlyCreatedKey = null">
-        <MudText Typo="Typo.subtitle1" Class="mb-1"><strong>Copy this key now!</strong> It will only be shown once.</MudText>
-        <MudTextField Value="@_newlyCreatedKey" ReadOnly="true" Variant="Variant.Outlined"
-                      Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.ContentCopy"
-                      OnAdornmentClick="CopyKeyToClipboard" Class="mt-2"
-                      Style="background: rgba(255,255,255,0.15); border-radius: 4px;" />
-    </MudAlert>
+    <div class="mb-6 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-5">
+        <div class="flex items-start gap-3 mb-3">
+            <span class="text-xl">🔑</span>
+            <div>
+                <p class="font-bold text-amber-800 dark:text-amber-300 text-sm">Copy this key now!</p>
+                <p class="text-amber-700 dark:text-amber-400 text-xs mt-0.5">It will only be shown once.</p>
+            </div>
+            <button @onclick="() => _newlyCreatedKey = null" class="ml-auto p-1 text-amber-600 hover:text-amber-800 dark:hover:text-amber-300">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <div class="flex gap-2">
+            <input type="text" readonly value="@_newlyCreatedKey" class="input font-mono text-xs flex-1" />
+            <button @onclick="CopyKeyToClipboard" class="btn-primary btn-sm flex-shrink-0">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+                Copy
+            </button>
+        </div>
+    </div>
 }
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
-    <MudGrid Spacing="4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @for (var i = 0; i < 3; i++)
         {
-            <MudItem xs="12" sm="6" md="4">
-                <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="140px" Class="rounded-lg" />
-            </MudItem>
+            <div class="h-36 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse"></div>
         }
-    </MudGrid>
+    </div>
 }
 else if (_error is not null)
 {
-    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+    <div class="rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-5 py-4 text-sm font-medium">⚠ @_error</div>
 }
 else if (_apiKeys is not { Count: > 0 })
 {
-    @* Empty state *@
-    <MudPaper Elevation="0" Class="d-flex flex-column align-center justify-center pa-12 mt-4" Style="border: 2px dashed var(--mud-palette-lines-default); border-radius: 12px;">
-        <MudIcon Icon="@Icons.Material.Filled.VpnKey" Size="Size.Large" Color="Color.Secondary" Class="mb-4" Style="font-size: 4rem;" />
-        <MudText Typo="Typo.h5" Color="Color.Secondary" Class="mb-2">No API keys yet</MudText>
-        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">Create API keys to access your tasks from external tools and integrations.</MudText>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   Size="Size.Large"
-                   OnClick="OpenCreateDialog">
-            Create Your First API Key
-        </MudButton>
-    </MudPaper>
+    <div class="card dark:bg-slate-800 dark:border-slate-700 flex flex-col items-center justify-center py-20 text-center border-2 border-dashed">
+        <div class="text-5xl mb-4">🔐</div>
+        <h3 class="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">No API keys yet</h3>
+        <p class="text-slate-500 dark:text-slate-400 text-sm mb-6">Create keys to access your tasks from external tools.</p>
+        <button @onclick="OpenCreateDialog" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            Create First API Key
+        </button>
+    </div>
 }
 else
 {
-    <MudGrid Spacing="3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         @foreach (var key in _apiKeys)
         {
-            <MudItem xs="12" sm="6" md="4">
-                <MudCard Elevation="2" Class="apikey-card" Style="height: 100%;">
-                    <MudCardHeader>
-                        <CardHeaderAvatar>
-                            <MudAvatar Color="Color.Primary" Variant="Variant.Outlined" Size="Size.Medium">
-                                <MudIcon Icon="@Icons.Material.Filled.Key" />
-                            </MudAvatar>
-                        </CardHeaderAvatar>
-                        <CardHeaderContent>
-                            <MudText Typo="Typo.h6">@key.Name</MudText>
-                        </CardHeaderContent>
-                        <CardHeaderActions>
-                            <MudMenu Icon="@Icons.Material.Filled.MoreVert"
-                                     Size="Size.Small"
-                                     AnchorOrigin="Origin.BottomRight"
-                                     TransformOrigin="Origin.TopRight">
-                                <MudMenuItem Icon="@Icons.Material.Filled.Delete"
-                                             IconColor="Color.Error"
-                                             OnClick="() => PromptRevoke(key.Id)">
-                                    Revoke
-                                </MudMenuItem>
-                            </MudMenu>
-                        </CardHeaderActions>
-                    </MudCardHeader>
-                    <MudCardContent Class="pt-0">
-                        <div class="d-flex flex-column gap-1">
-                            <div class="d-flex align-center gap-2">
-                                <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Color="Color.Secondary" />
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    Created @key.CreatedUtc.ToLocalTime().ToString("MMM d, yyyy")
-                                </MudText>
-                            </div>
-                            <div class="d-flex align-center gap-2">
-                                <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="Color.Secondary" />
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                                    @if (key.LastUsedUtc.HasValue)
-                                    {
-                                        @($"Last used {key.LastUsedUtc.Value.ToLocalTime().ToString("MMM d, yyyy")}")
-                                    }
-                                    else
-                                    {
-                                        <span>Never used</span>
-                                    }
-                                </MudText>
-                            </div>
-                        </div>
-                    </MudCardContent>
-                </MudCard>
-            </MudItem>
+            var k = key;
+            <div class="card-hover dark:bg-slate-800 dark:border-slate-700 p-5">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                        <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-bold text-slate-900 dark:text-white text-sm truncate">@k.Name</p>
+                    </div>
+                    <button @onclick="() => PromptRevoke(k.Id)" class="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg transition-colors" title="Revoke">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+                    <div class="flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                        </svg>
+                        Created @k.CreatedUtc.ToLocalTime().ToString("MMM d, yyyy")
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        @(k.LastUsedUtc.HasValue ? $"Last used {k.LastUsedUtc.Value.ToLocalTime():MMM d, yyyy}" : "Never used")
+                    </div>
+                </div>
+            </div>
         }
-    </MudGrid>
+    </div>
 }
 
-@* Create API Key Dialog *@
-<MudDialog @bind-Visible="_dialogVisible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
-    <TitleContent>
-        <MudText Typo="Typo.h6">
-            <MudIcon Icon="@Icons.Material.Filled.Add" Class="mr-2" Style="vertical-align: middle;" />
-            New API Key
-        </MudText>
-    </TitleContent>
-    <DialogContent>
-        <MudTextField @bind-Value="_formKeyName"
-                      Label="Key Name"
-                      Placeholder="e.g., Mobile App, CI/CD Pipeline"
-                      Variant="Variant.Outlined"
-                      Class="mb-4"
-                      Immediate="true" />
-
-        @if (_formError is not null)
-        {
-            <MudAlert Severity="Severity.Error" Class="mt-2">@_formError</MudAlert>
-        }
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="CloseDialog">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   OnClick="CreateKey"
-                   Disabled="@_creating">
-            @if (_creating)
-            {
-                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-            }
-            Create
-        </MudButton>
-    </DialogActions>
-</MudDialog>
-
-<style>
-    .apikey-card:hover {
-        transform: translateY(-2px);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-
-    .apikey-card {
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-</style>
+<!-- Create API Key Modal -->
+@if (_dialogVisible)
+{
+    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @onclick="CloseDialog"></div>
+        <div class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 dark:border-slate-700 animate-fade-in">
+            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-700">
+                <h2 class="text-lg font-bold text-slate-900 dark:text-white">New API Key</h2>
+                <button @onclick="CloseDialog" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="px-6 py-5">
+                <div class="floating-field">
+                    <input @bind="_formKeyName" @bind:event="oninput" type="text" placeholder=" " class="floating-input" />
+                    <label class="floating-label">Key Name</label>
+                </div>
+                @if (_formError is not null)
+                {
+                    <div class="mt-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-4 py-3 text-sm">@_formError</div>
+                }
+            </div>
+            <div class="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-700">
+                <button @onclick="CloseDialog" class="btn-ghost">Cancel</button>
+                <button @onclick="CreateKey" disabled="@_creating" class="btn-primary">
+                    @if (_creating)
+                    {
+                        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                    }
+                    Create Key
+                </button>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     [CascadingParameter]
@@ -186,10 +180,7 @@ else
     private string? _formError;
     private string? _newlyCreatedKey;
     private string? _userId;
-
     private bool _dialogVisible;
-
-    // Form fields
     private string _formKeyName = "";
 
     protected override async Task OnInitializedAsync()
@@ -257,7 +248,7 @@ else
             await RefreshKeys();
             _dialogVisible = false;
             _formKeyName = "";
-            Snackbar.Add("API key created.", Severity.Success);
+            Notifications.Add("API key created.", NotifySeverity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -276,12 +267,8 @@ else
 
     private async Task PromptRevoke(int keyId)
     {
-        var confirmed = await DialogService.ShowMessageBoxAsync(
-            "Revoke API Key",
-            "Are you sure you want to revoke this API key? This action cannot be undone.",
-            yesText: "Revoke", cancelText: "Cancel");
-
-        if (confirmed == true)
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to revoke this API key? This cannot be undone.");
+        if (confirmed)
         {
             await ConfirmRevoke(keyId);
         }
@@ -293,7 +280,7 @@ else
         {
             await ApiKeyService.RevokeKeyAsync(keyId, _userId!);
             await RefreshKeys();
-            Snackbar.Add("API key revoked.", Severity.Success);
+            Notifications.Add("API key revoked.", NotifySeverity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -302,7 +289,7 @@ else
         }
         catch (Exception ex)
         {
-            _formError = $"Failed to revoke API key: {ex.Message}";
+            Notifications.Add($"Failed to revoke API key: {ex.Message}", NotifySeverity.Error);
         }
     }
 
@@ -316,7 +303,8 @@ else
         if (_newlyCreatedKey is not null)
         {
             await JS.InvokeVoidAsync("navigator.clipboard.writeText", _newlyCreatedKey);
-            Snackbar.Add("Key copied to clipboard!", Severity.Success);
+            Notifications.Add("Key copied to clipboard!", NotifySeverity.Success);
         }
     }
 }
+

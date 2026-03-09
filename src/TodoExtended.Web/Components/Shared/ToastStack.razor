@@ -1,0 +1,57 @@
+@using TodoExtended.Web.Services
+@inject INotificationService Notifications
+@implements IDisposable
+
+@if (_items.Count > 0)
+{
+    <div class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+        @foreach (var item in _items)
+        {
+            var (bg, icon, text) = GetStyle(item.Severity);
+            var liveValue = item.Severity is NotifySeverity.Error or NotifySeverity.Warning ? "assertive" : "polite";
+            <div role="status" aria-live="@liveValue" class="@bg pointer-events-auto flex items-start gap-3 rounded-2xl px-4 py-3 shadow-lg animate-fade-in border @text">
+                <span class="mt-0.5 text-lg flex-shrink-0">@icon</span>
+                <p class="text-sm font-medium leading-snug flex-1">@item.Message</p>
+                <button class="ml-1 text-current opacity-50 hover:opacity-100 transition-opacity" @onclick="() => Notifications.Dismiss(item.Id)" aria-label="Dismiss">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<NotifyItem> _items = [];
+    private System.Threading.Timer? _timer;
+
+    protected override void OnInitialized()
+    {
+        Notifications.Changed += OnChanged;
+        _timer = new System.Threading.Timer(_ =>
+        {
+            Notifications.PurgeExpired();
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void OnChanged()
+    {
+        _items = Notifications.Items.ToList();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private static (string bg, string icon, string text) GetStyle(NotifySeverity s) => s switch
+    {
+        NotifySeverity.Success => ("bg-emerald-50 border-emerald-200", "✅", "text-emerald-800"),
+        NotifySeverity.Error   => ("bg-rose-50 border-rose-200", "❌", "text-rose-800"),
+        NotifySeverity.Warning => ("bg-amber-50 border-amber-200", "⚠️", "text-amber-800"),
+        _                      => ("bg-sky-50 border-sky-200", "ℹ️", "text-sky-800"),
+    };
+
+    public void Dispose()
+    {
+        Notifications.Changed -= OnChanged;
+        _timer?.Dispose();
+    }
+}

@@ -5,76 +5,93 @@
 @inject TodoExtended.Web.Services.IUserPreferenceService UserPreferenceService
 @inject IOptions<DemoOptions> DemoOptions
 
-<MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
-<MudPopoverProvider />
-<MudDialogProvider />
-<MudSnackbarProvider />
-
-<MudLayout>
+<div class="@(_isDarkMode ? "dark" : "")">
+<div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
     <AuthorizeView>
         <Authorized>
-            <MudAppBar Elevation="1" Dense="true">
-                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="ToggleDrawer" />
-                <MudText Typo="Typo.h6" Class="ml-2">TodoExtended</MudText>
-                <MudSpacer />
-                <MudHidden Breakpoint="Breakpoint.SmAndDown">
-                    <MudText Typo="Typo.body2" Class="mr-2">@context.User.Identity?.Name</MudText>
-                </MudHidden>
-                <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" Color="Color.Inherit" OnClick="ToggleDarkMode" />
-                <MudButton Href="@(DemoOptions.Value.Enabled ? "/auth/demo-signout" : "MicrosoftIdentity/Account/SignOut")" Color="Color.Inherit" Variant="Variant.Text">Sign out</MudButton>
-            </MudAppBar>
+            <!-- Top navigation bar -->
+            <header class="fixed top-0 inset-x-0 z-30 h-14 bg-gradient-to-r from-brand-700 via-brand-600 to-violet-600 flex items-center gap-3 px-4 shadow-lg">
+                <button @onclick="ToggleSidebar" class="lg:hidden p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors" aria-label="Toggle menu">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                    </svg>
+                </button>
 
-            <MudDrawer @bind-Open="_drawerOpen" Elevation="2" Variant="@DrawerVariant.Responsive" ClipMode="DrawerClipMode.Always">
-                <NavMenu />
-            </MudDrawer>
+                <a href="/" class="flex items-center gap-2 font-extrabold text-white text-lg tracking-tight select-none">
+                    <div class="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-sm font-black">✓</div>
+                    <span class="hidden sm:inline">TodoExtended</span>
+                </a>
 
-            <MudMainContent Class="pa-4" Style="margin-top: var(--mud-appbar-height);">
-                <MudContainer MaxWidth="MaxWidth.Large">
+                <div class="flex-1"></div>
+
+                <!-- User pill (desktop) -->
+                <div class="hidden sm:flex items-center gap-1.5 bg-white/15 text-white/90 text-sm font-medium rounded-full px-3 py-1.5">
+                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-7 8a7 7 0 1114 0H3z"/>
+                    </svg>
+                    <span>@context.User.Identity?.Name</span>
+                </div>
+
+                <!-- Dark mode toggle -->
+                <button @onclick="ToggleDarkMode" class="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors" aria-label="Toggle dark mode">
+                    @if (_isDarkMode)
+                    {
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                    }
+                    else
+                    {
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                        </svg>
+                    }
+                </button>
+
+                <!-- Sign out -->
+                <a href="@(DemoOptions.Value.Enabled ? "/auth/demo-signout" : "MicrosoftIdentity/Account/SignOut")"
+                   class="text-white/80 hover:text-white text-sm font-medium transition-colors px-2 py-1 rounded-lg hover:bg-white/10">
+                    Sign out
+                </a>
+            </header>
+
+            <!-- Mobile overlay -->
+            @if (_sidebarOpen)
+            {
+                <div class="fixed inset-0 z-20 bg-black/50 lg:hidden" @onclick="ToggleSidebar"></div>
+            }
+
+            <!-- Sidebar -->
+            <aside class="@(_sidebarOpen ? "translate-x-0" : "-translate-x-full") lg:translate-x-0 fixed top-14 left-0 bottom-0 z-20 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 overflow-y-auto transition-transform duration-200 ease-out">
+                <CascadingValue Name="CloseSidebar" Value="@_closeSidebarAction">
+                    <NavMenu />
+                </CascadingValue>
+            </aside>
+
+            <!-- Main content -->
+            <main class="lg:pl-64 pt-14 min-h-screen">
+                <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
                     @Body
-                </MudContainer>
-            </MudMainContent>
+                </div>
+            </main>
+
+            <ToastStack />
         </Authorized>
         <NotAuthorized>
             @Body
         </NotAuthorized>
     </AuthorizeView>
-</MudLayout>
+</div>
+</div>
 
 @code {
     [CascadingParameter]
     private Task<AuthenticationState>? AuthState { get; set; }
 
-    private bool _drawerOpen = true;
     private bool _isDarkMode = false;
+    private bool _sidebarOpen = false;
     private string? _userId;
-
-    private MudTheme _theme = new MudTheme
-    {
-        PaletteLight = new PaletteLight
-        {
-            Primary = "#1976D2",
-            Secondary = "#7C4DFF",
-            Tertiary = "#00BFA5",
-            AppbarBackground = "#1976D2",
-            DrawerBackground = "#FAFAFA",
-            Background = "#F5F5F5",
-            Surface = "#FFFFFF",
-        },
-        PaletteDark = new PaletteDark
-        {
-            Primary = "#1976D2",
-            Secondary = "#B388FF",
-            Tertiary = "#64FFDA",
-            AppbarBackground = "#1E1E1E",
-            DrawerBackground = "#121212",
-            Background = "#121212",
-            Surface = "#1E1E1E",
-        },
-        Typography = new Typography
-        {
-            Default = new DefaultTypography { FontFamily = new[] { "Roboto", "Helvetica", "Arial", "sans-serif" } }
-        }
-    };
+    private Action _closeSidebarAction => CloseSidebar;
 
     protected override async Task OnInitializedAsync()
     {
@@ -89,7 +106,13 @@
         }
     }
 
-    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+
+    private void CloseSidebar()
+    {
+        _sidebarOpen = false;
+        StateHasChanged();
+    }
 
     private async Task ToggleDarkMode()
     {
