@@ -132,13 +132,12 @@ else
                 </button>
             </div>
             <div class="px-6 py-5 space-y-4">
-                <div>
-                    <label class="label">Title</label>
-                    <input @bind="_formTitle" @bind:event="oninput" type="text" placeholder="e.g. Morning standup notes" class="input" />
+                <div class="floating-field">
+                    <input @bind="_formTitle" @bind:event="oninput" type="text" placeholder=" " class="floating-input" />
+                    <label class="floating-label">Title</label>
                 </div>
-                <div>
-                    <label class="label">Task List</label>
-                    <select @bind="_formTaskListId" class="input">
+                <div class="floating-field">
+                    <select @bind="_formTaskListId" class="floating-select">
                         <option value="">Select a list…</option>
                         @if (TaskLists is not null)
                         {
@@ -148,10 +147,11 @@ else
                             }
                         }
                     </select>
+                    <label class="floating-label">Task List</label>
                 </div>
-                <div>
-                    <label class="label">Sort Order</label>
-                    <input @bind="_formSortOrder" type="number" class="input w-24" />
+                <div class="floating-field w-28">
+                    <input @bind="_formSortOrder" type="number" placeholder=" " class="floating-input" />
+                    <label class="floating-label">Sort Order</label>
                 </div>
                 <div class="flex items-center gap-3">
                     <label class="relative inline-flex items-center cursor-pointer">
@@ -162,9 +162,9 @@ else
                 </div>
                 @if (_formDueDateToday)
                 {
-                    <div>
-                        <label class="label">Reminder Time (optional)</label>
-                        <input value="@_formReminderTime" @onchange="e => _formReminderTime = e.Value?.ToString()" type="time" class="input" />
+                    <div class="floating-field">
+                        <input value="@_formReminderTime" @onchange="e => _formReminderTime = e.Value?.ToString()" type="time" placeholder=" " class="floating-input" />
+                        <label class="floating-label">Reminder Time (optional)</label>
                     </div>
                 }
                 @if (_formError is not null)

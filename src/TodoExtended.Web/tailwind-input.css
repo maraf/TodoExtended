@@ -19,8 +19,38 @@
   .btn-lg { @apply px-7 py-3.5 text-base rounded-2xl; }
   
   /* Form inputs */
-  .input { @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500; }
-  .label { @apply block text-sm font-medium text-slate-700 mb-1; }
+  .input { @apply w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700/60 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500; }
+  .label { @apply block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1; }
+
+  /* ─── Floating label fields ──────────────────────────────── */
+  .floating-field { @apply relative; }
+
+  .floating-field .floating-input {
+    @apply block w-full rounded-xl border border-slate-200 dark:border-slate-600
+           bg-slate-50 dark:bg-slate-700/60
+           px-4 pt-6 pb-2
+           text-sm text-slate-900 dark:text-slate-100
+           shadow-sm transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500;
+    /* placeholder must be set to " " in HTML; hide it visually */
+    color-scheme: light dark;
+  }
+
+  .floating-field .floating-select {
+    @apply block w-full rounded-xl border border-slate-200 dark:border-slate-600
+           bg-slate-50 dark:bg-slate-700/60
+           px-4 pt-6 pb-2
+           text-sm text-slate-900 dark:text-slate-100
+           shadow-sm transition-all duration-150
+           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500
+           appearance-none;
+  }
+
+  .floating-field .floating-label {
+    @apply absolute left-4 text-sm font-medium text-slate-500 dark:text-slate-400
+           transition-all duration-150 pointer-events-none select-none;
+    top: 1.05rem;
+  }
   
   /* Cards */
   .card { @apply bg-white rounded-2xl border border-slate-100 shadow-sm; }
@@ -41,4 +71,41 @@
   /* Task rows */
   .task-row { @apply flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors; }
   .task-row + .task-row { @apply border-t border-slate-100; }
+}
+
+/* ─── Floating label: state-driven transitions ────────────── */
+/* Input is empty (placeholder shown): label sits inside as visual placeholder */
+/* Input has value or is focused: label floats to top-left corner */
+
+/* Inputs that use :placeholder-shown trick (placeholder=" " required in HTML) */
+.floating-field .floating-input:focus ~ .floating-label,
+.floating-field .floating-input:not(:placeholder-shown) ~ .floating-label {
+  top: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: theme('colors.brand.600');
+}
+.dark .floating-field .floating-input:focus ~ .floating-label,
+.dark .floating-field .floating-input:not(:placeholder-shown) ~ .floating-label {
+  color: theme('colors.brand.400');
+}
+
+/* Select and time inputs always show label floated (they always display a value) */
+.floating-field .floating-select ~ .floating-label,
+.floating-field .floating-input[type="time"] ~ .floating-label,
+.floating-field .floating-input[type="number"] ~ .floating-label {
+  top: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: theme('colors.brand.600');
+}
+.dark .floating-field .floating-select ~ .floating-label,
+.dark .floating-field .floating-input[type="time"] ~ .floating-label,
+.dark .floating-field .floating-input[type="number"] ~ .floating-label {
+  color: theme('colors.brand.400');
+}
+
+/* Hide native placeholder text (label acts as the placeholder) */
+.floating-field .floating-input::placeholder {
+  color: transparent;
 }
