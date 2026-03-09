@@ -82,7 +82,7 @@ else
             else
             {
                 <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
-                    @foreach (var (list, idx) in _syncedLists.Select((l, i) => (l, i)))
+                    @foreach (var list in _syncedLists)
                     {
                         <div class="task-row">
                             @if (_selectionMode)

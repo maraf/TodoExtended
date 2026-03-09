@@ -10,4 +10,5 @@ public interface INotificationService
     IReadOnlyList<NotifyItem> Items { get; }
     void Add(string message, NotifySeverity severity = NotifySeverity.Info);
     void Dismiss(Guid id);
+    void PurgeExpired();
 }

@@ -31,7 +31,7 @@
         Notifications.Changed += OnChanged;
         _timer = new System.Threading.Timer(_ =>
         {
-            (Notifications as NotificationService)?.PurgeExpired();
+            Notifications.PurgeExpired();
         }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 

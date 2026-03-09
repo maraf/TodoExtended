@@ -76,7 +76,7 @@ else
                 <div class="h-full bg-gradient-to-r from-violet-500 to-brand-500 rounded-r-full transition-all duration-500" style="width: @(pct)%"></div>
             </div>
 
-            @foreach (var (task, idx) in TaskItems!.Select((t, i) => (t, i)))
+            @foreach (var task in TaskItems!)
             {
                 <div class="task-row @(task.IsCompleted ? "opacity-50" : "")">
                     <TaskStatusCheckbox TaskId="@task.Id"
