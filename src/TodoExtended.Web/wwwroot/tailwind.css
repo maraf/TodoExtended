@@ -1097,10 +1097,19 @@ body {
   background-color: rgb(248 250 252 / var(--tw-bg-opacity, 1));
 }
 
+.task-row:hover:is(.dark *) {
+  background-color: rgb(51 65 85 / 0.5);
+}
+
 .task-row + .task-row {
   border-top-width: 1px;
   --tw-border-opacity: 1;
   border-color: rgb(241 245 249 / var(--tw-border-opacity, 1));
+}
+
+.task-row + .task-row:is(.dark *) {
+  --tw-border-opacity: 1;
+  border-color: rgb(51 65 85 / var(--tw-border-opacity, 1));
 }
 
 .sr-only {
