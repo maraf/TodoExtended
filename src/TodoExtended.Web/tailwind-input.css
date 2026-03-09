@@ -69,8 +69,8 @@
   .section-title { @apply text-xs font-bold uppercase tracking-widest text-slate-400 px-3 mb-1; }
   
   /* Task rows */
-  .task-row { @apply flex items-center gap-3 px-5 py-4 hover:bg-slate-50 transition-colors; }
-  .task-row + .task-row { @apply border-t border-slate-100; }
+  .task-row { @apply flex items-center gap-3 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors; }
+  .task-row + .task-row { @apply border-t border-slate-100 dark:border-slate-700; }
 }
 
 /* ─── Floating label: state-driven transitions ────────────── */
