@@ -20,8 +20,8 @@
                         <span class="font-extrabold text-white text-lg tracking-tight select-none">To Do (ex)</span>
                     </div>
 
-                    <!-- Mobile: hamburger + logo -->
-                    <button @onclick="ToggleSidebar" class="wco-no-drag lg:hidden p-1.5 ml-4 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors" aria-label="Toggle menu">
+                    <!-- Mobile: hamburger (hidden — bottom bar provides sidebar toggle) + logo -->
+                    <button @onclick="ToggleSidebar" class="wco-no-drag hidden p-1.5 ml-4 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors" aria-label="Toggle menu">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
                         </svg>
@@ -93,11 +93,14 @@
 
                     <!-- Main content -->
                     <main class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
-                        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+                        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 lg:pb-8">
                             @Body
                         </div>
                     </main>
                 </div>
+
+                <!-- Floating bottom bar (mobile only) -->
+                <BottomBar OnToggleSidebar="ToggleSidebar" />
 
                 <ToastStack />
             </div>
