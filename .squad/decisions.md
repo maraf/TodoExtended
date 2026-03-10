@@ -230,6 +230,46 @@ All catches log at Warning level since this is an expected Blazor Server lifecyc
 
 **Impact:** Single file changed: `src/TodoExtended.Web/Services/CachedTodoService.cs`. No interface changes, no breaking changes.
 
+### Header Layout Restructure
+
+**Date:** 2026-03-10  
+**Author:** Frontend  
+**Status:** Implemented
+
+The application header has been restructured to use a split layout with fixed positioning and independent scroll areas. Page titles and icons are now rendered in the header bar instead of in page bodies.
+
+**Key Changes:**
+
+1. **Split Header Layout**
+   - Left section (w-64, desktop only): App logo "To Do (ex)" aligned above sidebar
+   - Right section (flex-1): Page icon + title, then user controls (user pill, dark mode, sign out)
+   - Full-width gradient background spans both sections
+
+2. **Fixed Header + Scrollable Content**
+   - Outer container: `h-screen overflow-hidden flex flex-col`
+   - Header: Fixed height (h-14), no scroll
+   - Sidebar: `overflow-y-auto` (independent scroll)
+   - Main content: `overflow-y-auto` (independent scroll)
+
+3. **Page Title Pattern**
+   - Use `SectionContent`/`SectionOutlet` to pass page headers from pages to layout
+   - Import required: `@using Microsoft.AspNetCore.Components.Sections` in `_Imports.razor`
+   - Each page defines: `<SectionContent SectionName="page-header">...</SectionContent>`
+   - Layout renders: `<SectionOutlet SectionName="page-header" />`
+
+4. **Responsive Design**
+   - Page icons: `hidden sm:flex` (hidden on mobile)
+   - Desktop: Sidebar section visible in header with logo
+   - Mobile: Hamburger + logo inline, sidebar as overlay
+
+**Rationale:**
+- **Better scroll experience:** Only content scrolls, not the entire page. Header and sidebar stay fixed.
+- **Visual consistency:** Page title in header bar matches design patterns seen in modern web apps
+- **Clean architecture:** SectionContent/SectionOutlet separates page content from layout chrome
+- **Mobile-friendly:** Icons hidden on narrow screens, simplified header layout
+
+**Impact:** All 6 pages (Tasks, Today, Templates, ApiKeys, SyncSettings, Home) updated to use the new pattern. MainLayout.razor also updated. No breaking changes to functionality. Build verified clean (zero errors).
+
 ## Governance
 
 - All meaningful changes require team consensus
