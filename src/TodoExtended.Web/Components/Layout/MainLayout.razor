@@ -8,76 +8,91 @@
 @inject IJSRuntime JSRuntime
 
 <div class="@(_isDarkMode ? "dark" : "")">
-<div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+<div class="h-screen overflow-hidden bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
     <AuthorizeView>
         <Authorized>
-            <!-- Top navigation bar -->
-            <header class="fixed top-0 inset-x-0 z-30 h-14 bg-gradient-to-r from-brand-700 via-brand-600 to-violet-600 flex items-center gap-3 px-4 shadow-lg">
-                <button @onclick="ToggleSidebar" class="lg:hidden p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors" aria-label="Toggle menu">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                </button>
+            <div class="h-screen overflow-hidden flex flex-col">
+                <!-- Top navigation bar -->
+                <header class="h-14 flex shrink-0 bg-gradient-to-r from-brand-700 via-brand-600 to-violet-600 shadow-lg">
+                    <!-- Sidebar-width section (desktop): logo -->
+                    <div class="hidden lg:flex w-64 items-center gap-2 px-4 border-r border-white/10">
+                        <img src="TodoExtended_icon.svg" alt="TodoExtended" class="w-7 h-7 rounded-lg" />
+                        <span class="font-extrabold text-white text-lg tracking-tight select-none">To Do (ex)</span>
+                    </div>
 
-                <a href="/" class="flex items-center gap-2 font-extrabold text-white text-lg tracking-tight select-none">
-                    <img src="TodoExtended_icon.svg" alt="TodoExtended" class="w-7 h-7 rounded-lg" />
-                    <span class="hidden sm:inline">To Do (ex)</span>
-                </a>
+                    <!-- Mobile: hamburger + logo -->
+                    <button @onclick="ToggleSidebar" class="lg:hidden p-1.5 ml-4 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors" aria-label="Toggle menu">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                    </button>
 
-                <div class="flex-1"></div>
+                    <a href="/" class="lg:hidden flex items-center gap-2 font-extrabold text-white text-lg tracking-tight select-none ml-3">
+                        <img src="TodoExtended_icon.svg" alt="TodoExtended" class="w-7 h-7 rounded-lg" />
+                    </a>
 
-                <!-- User pill (desktop) -->
-                <div class="hidden sm:flex items-center gap-1.5 bg-white/15 text-white/90 text-sm font-medium rounded-full px-3 py-1.5">
-                    <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-7 8a7 7 0 1114 0H3z"/>
-                    </svg>
-                    <span>@context.User.Identity?.Name</span>
+                    <!-- Main section: page title + user controls -->
+                    <div class="flex-1 flex items-center px-4 gap-3">
+                        <SectionOutlet SectionName="page-header" />
+
+                        <div class="flex-1"></div>
+
+                        <!-- User pill (desktop) -->
+                        <div class="hidden sm:flex items-center gap-1.5 bg-white/15 text-white/90 text-sm font-medium rounded-full px-3 py-1.5">
+                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-7 8a7 7 0 1114 0H3z"/>
+                            </svg>
+                            <span>@context.User.Identity?.Name</span>
+                        </div>
+
+                        <!-- Dark mode toggle -->
+                        <button @onclick="ToggleDarkMode" class="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors" aria-label="Toggle dark mode">
+                            @if (_isDarkMode)
+                            {
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                                </svg>
+                            }
+                        </button>
+
+                        <!-- Sign out -->
+                        <a href="@(DemoOptions.Value.Enabled ? "/auth/demo-signout" : "MicrosoftIdentity/Account/SignOut")"
+                           class="text-white/80 hover:text-white text-sm font-medium transition-colors px-2 py-1 rounded-lg hover:bg-white/10">
+                            Sign out
+                        </a>
+                    </div>
+                </header>
+
+                <div class="flex flex-1 overflow-hidden">
+                    <!-- Mobile overlay -->
+                    @if (_sidebarOpen)
+                    {
+                        <div class="fixed inset-0 z-20 bg-black/50 lg:hidden" @onclick="ToggleSidebar"></div>
+                    }
+
+                    <!-- Sidebar -->
+                    <aside class="@(_sidebarOpen ? "translate-x-0" : "-translate-x-full") lg:translate-x-0 fixed lg:relative top-14 lg:top-0 left-0 bottom-0 z-20 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 overflow-y-auto transition-transform duration-200 ease-out">
+                        <CascadingValue Name="CloseSidebar" Value="@_closeSidebarAction">
+                            <NavMenu />
+                        </CascadingValue>
+                    </aside>
+
+                    <!-- Main content -->
+                    <main class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+                        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+                            @Body
+                        </div>
+                    </main>
                 </div>
 
-                <!-- Dark mode toggle -->
-                <button @onclick="ToggleDarkMode" class="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors" aria-label="Toggle dark mode">
-                    @if (_isDarkMode)
-                    {
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-                        </svg>
-                    }
-                    else
-                    {
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-                        </svg>
-                    }
-                </button>
-
-                <!-- Sign out -->
-                <a href="@(DemoOptions.Value.Enabled ? "/auth/demo-signout" : "MicrosoftIdentity/Account/SignOut")"
-                   class="text-white/80 hover:text-white text-sm font-medium transition-colors px-2 py-1 rounded-lg hover:bg-white/10">
-                    Sign out
-                </a>
-            </header>
-
-            <!-- Mobile overlay -->
-            @if (_sidebarOpen)
-            {
-                <div class="fixed inset-0 z-20 bg-black/50 lg:hidden" @onclick="ToggleSidebar"></div>
-            }
-
-            <!-- Sidebar -->
-            <aside class="@(_sidebarOpen ? "translate-x-0" : "-translate-x-full") lg:translate-x-0 fixed top-14 left-0 bottom-0 z-20 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 overflow-y-auto transition-transform duration-200 ease-out">
-                <CascadingValue Name="CloseSidebar" Value="@_closeSidebarAction">
-                    <NavMenu />
-                </CascadingValue>
-            </aside>
-
-            <!-- Main content -->
-            <main class="lg:pl-64 pt-14 min-h-screen">
-                <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-                    @Body
-                </div>
-            </main>
-
-            <ToastStack />
+                <ToastStack />
+            </div>
         </Authorized>
         <NotAuthorized>
             @Body
