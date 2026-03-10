@@ -371,7 +371,7 @@ public class CachedTodoService(
         }
 
         // Sync tasks for all lists in parallel
-        await SyncTasksForListsInParallelAsync(
+        await SyncTasksForListsBatchAsync(
             lists.Select(l => (l.Id, (string?)null)).ToList());
     }
 
@@ -390,22 +390,29 @@ public class CachedTodoService(
                 logger.LogWarning("List {ListId} has no delta token: a full sync will be performed and deleted tasks will not be detected", list.Id);
         }
 
-        await SyncTasksForListsInParallelAsync(
+        await SyncTasksForListsBatchAsync(
             lists.Select(l => (l.Id, l.DeltaToken)).ToList());
     }
 
-    private async Task SyncTasksForListsInParallelAsync(List<(string Id, string? DeltaToken)> lists)
+    private async Task SyncTasksForListsBatchAsync(List<(string Id, string? DeltaToken)> lists)
     {
         if (lists.Count == 0) return;
 
+        logger.LogInformation("Batch-fetching task deltas for {Count} lists", lists.Count);
+
+        // Phase 1: Batch-fetch first delta pages (N lists → ceil(N/20) HTTP calls instead of N)
+        var requests = lists.Select(l => (l.Id, l.DeltaToken)).ToList();
+        var batchResults = await graphClient.GetTasksDeltaBatchAsync(requests);
+
+        // Phase 2: Process results in parallel (pagination follows individually per list)
         using var throttle = new SemaphoreSlim(_options.MaxParallelListSync);
-        var tasks = lists.Select(async list =>
+        var tasks = batchResults.Select(async kvp =>
         {
             await throttle.WaitAsync();
             try
             {
                 await using var scopedDb = await dbContextFactory.CreateDbContextAsync();
-                await SyncTasksForListAsync(scopedDb, list.Id, list.DeltaToken);
+                await ProcessTasksDeltaPagesAsync(scopedDb, kvp.Key, kvp.Value);
             }
             finally
             {
@@ -529,112 +536,121 @@ public class CachedTodoService(
 
         try
         {
-            var page = await graphClient.GetTasksDeltaPageAsync(listId, deltaToken);
-
-            while (true)
-            {
-                if (page.Value.Count > 0)
-                {
-                    logger.LogDebug("Delta page for list {ListId}: {Count} items", listId, page.Value.Count);
-                    foreach (var graphTask in page.Value)
-                    {
-                        if (graphTask.AdditionalData?.ContainsKey("@removed") == true)
-                        {
-                            if (graphTask.Id is null)
-                            {
-                                logger.LogWarning("Received @removed task with null Id in list {ListId}; skipping", listId);
-                                continue;
-                            }
-                            logger.LogDebug("Task {TaskId} detected as @removed in list {ListId}", graphTask.Id, listId);
-                            var cachedTask = await scopedDb.CachedTasks.FindAsync(graphTask.Id);
-                            if (cachedTask != null)
-                            {
-                                logger.LogDebug("Soft deleting task {TaskId} from cache (was IsDeleted={WasDeleted})", graphTask.Id, cachedTask.IsDeleted);
-                                cachedTask.IsDeleted = true;
-                                cachedTask.UpdatedUtc = DateTime.UtcNow;
-                            }
-                            else
-                            {
-                                logger.LogDebug("Skipping soft-delete for task {TaskId}: not found in cache", graphTask.Id);
-                            }
-                        }
-                        else
-                        {
-                            var cachedTask = await scopedDb.CachedTasks.FindAsync(graphTask.Id);
-                            var now = DateTime.UtcNow;
-                            var dueDate = ParseDueDate(graphTask.DueDateTime);
-
-                            if (cachedTask == null)
-                            {
-                                logger.LogDebug("Adding new task {TaskId} to cache", graphTask.Id);
-                                cachedTask = new CachedTask
-                                {
-                                    Id = graphTask.Id!,
-                                    ListId = listId,
-                                    Title = graphTask.Title ?? "Untitled",
-                                    Body = graphTask.Body?.Content,
-                                    IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed,
-                                    DueDate = dueDate,
-                                    Importance = graphTask.Importance?.ToString(),
-                                    IsDeleted = false,
-                                    LastSyncUtc = now,
-                                    CreatedUtc = now,
-                                    UpdatedUtc = now,
-                                };
-                                scopedDb.CachedTasks.Add(cachedTask);
-                            }
-                            else
-                            {
-                                logger.LogDebug("Updating task {TaskId} in cache", graphTask.Id);
-                                cachedTask.Title = graphTask.Title ?? "Untitled";
-                                cachedTask.Body = graphTask.Body?.Content;
-                                cachedTask.IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed;
-                                cachedTask.DueDate = dueDate;
-                                cachedTask.Importance = graphTask.Importance?.ToString();
-                                cachedTask.IsDeleted = false;
-                                cachedTask.UpdatedUtc = now;
-                                cachedTask.LastSyncUtc = now;
-                            }
-                        }
-                    }
-
-                    await scopedDb.SaveChangesAsync();
-                }
-
-                if (!string.IsNullOrEmpty(page.OdataNextLink))
-                {
-                    logger.LogDebug("Fetching next page of tasks delta for list {ListId}", listId);
-                    page = await graphClient.GetTasksDeltaPageAsync(listId, page.OdataNextLink);
-                }
-                else
-                {
-                    if (!string.IsNullOrEmpty(page.OdataDeltaLink))
-                    {
-                        logger.LogDebug("Storing delta token for list {ListId}", listId);
-                        var cachedList = await scopedDb.CachedTaskLists.FindAsync(listId);
-                        if (cachedList != null)
-                        {
-                            cachedList.DeltaToken = page.OdataDeltaLink;
-                            cachedList.LastSyncUtc = DateTime.UtcNow;
-                            await scopedDb.SaveChangesAsync();
-                        }
-                        else
-                        {
-                            logger.LogWarning("Cannot store delta token for list {ListId}: list not found in cache. Future syncs will perform a full sync for this list until it is re-added to the cache, meaning task deletions will not be detected during that time", listId);
-                        }
-                    }
-                    else
-                    {
-                        logger.LogWarning("No delta link returned for list {ListId}: delta token will not be refreshed, next sync will perform a full sync and deleted tasks will not be detected", listId);
-                    }
-                    break;
-                }
-            }
+            var firstPage = await graphClient.GetTasksDeltaPageAsync(listId, deltaToken);
+            await ProcessTasksDeltaPagesAsync(scopedDb, listId, firstPage);
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error syncing tasks for list {ListId}", listId);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Processes task delta pages starting from a provided first page. Follows pagination
+    /// (OdataNextLink) until all pages are consumed, then saves the delta token.
+    /// Shared by both single-list sync and batch sync paths.
+    /// </summary>
+    private async Task ProcessTasksDeltaPagesAsync(AppDbContext scopedDb, string listId, GraphDeltaPage<Microsoft.Graph.Models.TodoTask> page)
+    {
+        while (true)
+        {
+            if (page.Value.Count > 0)
+            {
+                logger.LogDebug("Delta page for list {ListId}: {Count} items", listId, page.Value.Count);
+                foreach (var graphTask in page.Value)
+                {
+                    if (graphTask.AdditionalData?.ContainsKey("@removed") == true)
+                    {
+                        if (graphTask.Id is null)
+                        {
+                            logger.LogWarning("Received @removed task with null Id in list {ListId}; skipping", listId);
+                            continue;
+                        }
+                        logger.LogDebug("Task {TaskId} detected as @removed in list {ListId}", graphTask.Id, listId);
+                        var cachedTask = await scopedDb.CachedTasks.FindAsync(graphTask.Id);
+                        if (cachedTask != null)
+                        {
+                            logger.LogDebug("Soft deleting task {TaskId} from cache (was IsDeleted={WasDeleted})", graphTask.Id, cachedTask.IsDeleted);
+                            cachedTask.IsDeleted = true;
+                            cachedTask.UpdatedUtc = DateTime.UtcNow;
+                        }
+                        else
+                        {
+                            logger.LogDebug("Skipping soft-delete for task {TaskId}: not found in cache", graphTask.Id);
+                        }
+                    }
+                    else
+                    {
+                        var cachedTask = await scopedDb.CachedTasks.FindAsync(graphTask.Id);
+                        var now = DateTime.UtcNow;
+                        var dueDate = ParseDueDate(graphTask.DueDateTime);
+
+                        if (cachedTask == null)
+                        {
+                            logger.LogDebug("Adding new task {TaskId} to cache", graphTask.Id);
+                            cachedTask = new CachedTask
+                            {
+                                Id = graphTask.Id!,
+                                ListId = listId,
+                                Title = graphTask.Title ?? "Untitled",
+                                Body = graphTask.Body?.Content,
+                                IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed,
+                                DueDate = dueDate,
+                                Importance = graphTask.Importance?.ToString(),
+                                IsDeleted = false,
+                                LastSyncUtc = now,
+                                CreatedUtc = now,
+                                UpdatedUtc = now,
+                            };
+                            scopedDb.CachedTasks.Add(cachedTask);
+                        }
+                        else
+                        {
+                            logger.LogDebug("Updating task {TaskId} in cache", graphTask.Id);
+                            cachedTask.Title = graphTask.Title ?? "Untitled";
+                            cachedTask.Body = graphTask.Body?.Content;
+                            cachedTask.IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed;
+                            cachedTask.DueDate = dueDate;
+                            cachedTask.Importance = graphTask.Importance?.ToString();
+                            cachedTask.IsDeleted = false;
+                            cachedTask.UpdatedUtc = now;
+                            cachedTask.LastSyncUtc = now;
+                        }
+                    }
+                }
+
+                await scopedDb.SaveChangesAsync();
+            }
+
+            if (!string.IsNullOrEmpty(page.OdataNextLink))
+            {
+                logger.LogDebug("Fetching next page of tasks delta for list {ListId}", listId);
+                page = await graphClient.GetTasksDeltaPageAsync(listId, page.OdataNextLink);
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(page.OdataDeltaLink))
+                {
+                    logger.LogDebug("Storing delta token for list {ListId}", listId);
+                    var cachedList = await scopedDb.CachedTaskLists.FindAsync(listId);
+                    if (cachedList != null)
+                    {
+                        cachedList.DeltaToken = page.OdataDeltaLink;
+                        cachedList.LastSyncUtc = DateTime.UtcNow;
+                        await scopedDb.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        logger.LogWarning("Cannot store delta token for list {ListId}: list not found in cache. Future syncs will perform a full sync for this list until it is re-added to the cache, meaning task deletions will not be detected during that time", listId);
+                    }
+                }
+                else
+                {
+                    logger.LogWarning("No delta link returned for list {ListId}: delta token will not be refreshed, next sync will perform a full sync and deleted tasks will not be detected", listId);
+                }
+                break;
+            }
         }
     }
 
