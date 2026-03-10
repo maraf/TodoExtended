@@ -30,6 +30,20 @@
   ],
   "screenshots": [
     {
+      "src": "screenshots/home--desktop-dark.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Home view on desktop"
+    },
+    {
+      "src": "screenshots/templates-dialog--desktop-dark.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Templates dialog view on desktop"
+    },
+    {
       "src": "screenshots/today--desktop-dark.png",
       "sizes": "1280x800",
       "type": "image/png",
@@ -42,20 +56,6 @@
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Today view on mobile"
-    },
-    {
-      "src": "screenshots/tasks--desktop-dark.png",
-      "sizes": "1280x800",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Tasks view on desktop"
-    },
-    {
-      "src": "screenshots/tasks--mobile-dark.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Tasks view on mobile"
     }
   ]
 }
