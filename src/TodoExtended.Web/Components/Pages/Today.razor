@@ -29,6 +29,24 @@
         {
             <span class="chip chip-success">@TodayTasks.Count(t => t.IsCompleted) done</span>
         }
+        <button @onclick="() => _hideCompleted = !_hideCompleted"
+                class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1 transition-colors ml-1">
+            @if (_hideCompleted)
+            {
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/>
+                </svg>
+                <span>Show completed</span>
+            }
+            else
+            {
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                </svg>
+                <span>Hide completed</span>
+            }
+        </button>
     </div>
 }
 
@@ -68,31 +86,43 @@ else
         <!-- Progress bar -->
         @{
             var pct = TodayTasks.Count > 0 ? (int)(100.0 * TodayTasks.Count(t => t.IsCompleted) / TodayTasks.Count) : 0;
+            var visibleTasks = _hideCompleted ? TodayTasks.Where(t => !t.IsCompleted).ToList() : TodayTasks.ToList();
         }
         <div class="h-1.5 bg-slate-100 dark:bg-slate-700">
             <div class="h-full bg-gradient-to-r from-brand-500 to-emerald-500 rounded-r-full transition-all duration-500" style="width: @(pct)%"></div>
         </div>
 
-        @foreach (var task in TodayTasks)
+        @if (visibleTasks.Count == 0)
         {
-            <div class="task-row @(task.IsCompleted ? "opacity-50" : "")">
-                <TaskStatusCheckbox TaskId="@task.Id"
-                                    ListId="@task.ListId"
-                                    IsCompleted="@task.IsCompleted"
-                                    TaskTitle="@task.Title"
-                                    OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
-                                    OnError="(msg) => Notifications.Add(msg, NotifySeverity.Warning)" />
-                <span class="flex-1 min-w-0 text-sm font-medium text-slate-800 dark:text-slate-200 @(task.IsCompleted ? "line-through text-slate-400 dark:text-slate-500" : "") truncate">
-                    @task.Title
-                </span>
-                <div class="flex items-center gap-1.5 flex-shrink-0">
-                    <span class="chip chip-info text-xs hidden sm:inline-flex">@task.ListName</span>
-                    @if (task.Importance == "High")
-                    {
-                        <span class="chip chip-error" title="High priority">!</span>
-                    }
-                </div>
+            <div class="flex flex-col items-center justify-center py-12 text-center">
+                <div class="text-4xl mb-3">✅</div>
+                <p class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">All tasks completed!</p>
+                <button @onclick="() => _hideCompleted = false" class="text-xs text-brand-600 dark:text-brand-400 hover:underline">Show completed tasks</button>
             </div>
+        }
+        else
+        {
+            @foreach (var task in visibleTasks)
+            {
+                <div class="task-row @(task.IsCompleted ? "opacity-50" : "")">
+                    <TaskStatusCheckbox TaskId="@task.Id"
+                                        ListId="@task.ListId"
+                                        IsCompleted="@task.IsCompleted"
+                                        TaskTitle="@task.Title"
+                                        OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                        OnError="(msg) => Notifications.Add(msg, NotifySeverity.Warning)" />
+                    <span class="flex-1 min-w-0 text-sm font-medium text-slate-800 dark:text-slate-200 @(task.IsCompleted ? "line-through text-slate-400 dark:text-slate-500" : "") truncate">
+                        @task.Title
+                    </span>
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                        <span class="chip chip-info text-xs hidden sm:inline-flex">@task.ListName</span>
+                        @if (task.Importance == "High")
+                        {
+                            <span class="chip chip-error" title="High priority">!</span>
+                        }
+                    </div>
+                </div>
+            }
         }
     </div>
 }
@@ -102,6 +132,7 @@ else
     public IReadOnlyList<PersistedTodoTaskWithList>? TodayTasks { get; set; }
 
     private bool _loading = true;
+    private bool _hideCompleted = false;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
