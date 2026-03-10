@@ -113,7 +113,7 @@ else
     public string? ListId { get; set; }
 
     [PersistentState]
-    public IReadOnlyList<TodoTask>? TaskItems { get; set; }
+    public IReadOnlyList<PersistedTodoTask>? TaskItems { get; set; }
 
     [PersistentState]
     public string? PersistedListId { get; set; }
@@ -142,7 +142,9 @@ else
 
         try
         {
-            TaskItems = await TodoService.GetTasksAsync(ListId);
+            TaskItems = (await TodoService.GetTasksAsync(ListId))
+                .Select(t => new PersistedTodoTask(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance))
+                .ToList();
             PersistedListId = ListId;
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
