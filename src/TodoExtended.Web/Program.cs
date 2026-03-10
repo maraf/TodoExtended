@@ -155,6 +155,23 @@ using (var scope = app.Services.CreateScope())
 
     // Enable WAL mode for concurrent read/write during parallel sync
     db.Database.ExecuteSqlRaw("PRAGMA journal_mode=WAL;");
+
+    // Seed demo user so the API keys page (and its FK constraint) works in demo mode
+    if (isDemoMode)
+    {
+        if (!db.Users.Any(u => u.Id == "demo-user"))
+        {
+            db.Users.Add(new TodoExtended.Web.Data.User
+            {
+                Id = "demo-user",
+                Email = "demo@example.com",
+                DisplayName = "Demo User",
+                CreatedUtc = DateTime.UtcNow,
+                LastSeenUtc = DateTime.UtcNow
+            });
+            db.SaveChanges();
+        }
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -185,6 +202,7 @@ if (isDemoMode)
         var claims = new[]
         {
             new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, "demo-user"),
+            new System.Security.Claims.Claim("http://schemas.microsoft.com/identity/claims/objectidentifier", "demo-user"),
             new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Name, "Demo User"),
             new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Email, "demo@example.com"),
             new System.Security.Claims.Claim("demo", "true"),
