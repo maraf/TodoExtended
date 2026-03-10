@@ -270,3 +270,14 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
 - **Fix:** Removed `AppDbContext db` from the primary constructor entirely. All database access now goes through `IDbContextFactory<AppDbContext>.CreateDbContextAsync()` — each public method creates its own short-lived context via `await using var db = ...` and passes it to private methods as a parameter.
 - **Key insight:** In Blazor Server, never hold a scoped `DbContext` in a service that outlives the initial request scope. Always use `IDbContextFactory` for on-demand context creation.
 - **Unchanged:** `SyncTasksForListsInParallelAsync` and `SyncTasksForListAsync` already used the factory/scoped-db pattern correctly — they were left as-is.
+
+### ObjectDisposedException Handling in Background Sync (2026-03-xx)
+
+- **Problem:** `CachedTodoService` background delta sync (via `EnsureSyncedAsync` → `SyncAsync` → `SyncTaskListsAsync`) calls `GraphServiceClient` which depends on `TokenAcquisition` — all scoped to the Blazor circuit. When the circuit disconnects, the scoped `IServiceProvider` is disposed, and token acquisition throws `ObjectDisposedException`.
+- **Fix:** Added `ObjectDisposedException` catch clauses at multiple layers:
+  - **Ensure* methods** (`EnsureCacheValidAsync`, `EnsureListsCacheValidAsync`, `EnsureListCacheValidAsync`): catch and silently return, serving stale cache data. This is the outermost safety net.
+  - **Sync* methods** (`SyncAsync`, `SyncListsOnlyAsync`): catch and return early, preventing the error from propagating or triggering cache rebuild logic.
+  - **Inner methods** (`SyncTaskListsAsync`, `SyncTasksForListAsync`): catch, log as Warning (not Error), and re-throw so outer handlers can terminate the sync chain cleanly.
+  - **Batch processing** (`SyncTasksForListsBatchAsync`): catch per-list in the parallel lambda so one disposed scope doesn't crash the entire `Task.WhenAll`.
+- **Key insight:** In Blazor Server, scoped services like `GraphServiceClient` / `TokenAcquisition` can be disposed at any time when the circuit disconnects. Background operations that depend on scoped auth services must catch `ObjectDisposedException` and gracefully abort. The next active circuit will trigger a fresh sync.
+- **Pattern:** Catch `ObjectDisposedException` before generic `Exception` in catch chains. Log at Warning level (not Error) since it's an expected condition, not a bug.

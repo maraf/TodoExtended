@@ -205,6 +205,31 @@ SQLite doesn't support `ALTER COLUMN`, so the EF Core migration uses a table-reb
 
 **Impact:** Existing template IDs change. Since templates are local-only data and not referenced externally, this is safe.
 
+### Graceful ObjectDisposedException Handling in CachedTodoService
+
+**Date:** 2026-03-10  
+**Author:** Backend  
+**Status:** Implemented
+
+`CachedTodoService` performs background delta sync against the Microsoft Graph API via `GraphServiceClient`, which depends on `TokenAcquisition` from Microsoft.Identity.Web. Both are scoped to the Blazor Server circuit. When a circuit disconnects (user navigates away, browser closes, network drops), the circuit's DI scope is disposed. Any in-flight or subsequent sync operations that attempt token acquisition throw `ObjectDisposedException`.
+
+**Decision:** Catch `ObjectDisposedException` at multiple layers in `CachedTodoService` and gracefully abort the sync, serving stale cached data instead of crashing:
+
+1. **Ensure* methods** (outermost): Catch and return silently — the public API methods proceed with whatever cached data is available.
+2. **SyncAsync / SyncListsOnlyAsync**: Catch and return early — prevents triggering cache rebuild logic (`ClearCacheAndInitialSyncAsync`) on a disposed scope.
+3. **SyncTaskListsAsync / SyncTasksForListAsync**: Catch, log as Warning (not Error), re-throw — stops the sync chain cleanly while avoiding noisy error logs.
+4. **SyncTasksForListsBatchAsync parallel lambda**: Catch per-list — isolates failures so one disposed scope doesn't crash the entire `Task.WhenAll`.
+
+All catches log at Warning level since this is an expected Blazor Server lifecycle condition, not a bug.
+
+**Rationale:**
+- This is the standard pattern for Blazor Server apps with scoped auth services
+- The next active circuit will trigger a fresh sync, so no data is lost
+- Stale cache is preferable to a crashed circuit or unhandled exception
+- Warning-level logging avoids polluting error logs while maintaining observability
+
+**Impact:** Single file changed: `src/TodoExtended.Web/Services/CachedTodoService.cs`. No interface changes, no breaking changes.
+
 ## Governance
 
 - All meaningful changes require team consensus
