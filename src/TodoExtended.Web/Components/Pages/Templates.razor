@@ -192,10 +192,10 @@ else
 
 @code {
     [PersistentState]
-    public IReadOnlyList<TaskTemplate>? TemplateItems { get; set; }
+    public IReadOnlyList<PersistedTaskTemplate>? TemplateItems { get; set; }
 
     [PersistentState]
-    public IReadOnlyList<TodoTaskList>? TaskLists { get; set; }
+    public IReadOnlyList<PersistedTodoTaskList>? TaskLists { get; set; }
 
     private bool _loading = true;
     private bool _saving;
@@ -224,8 +224,12 @@ else
             var taskListsTask = TodoService.GetTaskListsAsync();
             await Task.WhenAll(templatesTask, taskListsTask);
 
-            TemplateItems = templatesTask.Result.OrderBy(t => t.SortOrder).ThenBy(t => t.Title).ToList();
-            TaskLists = taskListsTask.Result;
+            TemplateItems = templatesTask.Result.OrderBy(t => t.SortOrder).ThenBy(t => t.Title)
+                .Select(t => new PersistedTaskTemplate(t.Id, t.Title, t.TaskListId, t.TaskListName, t.DueDateToday, t.ReminderTime, t.SortOrder))
+                .ToList();
+            TaskLists = taskListsTask.Result
+                .Select(l => new PersistedTodoTaskList(l.Id, l.DisplayName))
+                .ToList();
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -248,7 +252,7 @@ else
         _dialogVisible = true;
     }
 
-    private void OpenEditDialog(TaskTemplate template)
+    private void OpenEditDialog(PersistedTaskTemplate template)
     {
         _editingTemplateId = template.Id;
         _formTitle = template.Title;
@@ -350,7 +354,7 @@ else
         }
     }
 
-    private async Task CreateTaskFromTemplate(TaskTemplate template)
+    private async Task CreateTaskFromTemplate(PersistedTaskTemplate template)
     {
         try
         {
@@ -400,7 +404,9 @@ else
     private async Task RefreshTemplates()
     {
         var all = await TemplateService.GetAllAsync();
-        TemplateItems = all.OrderBy(t => t.SortOrder).ThenBy(t => t.Title).ToList();
+        TemplateItems = all.OrderBy(t => t.SortOrder).ThenBy(t => t.Title)
+            .Select(t => new PersistedTaskTemplate(t.Id, t.Title, t.TaskListId, t.TaskListName, t.DueDateToday, t.ReminderTime, t.SortOrder))
+            .ToList();
     }
 
     private void ResetForm()
