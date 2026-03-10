@@ -7,6 +7,17 @@
 
 <PageTitle>Tasks</PageTitle>
 
+<SectionContent SectionName="page-header">
+    <div class="flex items-center gap-3">
+        <div class="hidden sm:flex w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-brand-600 items-center justify-center shadow-lg shadow-brand-500/20 flex-shrink-0">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+        </div>
+        <h1 class="text-lg font-bold text-white tracking-tight">Tasks</h1>
+    </div>
+</SectionContent>
+
 @if (_error is not null)
 {
     <div class="rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-5 py-4 text-sm font-medium">⚠ @_error</div>
@@ -21,29 +32,17 @@ else if (ListId is null)
 }
 else
 {
-    <!-- Page header -->
-    <div class="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/30 flex-shrink-0">
-                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                </svg>
-            </div>
-            <div>
-                <h1 class="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">Tasks</h1>
-            </div>
+    <!-- Stats chips -->
+    @if (TaskItems is { Count: > 0 })
+    {
+        <div class="flex items-center gap-2 mb-6">
+            <span class="chip chip-primary">@TaskItems.Count(t => !t.IsCompleted) open</span>
+            @if (TaskItems.Any(t => t.IsCompleted))
+            {
+                <span class="chip chip-success">@TaskItems.Count(t => t.IsCompleted) done</span>
+            }
         </div>
-        @if (TaskItems is { Count: > 0 })
-        {
-            <div class="flex items-center gap-2">
-                <span class="chip chip-primary">@TaskItems.Count(t => !t.IsCompleted) open</span>
-                @if (TaskItems.Any(t => t.IsCompleted))
-                {
-                    <span class="chip chip-success">@TaskItems.Count(t => t.IsCompleted) done</span>
-                }
-            </div>
-        }
-    </div>
+    }
 
     @if (_loadingTasks)
     {
