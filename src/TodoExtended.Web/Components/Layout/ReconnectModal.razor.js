@@ -10,6 +10,7 @@ resumeButton.addEventListener("click", resume);
 
 function handleReconnectStateChanged(event) {
     if (event.detail.state === "show") {
+        reconnectModal.classList.toggle('dark', !!document.querySelector('.dark'));
         reconnectModal.showModal();
     } else if (event.detail.state === "hide") {
         reconnectModal.close();
