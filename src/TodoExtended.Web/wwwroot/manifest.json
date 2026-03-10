@@ -3,8 +3,8 @@
   "short_name": "To Do (ex)",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#4338ca",
-  "theme_color": "#0f172a",
+  "background_color": "#111827",
+  "theme_color": "#D4A017",
   "icons": [
     {
       "src": "TodoExtended_icon.svg",
