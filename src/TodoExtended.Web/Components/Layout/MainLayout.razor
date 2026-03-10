@@ -93,11 +93,14 @@
 
                     <!-- Main content -->
                     <main class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
-                        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+                        <div class="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-20 lg:pb-8">
                             @Body
                         </div>
                     </main>
                 </div>
+
+                <!-- Floating bottom bar (mobile only) -->
+                <BottomBar OnToggleSidebar="ToggleSidebar" />
 
                 <ToastStack />
             </div>
