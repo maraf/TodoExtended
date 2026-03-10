@@ -146,6 +146,15 @@ All 8 UI component files redesigned from Flowbite Blazor + Tailwind CSS to MudBl
 
 [Consolidated into ## Core Context section above]
 
+### Golden Icon Integration (2026)
+
+- **Pattern:** App uses `TodoExtended_icon.svg` (golden yellow variant) as the brand icon across favicon, app bar logo, and landing page logo
+- **Favicon:** `App.razor` uses SVG favicon (`type="image/svg+xml"`) pointing to `TodoExtended_icon.svg` instead of PNG
+- **App bar logo:** `MainLayout.razor` renders `<img src="TodoExtended_icon.svg">` in the header bar (replaces `✓` text placeholder)
+- **Landing page logo:** `Home.razor` uses same SVG `<img>` in the unauthenticated landing page nav bar
+- **Key files:** `App.razor`, `MainLayout.razor`, `Home.razor`
+- **Old icon:** `Microsoft_To-Do_icon.svg` (blue) remains in wwwroot but is no longer referenced
+
 ### NavMenu Emoji Icon Extraction (2026)
 
 - **Pattern:** Use `StringInfo.GetTextElementEnumerator()` + `Rune` for Unicode-safe leading emoji extraction from display names
