@@ -308,3 +308,43 @@ Redesigned Templates.razor from MudDataGrid to card-based layout with MudDialog 
 ### Build Status
 
  Zero errors, zero warnings
+
+## 2026-03-10: Header Layout Restructure
+
+**Session:** Header Layout Restructure (2026-03-10)
+
+### Completed Tasks
+
+- ✅ **MainLayout.razor** — Restructured header to split into two sections (sidebar-width + main). Fixed height with flexbox layout. Header bar spans full width with gradient. Sidebar and main content scroll independently.
+- ✅ **All pages** — Moved page icon + title from page body into header using `SectionContent` → `SectionOutlet` pattern (Tasks, Today, Templates, ApiKeys, SyncSettings, Home)
+
+### Key Design Patterns
+
+- **Split header layout:** Left section (w-64 on desktop) contains app logo "To Do (ex)" aligned above sidebar. Right section (flex-1) contains page icon + title, then user controls (user pill, dark mode toggle, sign out)
+- **SectionContent/SectionOutlet:** Blazor's section pattern (available since .NET 8) used to pass page header content from individual pages to layout. Required `@using Microsoft.AspNetCore.Components.Sections` in `_Imports.razor`
+- **Fixed header, scrollable content:** Outer container is `h-screen overflow-hidden flex flex-col`. Header is fixed height (h-14). Sidebar and main content are in a flex row with `overflow-y-auto` on each independently
+- **Responsive icon hiding:** Page icons use `hidden sm:flex` to hide on mobile (< sm breakpoint), showing only text title
+- **Gradient header:** Full-width gradient `bg-gradient-to-r from-brand-700 via-brand-600 to-violet-600` spans both sidebar and main sections
+
+### Technical Details
+
+- Page icons moved from `w-12 h-12 rounded-2xl` (in page body) to `w-10 h-10 rounded-xl` (in header) with `shadow-lg shadow-{color}-500/20`
+- Page titles moved from `text-3xl font-extrabold` (h1 in body) to `text-lg font-bold text-white` (h1 in header)
+- Each page defines `<SectionContent SectionName="page-header">` with icon + title. Layout renders `<SectionOutlet SectionName="page-header" />`
+- Mobile: Hamburger menu + logo show inline (< lg breakpoint). Sidebar becomes overlay with `fixed` positioning and translate transform
+- Desktop: Logo section shows as fixed `w-64` block in header with border-right separator
+
+### Files Modified
+
+- `src/TodoExtended.Web/Components/Layout/MainLayout.razor`
+- `src/TodoExtended.Web/Components/_Imports.razor`
+- `src/TodoExtended.Web/Components/Pages/Tasks.razor`
+- `src/TodoExtended.Web/Components/Pages/Today.razor`
+- `src/TodoExtended.Web/Components/Pages/Templates.razor`
+- `src/TodoExtended.Web/Components/Pages/ApiKeys.razor`
+- `src/TodoExtended.Web/Components/Pages/SyncSettings.razor`
+- `src/TodoExtended.Web/Components/Pages/Home.razor`
+
+### Build Status
+
+✅ Zero errors, zero warnings
