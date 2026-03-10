@@ -146,6 +146,10 @@ public class CachedTodoService(
 
             await SyncAsync(db);
         }
+        catch (ObjectDisposedException)
+        {
+            logger.LogWarning("Cache sync aborted: authentication scope disposed (Blazor circuit likely disconnected). Serving stale cache");
+        }
         finally
         {
             _syncLock.Release();
@@ -164,6 +168,10 @@ public class CachedTodoService(
                 return;
 
             await SyncListsOnlyAsync(db);
+        }
+        catch (ObjectDisposedException)
+        {
+            logger.LogWarning("Lists-only cache sync aborted: authentication scope disposed (Blazor circuit likely disconnected). Serving stale cache");
         }
         finally
         {
@@ -193,6 +201,10 @@ public class CachedTodoService(
             await SyncTasksForListAsync(db, list.Id, list.DeltaToken);
             list.LastSyncUtc = DateTime.UtcNow;
             await db.SaveChangesAsync();
+        }
+        catch (ObjectDisposedException)
+        {
+            logger.LogWarning("Single-list sync for {ListId} aborted: authentication scope disposed (Blazor circuit likely disconnected). Serving stale cache", taskListId);
         }
         catch (Exception ex)
         {
@@ -269,6 +281,10 @@ public class CachedTodoService(
             
             logger.LogInformation("Cache sync completed successfully");
         }
+        catch (ObjectDisposedException)
+        {
+            logger.LogWarning("Cache sync aborted: authentication scope disposed (Blazor circuit likely disconnected)");
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Cache sync failed");
@@ -331,6 +347,10 @@ public class CachedTodoService(
             }
 
             logger.LogInformation("Lists-only cache sync completed successfully");
+        }
+        catch (ObjectDisposedException)
+        {
+            logger.LogWarning("Lists-only cache sync aborted: authentication scope disposed (Blazor circuit likely disconnected)");
         }
         catch (Exception ex)
         {
@@ -413,6 +433,10 @@ public class CachedTodoService(
             {
                 await using var scopedDb = await dbContextFactory.CreateDbContextAsync();
                 await ProcessTasksDeltaPagesAsync(scopedDb, kvp.Key, kvp.Value);
+            }
+            catch (ObjectDisposedException)
+            {
+                logger.LogWarning("Task sync for list {ListId} aborted during batch: authentication scope disposed (Blazor circuit likely disconnected)", kvp.Key);
             }
             finally
             {
@@ -520,6 +544,11 @@ public class CachedTodoService(
                 }
             }
         }
+        catch (ObjectDisposedException)
+        {
+            logger.LogWarning("Task lists delta sync aborted: authentication scope disposed (Blazor circuit likely disconnected)");
+            throw;
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Error syncing task lists delta");
@@ -538,6 +567,11 @@ public class CachedTodoService(
         {
             var firstPage = await graphClient.GetTasksDeltaPageAsync(listId, deltaToken);
             await ProcessTasksDeltaPagesAsync(scopedDb, listId, firstPage);
+        }
+        catch (ObjectDisposedException)
+        {
+            logger.LogWarning("Task sync for list {ListId} aborted: authentication scope disposed (Blazor circuit likely disconnected)", listId);
+            throw;
         }
         catch (Exception ex)
         {
