@@ -33,9 +33,9 @@
 
 @code {
     [PersistentState]
-    public IReadOnlyList<TodoTaskList>? TaskLists { get; set; }
+    public IReadOnlyList<PersistedTodoTaskList>? TaskLists { get; set; }
 
-    private IReadOnlyList<TodoTaskList> _taskLists => TaskLists ?? [];
+    private IReadOnlyList<PersistedTodoTaskList> _taskLists => TaskLists ?? [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -47,7 +47,9 @@
 
         try
         {
-            TaskLists = await TodoService.GetTaskListsAsync();
+            TaskLists = (await TodoService.GetTaskListsAsync())
+                .Select(l => new PersistedTodoTaskList(l.Id, l.DisplayName))
+                .ToList();
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
