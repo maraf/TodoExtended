@@ -3,8 +3,9 @@
   "short_name": "To Do (ex)",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#111827",
-  "theme_color": "#D4A017",
+  "display_override": ["window-controls-overlay"],
+  "background_color": "#4338ca",
+  "theme_color": "#4338ca",
   "icons": [
     {
       "src": "favicon.png",

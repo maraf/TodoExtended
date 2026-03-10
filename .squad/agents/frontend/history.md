@@ -386,3 +386,24 @@ Redesigned Templates.razor from MudDataGrid to card-based layout with MudDialog 
 ### Build Status
 
 ✅ Tailwind CSS rebuilt successfully (230ms)
+
+## 2026-03-10: Sidebar Controls Migration
+
+**Session:** Move sign out, dark mode, user pill from header to sidebar bottom
+
+### Completed Tasks
+
+- ✅ **Removed from header** — Removed user pill, dark mode toggle, and sign out link from the header's main section
+- ✅ **Added to sidebar bottom** — Pinned user controls to bottom of sidebar using lex flex-col layout with lex-1 scrollable nav area
+- ✅ **Sidebar bottom design** — User name with icon, dark mode toggle, and sign out link with separator border, styled with sidebar theme colors (	ext-slate-600 dark:text-slate-400)
+- ✅ **Header simplified** — Main section now only contains SectionOutlet for page headers, flex spacer removed
+- ✅ **WCO classes cleaned** — Removed wco-no-drag from moved elements (they no longer live in the draggable header region)
+- ✅ **Tailwind CSS rebuilt** — No new utility classes needed beyond existing ones
+
+### Files Modified
+
+- src/TodoExtended.Web/Components/Layout/MainLayout.razor
+
+### Build Status
+
+✅ .NET build succeeded (0 errors), Tailwind CSS rebuilt (235ms)

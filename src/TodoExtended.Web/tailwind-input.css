@@ -142,3 +142,23 @@
 .floating-field .floating-input::placeholder {
   color: transparent;
 }
+
+/* ─── Window Controls Overlay (WCO) for PWA ───────────────── */
+@media (display-mode: window-controls-overlay) {
+  /* Make header draggable and reserve space around window controls */
+  .wco-header {
+    -webkit-app-region: drag;
+    app-region: drag;
+    padding-top: env(titlebar-area-y, 0);
+    /* Right padding = window controls width (space not covered by titlebar area) */
+    padding-right: calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%));
+    /* Left padding for macOS where controls are on the left */
+    padding-left: env(titlebar-area-x, 0);
+  }
+
+  /* Make interactive elements non-draggable */
+  .wco-no-drag {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+}
