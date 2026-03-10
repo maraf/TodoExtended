@@ -1455,3 +1455,38 @@ Replaced all app branding visuals with the new golden yellow `TodoExtended_icon.
 - `favicon.png` is no longer referenced (can be removed if desired)
 - No breaking changes
 
+
+
+---
+
+# Decision: Playwright Screenshot Capture Test Pattern
+
+**Date:** 2026-03-10  
+**Author:** Tester  
+**Status:** Implemented
+
+## Context
+
+Need automated screenshot capture for all app views across themes and viewports for documentation and PWA manifest.
+
+## Decision
+
+Created `ScreenshotCaptureTest.cs` with a single Playwright NUnit test that:
+
+1. Signs in via demo mode (clicks "Try Demo" link)
+2. Iterates all 7 views × 2 themes (dark/light) × 2 viewports (desktop 1280×800, mobile 390×844) = 28 screenshots
+3. Saves to `docs/screenshots/{view}--{device}-{theme}.png`
+4. For templates-dialog, navigates fresh and sets theme BEFORE opening dialog to avoid Blazor re-render closing it
+
+## Key Patterns
+
+- **Theme toggle:** Click `button[aria-label='Toggle dark mode']`, verify via `div.dark` presence
+- **Error resilience:** Each screenshot is wrapped in try/catch — failures are logged but don't stop the run
+- **Wait strategy:** `WaitUntil = NetworkIdle` + page-specific content selectors for Blazor Server rendering delay
+
+## Impact
+
+- **docs/screenshots/**: 28 PNGs refreshed on each run
+- **wwwroot/screenshots/**: 4 dark-theme screenshots for PWA manifest (manually copied)
+- **manifest.json**: Sizes confirmed matching actual viewport dimensions
+

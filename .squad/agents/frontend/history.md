@@ -2,6 +2,15 @@
 
 <!-- Session logs appended by Scribe -->
 
+## Infrastructure
+
+### Playwright Screenshot Capture Infrastructure (2026-03-10)
+
+- **Test file:** `tests/TodoExtended.E2E/ScreenshotCaptureTest.cs` — Automated E2E screenshot capture system integrated
+- **Pattern:** All 7 frontend views × 2 themes × 2 viewports = 28 screenshots automatically refreshed on each test run
+- **Documentation:** `docs/screenshots/` contains full documentation screenshots. 4 dark-theme screenshots synced to `wwwroot/screenshots/` for PWA manifest
+- **Impact:** Frontend design changes can now be automatically documented without manual screenshot steps
+
 ## 2026-03-10: Favicon PNG Export
 
 **Session:** Favicon PNG Export (2026-03-10T10:49:00Z)

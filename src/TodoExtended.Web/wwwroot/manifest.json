@@ -1,0 +1,61 @@
+{
+  "name": "To Do (ex)",
+  "short_name": "To Do (ex)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#4338ca",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "TodoExtended_icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon.png",
+      "sizes": "48x48",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshots/today--desktop-dark.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Today view on desktop"
+    },
+    {
+      "src": "screenshots/today--mobile-dark.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Today view on mobile"
+    },
+    {
+      "src": "screenshots/tasks--desktop-dark.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Tasks view on desktop"
+    },
+    {
+      "src": "screenshots/tasks--mobile-dark.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Tasks view on mobile"
+    }
+  ]
+}
