@@ -1588,3 +1588,21 @@ Implement Window Controls Overlay to extend the gradient header into the native 
 
 - [Window Controls Overlay API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Window_Controls_Overlay_API)
 - [CSS env() function - MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/env)
+
+---
+
+# Sidebar Bottom Controls Pattern
+
+**Date:** 2026-03-10  
+**Author:** Frontend  
+**Status:** Implemented
+
+User controls (user pill, dark mode toggle, sign out) moved from the header bar to the bottom of the sidebar. The sidebar now uses lex flex-col with the NavMenu in a scrollable lex-1 area and controls pinned below with a top border separator.
+
+**Rationale:**
+- Frees up header space for page titles only, reducing visual clutter
+- Sidebar controls are always visible regardless of screen width (previously user pill was hidden sm:flex)
+- Follows common sidebar-app patterns (VS Code, Slack, Discord)
+- Controls no longer need wco-no-drag since they're outside the draggable PWA header region
+
+**Impact:** MainLayout.razor only. No interface or functionality changes.
