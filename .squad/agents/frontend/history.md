@@ -348,3 +348,41 @@ Redesigned Templates.razor from MudDataGrid to card-based layout with MudDialog 
 ### Build Status
 
 ✅ Zero errors, zero warnings
+
+## 2026-03-XX: PWA Window Controls Overlay (WCO)
+
+**Session:** PWA Window Controls Overlay Implementation
+
+### Completed Tasks
+
+- ✅ **manifest.json** — Added `"display_override": ["window-controls-overlay"]` to opt in to WCO API
+- ✅ **App.razor** — Added `<meta name="theme-color" content="#4338ca">` for consistent PWA theming
+- ✅ **MainLayout.razor** — Added `.wco-header` class on header, `.wco-no-drag` class on all interactive elements (buttons, links, divs)
+- ✅ **tailwind-input.css** — Added WCO media query with `app-region: drag` on header, `app-region: no-drag` on interactive elements, `padding-top: env(titlebar-area-y)` to push content below window controls
+
+### Key Design Patterns
+
+- **Window Controls Overlay:** When installed as PWA on desktop, the app's gradient header extends into the native title bar area, with OS window control buttons (minimize/maximize/close) overlaid on top
+- **CSS Environment Variables:** Uses `env(titlebar-area-y)` to detect title bar height and add padding to push header content below the window controls
+- **Draggable Regions:** Header is draggable by default (`app-region: drag`), allowing users to drag the window. Interactive elements (buttons, links) explicitly marked as `app-region: no-drag` to remain clickable
+- **Progressive Enhancement:** WCO styles only apply when `@media (display-mode: window-controls-overlay)` matches. Normal standalone/browser modes unchanged
+- **Vendor Prefixes:** Both `-webkit-app-region` and standard `app-region` CSS properties used for cross-browser compatibility
+
+### Technical Details
+
+- **manifest.json:** `display_override` array prioritizes WCO, falls back to `standalone` if browser doesn't support it
+- **CSS media query:** `@media (display-mode: window-controls-overlay)` scopes all WCO-specific styling
+- **Header padding:** `padding-top: env(titlebar-area-y, 0)` with 0 fallback for non-WCO modes
+- **Interactive markers:** All buttons, links, and content containers in header marked with `.wco-no-drag` class to preserve click/tap behavior
+- **Gradient preservation:** The gradient background (`from-brand-700 via-brand-600 to-violet-600`) extends seamlessly behind the window controls, creating native-looking integration
+
+### Files Modified
+
+- `src/TodoExtended.Web/wwwroot/manifest.json`
+- `src/TodoExtended.Web/Components/App.razor`
+- `src/TodoExtended.Web/Components/Layout/MainLayout.razor`
+- `src/TodoExtended.Web/tailwind-input.css`
+
+### Build Status
+
+✅ Tailwind CSS rebuilt successfully (230ms)

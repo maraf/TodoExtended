@@ -1524,3 +1524,67 @@ The Blazor Server `@onclick` handler for theme toggling requires a connected Web
 - Modified: `tests/TodoExtended.E2E/ScreenshotCaptureTest.cs` — JS-based theme toggle, updated home page selector
 - No production code changes required
 
+
+---
+
+# Decision: PWA Window Controls Overlay Implementation
+
+**Date:** 2026-03-10  
+**Author:** Frontend  
+**Status:** Implemented
+
+## Context
+
+The TodoExtended PWA app has a prominent gradient header (rom-brand-700 via-brand-600 to-violet-600) that defines the visual brand. When installed as a desktop PWA, the default standalone mode shows a separate solid-color title bar above the app, creating visual discontinuity.
+
+Window Controls Overlay (WCO) is a modern PWA API that allows the app's content to extend into the title bar area, with only the window control buttons (minimize/maximize/close) overlaid on top.
+
+## Decision
+
+Implement Window Controls Overlay to extend the gradient header into the native title bar area, creating a more seamless, native-looking desktop experience.
+
+## Implementation Approach
+
+1. **Opt-in via manifest.json:** Added "display_override": ["window-controls-overlay"] with fallback to standalone
+
+2. **Progressive enhancement:** Used @media (display-mode: window-controls-overlay) CSS media query to scope WCO-specific styles. Browser/mobile modes remain unchanged.
+
+3. **Draggable regions:** 
+   - Header element marked with pp-region: drag to enable window dragging
+   - All interactive elements (buttons, links, content containers) marked with pp-region: no-drag to preserve click functionality
+   - Both -webkit-app-region and standard pp-region properties used for compatibility
+
+4. **Layout adjustment:** Used padding-top: env(titlebar-area-y, 0) on header to push content below the window control buttons while extending the gradient background behind them
+
+5. **Theme consistency:** Added <meta name="theme-color" content="#4338ca"> to match manifest theme color
+
+## Alternatives Considered
+
+- **Separate title bar:** Rejected as it breaks visual continuity
+- **Fixed height adjustment:** Rejected as title bar height varies by OS and display scale
+- **JavaScript detection:** Rejected in favor of CSS-only solution using env() variables
+
+## Benefits
+
+- **Native appearance:** Gradient seamlessly extends into title bar like native apps
+- **Progressive enhancement:** Zero impact on browsers/mobile; only activates in supported PWA environments
+- **Maintainability:** CSS-only solution, no JavaScript coordination required
+- **Drag functionality preserved:** Users can still drag window by header area
+
+## Trade-offs
+
+- **Browser support:** WCO requires Chromium-based browsers on desktop; gracefully falls back to standalone mode
+- **Interactive element marking:** Requires explicit .wco-no-drag class on all clickable elements in header
+- **Testing complexity:** Must test in both installed PWA and browser modes
+
+## Files Modified
+
+- src/TodoExtended.Web/wwwroot/manifest.json — Added display_override
+- src/TodoExtended.Web/Components/App.razor — Added theme-color meta tag
+- src/TodoExtended.Web/Components/Layout/MainLayout.razor — Added CSS classes for WCO regions
+- src/TodoExtended.Web/tailwind-input.css — Added WCO media query with drag/no-drag styles
+
+## References
+
+- [Window Controls Overlay API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/Window_Controls_Overlay_API)
+- [CSS env() function - MDN](https://developer.mozilla.org/en-US/docs/Web/CSS/env)
