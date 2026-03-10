@@ -1,31 +1,37 @@
 ﻿<script type="module" src="@Assets["Components/Layout/ReconnectModal.razor.js"]"></script>
 
 <dialog id="components-reconnect-modal" data-nosnippet>
-    <div class="components-reconnect-container">
-        <div class="components-rejoining-animation" aria-hidden="true">
-            <div></div>
-            <div></div>
+    <link rel="stylesheet" href="@Assets["tailwind.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700">
+        <div class="px-8 pt-10 pb-8 flex flex-col items-center gap-5">
+            <!-- Pulsing brand dot with ripple rings -->
+            <div class="components-rejoining-animation" aria-hidden="true">
+                <div class="components-dot"></div>
+                <div class="components-ring"></div>
+                <div class="components-ring components-ring-delayed"></div>
+            </div>
+            <p class="components-reconnect-first-attempt-visible text-sm font-medium text-slate-500 dark:text-slate-400 text-center">
+                Rejoining the server…
+            </p>
+            <p class="components-reconnect-repeated-attempt-visible text-sm font-medium text-slate-500 dark:text-slate-400 text-center">
+                Rejoin failed — trying again in <span id="components-seconds-to-next-attempt" class="font-bold text-brand-600 dark:text-brand-400"></span> seconds.
+            </p>
+            <p class="components-reconnect-failed-visible text-sm font-medium text-slate-500 dark:text-slate-400 text-center">
+                Failed to rejoin.<br />Please retry or reload the page.
+            </p>
+            <p class="components-pause-visible text-sm font-medium text-slate-500 dark:text-slate-400 text-center">
+                The session has been paused by the server.
+            </p>
+            <p class="components-resume-failed-visible text-sm font-medium text-slate-500 dark:text-slate-400 text-center">
+                Failed to resume the session.<br />Please reload the page.
+            </p>
         </div>
-        <p class="components-reconnect-first-attempt-visible">
-            Rejoining the server...
-        </p>
-        <p class="components-reconnect-repeated-attempt-visible">
-            Rejoin failed... trying again in <span id="components-seconds-to-next-attempt"></span> seconds.
-        </p>
-        <p class="components-reconnect-failed-visible">
-            Failed to rejoin.<br />Please retry or reload the page.
-        </p>
-        <button id="components-reconnect-button" class="components-reconnect-failed-visible">
-            Retry
-        </button>
-        <p class="components-pause-visible">
-            The session has been paused by the server.
-        </p>
-        <button id="components-resume-button" class="components-pause-visible">
-            Resume
-        </button>
-        <p class="components-resume-failed-visible">
-            Failed to resume the session.<br />Please reload the page.
-        </p>
+        <div class="components-reconnect-failed-visible text-center px-8 py-4 border-t border-slate-100 dark:border-slate-700">
+            <button id="components-reconnect-button" class="btn-primary">Retry</button>
+        </div>
+        <div class="components-pause-visible text-center px-8 py-4 border-t border-slate-100 dark:border-slate-700">
+            <button id="components-resume-button" class="btn-primary">Resume</button>
+        </div>
     </div>
 </dialog>
