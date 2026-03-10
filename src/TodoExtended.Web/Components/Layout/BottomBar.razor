@@ -1,0 +1,40 @@
+@* BottomBar.razor - floating bottom navigation bar, visible on mobile only *@
+
+<div class="fixed bottom-0 left-0 right-0 z-30 lg:hidden">
+    <nav class="bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 shadow-[0_-4px_12px_rgba(0,0,0,0.08)]">
+        <div class="flex items-center justify-around px-4 py-2">
+            <!-- Sidebar toggler -->
+            <button @onclick="OnToggleSidebar"
+                    class="flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    aria-label="Toggle menu">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+            </button>
+
+            <!-- Today -->
+            <NavLink href="/today" Match="NavLinkMatch.Prefix"
+                     ActiveClass="!text-brand-600 dark:!text-brand-400"
+                     class="flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                     aria-label="Today">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                </svg>
+            </NavLink>
+
+            <!-- Templates -->
+            <NavLink href="/templates" Match="NavLinkMatch.Prefix"
+                     ActiveClass="!text-brand-600 dark:!text-brand-400"
+                     class="flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                     aria-label="Templates">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                </svg>
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnToggleSidebar { get; set; }
+}
