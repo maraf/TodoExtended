@@ -24,3 +24,12 @@
 - **Screenshot output:** `docs/screenshots/` (repo root) for all 28 screenshots. 4 dark-theme screenshots also copied to `src/TodoExtended.Web/wwwroot/screenshots/` for PWA manifest.
 - **Manifest:** `wwwroot/manifest.json` screenshots array references 4 files with sizes matching viewport dimensions exactly (1280x800 desktop, 390x844 mobile).
 - **Running:** App must be started with `Demo__Enabled=true` env var on `http://localhost:5000`. Install Playwright browsers via `pwsh .../playwright.ps1 install chromium`.
+
+### Screenshot DB Isolation (2026-03-10)
+
+- **Isolated DB:** Use `ConnectionStrings__DefaultConnection=Data Source=../../artifacts/todoextended-screenshots.db` env var to avoid polluting the real user database with demo data cached by `CachedTodoService`.
+- **Environment:** Must use `ASPNETCORE_ENVIRONMENT=Development` (not a custom environment) — `MapStaticAssets()` serves 0-byte CSS files in non-Development environments, producing unstyled screenshots.
+- **Launch profile:** Use `dotnet run --no-launch-profile --urls http://localhost:5000` to prevent `launchSettings.json` from overriding env vars.
+- **Dark mode toggle:** Blazor Server's `@onclick` handler requires the WebSocket circuit to be connected, which can take several seconds after page load. The test now toggles dark mode via direct JavaScript DOM manipulation (`root.classList.add('dark')`) instead of clicking the Blazor toggle button — reliable for screenshot purposes.
+- **Home page selector:** The authenticated home page shows `<h3>No templates yet</h3>` (not `<h2>` or `<p>`), so the wait selector was updated to `h2:has-text('Quick Create'), h3:has-text('No templates yet')`.
+- **Cleanup:** Always delete `artifacts/todoextended-screenshots.db*` after the test run to avoid stale data.
