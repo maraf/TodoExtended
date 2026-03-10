@@ -17,6 +17,9 @@
 <body>
     <Routes @rendermode="InteractiveServer" />
     <ReconnectModal />
+    <script>
+        window.setDarkMode = (isDark) => document.documentElement.classList.toggle('dark', isDark);
+    </script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
