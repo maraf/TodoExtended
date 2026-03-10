@@ -2,6 +2,28 @@
 
 <!-- Session logs appended by Scribe -->
 
+## 2026-03-10: Favicon PNG Export
+
+**Session:** Favicon PNG Export (2026-03-10T10:49:00Z)
+
+### Completed Tasks
+
+- ✅ **Favicon generation** — Converted `TodoExtended_icon.svg` to PNG favicons (48×48, 192×192, 512×512) using SkiaSharp
+- ✅ **Manifest update** — Updated `manifest.json` with PWA icon entries and metadata
+
+### Outcome
+
+All favicon sizes generated successfully. App now has multi-resolution PNG icons for full PWA compliance across mobile and desktop platforms.
+
+### Files Modified
+
+- `wwwroot/favicon.png` (new)
+- `wwwroot/icon-192x192.png` (new)
+- `wwwroot/icon-512x512.png` (new)
+- `wwwroot/manifest.json` (updated)
+
+---
+
 ## 2026-03-06: API Keys Card Redesign + MainLayout Fix
 
 **Session:** API Keys Redesign (2026-03-06T10:14:01Z)
