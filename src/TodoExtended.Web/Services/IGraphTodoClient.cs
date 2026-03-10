@@ -13,4 +13,11 @@ public interface IGraphTodoClient
     Task PatchTaskAsync(string taskListId, string taskId, Microsoft.Graph.Models.TodoTask patch);
     Task<GraphDeltaPage<Microsoft.Graph.Models.TodoTaskList>> GetListsDeltaPageAsync(string? deltaOrNextLink);
     Task<GraphDeltaPage<Microsoft.Graph.Models.TodoTask>> GetTasksDeltaPageAsync(string listId, string? deltaOrNextLink);
+
+    /// <summary>
+    /// Batch-fetches the first delta page for multiple lists in a single HTTP call (max 20 per batch).
+    /// Returns a dictionary mapping each list ID to its delta page result.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, GraphDeltaPage<Microsoft.Graph.Models.TodoTask>>> GetTasksDeltaBatchAsync(
+        IReadOnlyList<(string ListId, string? DeltaOrNextLink)> requests);
 }

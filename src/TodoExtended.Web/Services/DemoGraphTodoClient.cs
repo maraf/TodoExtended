@@ -77,6 +77,15 @@ public class DemoGraphTodoClient(DemoDataStore store) : IGraphTodoClient
             [], null, deltaOrNextLink));
     }
 
+    public async Task<IReadOnlyDictionary<string, GraphDeltaPage<Microsoft.Graph.Models.TodoTask>>> GetTasksDeltaBatchAsync(
+        IReadOnlyList<(string ListId, string? DeltaOrNextLink)> requests)
+    {
+        var results = new Dictionary<string, GraphDeltaPage<Microsoft.Graph.Models.TodoTask>>();
+        foreach (var (listId, deltaOrNextLink) in requests)
+            results[listId] = await GetTasksDeltaPageAsync(listId, deltaOrNextLink);
+        return results;
+    }
+
     private static Microsoft.Graph.Models.TodoTask ToGraphTask(DemoTaskItem t)
     {
         var task = new Microsoft.Graph.Models.TodoTask

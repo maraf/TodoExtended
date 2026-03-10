@@ -1,4 +1,5 @@
 using Microsoft.Graph;
+using TasksDeltaResponse = Microsoft.Graph.Me.Todo.Lists.Item.Tasks.Delta.DeltaGetResponse;
 
 namespace TodoExtended.Web.Services;
 
@@ -53,5 +54,52 @@ public class HttpGraphTodoClient(GraphServiceClient graphClient) : IGraphTodoCli
             response?.Value?.AsReadOnly() ?? (IReadOnlyList<Microsoft.Graph.Models.TodoTask>)[],
             response?.OdataNextLink,
             response?.OdataDeltaLink);
+    }
+
+    public async Task<IReadOnlyDictionary<string, GraphDeltaPage<Microsoft.Graph.Models.TodoTask>>> GetTasksDeltaBatchAsync(
+        IReadOnlyList<(string ListId, string? DeltaOrNextLink)> requests)
+    {
+        if (requests.Count == 0)
+            return new Dictionary<string, GraphDeltaPage<Microsoft.Graph.Models.TodoTask>>();
+
+        var results = new Dictionary<string, GraphDeltaPage<Microsoft.Graph.Models.TodoTask>>();
+
+        foreach (var chunk in requests.Chunk(20))
+        {
+            var batchContent = new BatchRequestContentCollection(graphClient);
+            var requestIdToListId = new Dictionary<string, string>();
+
+            foreach (var (listId, deltaOrNextLink) in chunk)
+            {
+                var deltaBuilder = graphClient.Me.Todo.Lists[listId].Tasks.Delta;
+                var requestInfo = string.IsNullOrEmpty(deltaOrNextLink)
+                    ? deltaBuilder.ToGetRequestInformation()
+                    : deltaBuilder.WithUrl(deltaOrNextLink).ToGetRequestInformation();
+
+                var requestId = await batchContent.AddBatchRequestStepAsync(requestInfo);
+                requestIdToListId[requestId] = listId;
+            }
+
+            var batchResponse = await graphClient.Batch.PostAsync(batchContent);
+
+            foreach (var (requestId, listId) in requestIdToListId)
+            {
+                try
+                {
+                    var response = await batchResponse.GetResponseByIdAsync<TasksDeltaResponse>(requestId);
+                    results[listId] = new GraphDeltaPage<Microsoft.Graph.Models.TodoTask>(
+                        response?.Value?.AsReadOnly() ?? (IReadOnlyList<Microsoft.Graph.Models.TodoTask>)[],
+                        response?.OdataNextLink,
+                        response?.OdataDeltaLink);
+                }
+                catch (Exception)
+                {
+                    // Individual sub-request failed — return empty page so sync can retry next time
+                    results[listId] = new GraphDeltaPage<Microsoft.Graph.Models.TodoTask>([], null, null);
+                }
+            }
+        }
+
+        return results;
     }
 }
