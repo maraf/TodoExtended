@@ -19,7 +19,7 @@ class TodoExtendedApp extends Application.AppBase {
             return [new MessageView("Configure API URL\nand key in\nGarmin Connect"), new WatchUi.BehaviorDelegate()];
         }
 
-        var menu = new WatchUi.Menu2({ :title => "TodoEx" });
+        var menu = new WatchUi.Menu2({ :title => WatchUi.loadResource(Rez.Strings.AppName) });
         menu.addItem(new WatchUi.MenuItem("Today", null, :today, {}));
         menu.addItem(new WatchUi.MenuItem("Templates", null, :templates, {}));
         return [menu, new MainMenuDelegate()];
