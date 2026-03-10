@@ -1,9 +1,11 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.Extensions.Options
+@using Microsoft.JSInterop
 @using TodoExtended.Web.Services
 @inject TodoExtended.Web.Services.IUserPreferenceService UserPreferenceService
 @inject IOptions<DemoOptions> DemoOptions
+@inject IJSRuntime JSRuntime
 
 <div class="@(_isDarkMode ? "dark" : "")">
 <div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-slate-100">
@@ -92,6 +94,14 @@
     private bool _sidebarOpen = false;
     private string? _userId;
     private Action _closeSidebarAction => CloseSidebar;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("setDarkMode", _isDarkMode);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
