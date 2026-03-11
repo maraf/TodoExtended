@@ -15,6 +15,7 @@
 
         <iq:permissions>
             <iq:uses-permission id="Communications" />
+            <iq:uses-permission id="Vibration" />
         </iq:permissions>
 
         <iq:languages>
