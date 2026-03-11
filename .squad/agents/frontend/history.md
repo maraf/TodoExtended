@@ -407,3 +407,45 @@ Redesigned Templates.razor from MudDataGrid to card-based layout with MudDialog 
 ### Build Status
 
 ✅ .NET build succeeded (0 errors), Tailwind CSS rebuilt (235ms)
+
+---
+
+## 2026-03-11: Shared Component Extraction Refactoring
+
+**Session:** Extract Duplicated Markup into Shared Components
+
+### Created Components (src/TodoExtended.Web/Components/Shared/)
+
+1. **ModalDialog. Reusable modal with `Visible`, `Title`, `OnClose`, `Body` (RenderFragment), `Footer` (RenderFragment)razor** 
+2. **PageHeader. Page header with gradient icon badge via `Title`, `Icon`, `FromColor`, `ToColor`, `ShadowColor` (pass full Tailwind class names for JIT compatibility)razor** 
+3. **ErrorAlert. Rose error banner, renders nothing when `Message` is null/emptyrazor** 
+4. **EmptyState. Empty state card with `Emoji`/`CustomIcon`, `Heading`, `Description`, `ActionLabel`, `OnAction`, `ActionIcon`, `Dashed`razor** 
+5. **SkeletonGrid. Loading skeleton grid with `Count`, `Height`, `Columns` (all Tailwind class strings)razor** 
+6. **FloatingField. Floating label text input with `Label`, `@bind-Value`, `Type`, `Class`razor** 
+
+### Pages Updated
+
+- **Templates. Uses ModalDialog, PageHeader, ErrorAlert, EmptyState, SkeletonGrid, FloatingFieldrazor** 
+- **ApiKeys. Uses ModalDialog, PageHeader, ErrorAlert, EmptyState, SkeletonGrid, FloatingFieldrazor** 
+- **Today. Uses PageHeader, ErrorAlert, EmptyState (with CustomIcon for circle icon)razor** 
+- **Tasks. Uses PageHeader, ErrorAlert, EmptyStaterazor** 
+- **SyncSettings. Uses PageHeader, ErrorAlertrazor** 
+- **Home. Uses PageHeader, ErrorAlert, SkeletonGridrazor** 
+
+### Decisions
+
+- **Tailwind JIT safety:** PageHeader and SkeletonGrid accept full Tailwind class names (e.g. `from-amber-400`) as parameters so the scanner finds them as string literals in calling pages
+- **TaskItemRow skipped:** Today and Tasks task rows differ too much (different models, different sub-content) to justify a shared component
+- **StatusBadge/Chip skipped:** Just CSS class applications (`chip chip-info`), not worth a component wrapper
+- **FloatingField limited to text inputs:** Number/time/select variants have different binding patterns; only plain text inputs extracted
+
+### Build Status
+
+ .NET build: 0 errors, 0        Tailwind CSS rebuilt successfullywarnings 
+
+## Learnings
+
+- Pass full Tailwind class names as component parameters (e.g. `FromColor="from-amber-400"`) rather than partial names (e.g. `amber-400`) to preserve JIT scanner compatibility
+- Shared components live in `Components/Shared/` and are auto-imported via `_Imports.razor` namespace
+- EmptyState `CustomIcon` RenderFragment allows completely different icon areas (e.g. Today's emerald circle vs simple emoji)
+- ModalDialog Body content spacing is caller's responsibility (Templates wraps in `<div class="space-y-4">`)

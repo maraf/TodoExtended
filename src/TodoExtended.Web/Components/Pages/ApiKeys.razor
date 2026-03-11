@@ -9,16 +9,13 @@
 
 <PageTitle>API Keys</PageTitle>
 
-<SectionContent SectionName="page-header">
-    <div class="flex items-center gap-3">
-        <div class="hidden sm:flex w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 items-center justify-center shadow-lg shadow-emerald-500/20 flex-shrink-0">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
-            </svg>
-        </div>
-        <h1 class="text-lg font-bold text-white tracking-tight">API Keys</h1>
-    </div>
-</SectionContent>
+<PageHeader Title="API Keys" FromColor="from-emerald-500" ToColor="to-teal-600" ShadowColor="shadow-emerald-500/20">
+    <Icon>
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+        </svg>
+    </Icon>
+</PageHeader>
 
 <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <p class="text-slate-500 dark:text-slate-400 text-sm">Manage keys for external integrations.</p>
@@ -62,30 +59,22 @@
 
 @if (_loading)
 {
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        @for (var i = 0; i < 3; i++)
-        {
-            <div class="h-36 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse"></div>
-        }
-    </div>
+    <SkeletonGrid Height="h-36" />
 }
 else if (_error is not null)
 {
-    <div class="rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-5 py-4 text-sm font-medium">⚠ @_error</div>
+    <ErrorAlert Message="@_error" />
 }
 else if (_apiKeys is not { Count: > 0 })
 {
-    <div class="card dark:bg-slate-800 dark:border-slate-700 flex flex-col items-center justify-center py-20 text-center border-2 border-dashed">
-        <div class="text-5xl mb-4">🔐</div>
-        <h3 class="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">No API keys yet</h3>
-        <p class="text-slate-500 dark:text-slate-400 text-sm mb-6">Create keys to access your tasks from external tools.</p>
-        <button @onclick="OpenCreateDialog" class="btn-primary">
+    <EmptyState Emoji="🔐" Heading="No API keys yet" Description="Create keys to access your tasks from external tools."
+               ActionLabel="Create First API Key" OnAction="OpenCreateDialog" Dashed="true">
+        <ActionIcon>
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
-            Create First API Key
-        </button>
-    </div>
+        </ActionIcon>
+    </EmptyState>
 }
 else
 {
@@ -129,45 +118,28 @@ else
 }
 
 <!-- Create API Key Modal -->
-@if (_dialogVisible)
-{
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @onclick="CloseDialog"></div>
-        <div class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 dark:border-slate-700 animate-fade-in">
-            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-700">
-                <h2 class="text-lg font-bold text-slate-900 dark:text-white">New API Key</h2>
-                <button @onclick="CloseDialog" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-            <div class="px-6 py-5">
-                <div class="floating-field">
-                    <input @bind="_formKeyName" @bind:event="oninput" type="text" placeholder=" " class="floating-input" />
-                    <label class="floating-label">Key Name</label>
-                </div>
-                @if (_formError is not null)
-                {
-                    <div class="mt-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-4 py-3 text-sm">@_formError</div>
-                }
-            </div>
-            <div class="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-700">
-                <button @onclick="CloseDialog" class="btn-ghost">Cancel</button>
-                <button @onclick="CreateKey" disabled="@_creating" class="btn-primary">
-                    @if (_creating)
-                    {
-                        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                        </svg>
-                    }
-                    Create Key
-                </button>
-            </div>
-        </div>
-    </div>
-}
+<ModalDialog Visible="_dialogVisible" Title="New API Key" OnClose="CloseDialog">
+    <Body>
+        <FloatingField Label="Key Name" @bind-Value="_formKeyName" />
+        @if (_formError is not null)
+        {
+            <div class="mt-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-4 py-3 text-sm">@_formError</div>
+        }
+    </Body>
+    <Footer>
+        <button @onclick="CloseDialog" class="btn-ghost">Cancel</button>
+        <button @onclick="CreateKey" disabled="@_creating" class="btn-primary">
+            @if (_creating)
+            {
+                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            }
+            Create Key
+        </button>
+    </Footer>
+</ModalDialog>
 
 @code {
     [CascadingParameter]

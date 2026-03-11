@@ -7,16 +7,13 @@
 
 <PageTitle>Sync Settings</PageTitle>
 
-<SectionContent SectionName="page-header">
-    <div class="flex items-center gap-3">
-        <div class="hidden sm:flex w-10 h-10 rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 items-center justify-center shadow-lg shadow-sky-500/20 flex-shrink-0">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-            </svg>
-        </div>
-        <h1 class="text-lg font-bold text-white tracking-tight">Sync Settings</h1>
-    </div>
-</SectionContent>
+<PageHeader Title="Sync Settings" FromColor="from-sky-500" ToColor="to-blue-600" ShadowColor="shadow-sky-500/20">
+    <Icon>
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+    </Icon>
+</PageHeader>
 
 <p class="text-slate-500 dark:text-slate-400 text-sm mb-6">Configure which task lists are synced.</p>
 
@@ -34,7 +31,7 @@
 }
 else if (_error is not null)
 {
-    <div class="rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-5 py-4 text-sm font-medium">⚠ @_error</div>
+    <ErrorAlert Message="@_error" />
 }
 else
 {
