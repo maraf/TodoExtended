@@ -7,7 +7,11 @@ public enum TaskActionType
 {
     CreateTask,
     CompleteTask,
-    UncompleteTask
+    UncompleteTask,
+    CreateTemplate,
+    UpdateTemplate,
+    DeleteTemplate,
+    ExecuteTemplate
 }
 
 /// <summary>

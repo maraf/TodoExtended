@@ -6,6 +6,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using TodoExtended.Web.Services;
+using TodoExtended.Web.Data;
 
 namespace TodoExtended.Web.Services.AiChat;
 
@@ -16,14 +17,15 @@ namespace TodoExtended.Web.Services.AiChat;
 public class ChatService(
     IChatClient chatClient,
     ITodoService todoService,
+    ITemplateService templateService,
     IOptions<AiChatOptions> options,
     ILogger<ChatService> logger) : IChatService
 {
-    private static readonly HashSet<string> WriteTools = ["create_task", "complete_task", "uncomplete_task"];
+    private static readonly HashSet<string> WriteTools = ["create_task", "complete_task", "uncomplete_task", "create_template", "update_template", "delete_template", "execute_template"];
 
     private const string SystemPrompt = """
         You are a helpful task management assistant for the TodoExtended app.
-        You help users manage their Microsoft To Do tasks using the available tools.
+        You help users manage their Microsoft To Do tasks and task templates using the available tools.
 
         Available capabilities:
         - View task lists and their tasks
@@ -31,19 +33,26 @@ public class ChatService(
         - Get full details of a specific task (including description)
         - Create new tasks in specific lists
         - Mark tasks as complete or incomplete
+        - View task templates
+        - Create new templates (requires task list info and title)
+        - Update existing templates
+        - Delete templates
+        - Execute templates (creates a task from a template)
 
         Guidelines:
-        - Use the read tools to fetch current data before answering questions about tasks.
+        - Use the read tools to fetch current data before answering questions about tasks or templates.
         - Use get_task_lists to discover lists, get_tasks or get_today_tasks to get task titles and IDs.
         - Use get_task to load full details (including description) for a specific task only when needed.
-        - When creating tasks, always confirm which list to add them to.
+        - Use get_templates to view available templates.
+        - When creating tasks or templates, always confirm which list to add them to.
         - Be concise and helpful.
-        - Format task information clearly.
+        - Format task and template information clearly.
         - When listing tasks, include their completion status and due dates if available.
 
         CRITICAL: The listId and taskId parameters must be the exact "Id" field values
         returned by get_task_lists, get_tasks, get_today_tasks, or get_task.
         These are opaque API identifiers (e.g. "AQMkADAwATM0MDAAMS0..."), NOT display names.
+        Template IDs are GUIDs (e.g. "f47ac10b-58cc-4372-a567-0e02b2c3d479").
         Never pass a task title or list name as an ID parameter.
         Always call a read tool first to obtain the correct Id values.
         """;
@@ -302,9 +311,14 @@ public class ChatService(
             AIFunctionFactory.Create(GetTasksAsync, "get_tasks", "Get tasks in a specific list (title, status, due date). Does not include task description."),
             AIFunctionFactory.Create(GetTodayTasksAsync, "get_today_tasks", "Get tasks due today across all lists (title, status, due date). Does not include task description."),
             AIFunctionFactory.Create(GetTaskDetailAsync, "get_task", "Get full details of a single task including its description. Use this only when the description is specifically needed."),
+            AIFunctionFactory.Create(GetTemplatesAsync, "get_templates", "Get all task templates."),
             AIFunctionFactory.Create(CreateTaskTool, "create_task", "Create a new task in a task list."),
             AIFunctionFactory.Create(CompleteTaskTool, "complete_task", "Mark a task as completed."),
             AIFunctionFactory.Create(UncompleteTaskTool, "uncomplete_task", "Mark a task as not completed."),
+            AIFunctionFactory.Create(CreateTemplateTool, "create_template", "Create a new task template."),
+            AIFunctionFactory.Create(UpdateTemplateTool, "update_template", "Update an existing task template."),
+            AIFunctionFactory.Create(DeleteTemplateTool, "delete_template", "Delete a task template."),
+            AIFunctionFactory.Create(ExecuteTemplateTool, "execute_template", "Execute a template to create a task."),
         ];
     }
 
@@ -338,6 +352,12 @@ public class ChatService(
         return JsonSerializer.Serialize(new { task.Id, task.Title, task.Body, task.IsCompleted, task.DueDate, task.Importance });
     }
 
+    private async Task<string> GetTemplatesAsync()
+    {
+        var templates = await templateService.GetAllAsync();
+        return JsonSerializer.Serialize(templates.Select(t => new { t.Id, t.Title, t.TaskListId, t.TaskListName, t.DueDateToday, t.ReminderTime, t.SortOrder }));
+    }
+
     // Write tool stubs (never actually called — only used for schema generation)
     private static string CreateTaskTool(
         [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
@@ -354,6 +374,23 @@ public class ChatService(
         [Description("The Id field of the task (opaque API identifier from get_tasks/get_today_tasks, not the task title)")] string taskId,
         [Description("The display title of the task from get_tasks or get_today_tasks")] string? taskTitle = null,
         [Description("The display name of the task list from get_task_lists")] string? listName = null) => "proposed";
+    private static string CreateTemplateTool(
+        string title,
+        [Description("The Id field of the task list (opaque API identifier from get_task_lists)")] string listId,
+        [Description("The display name of the task list from get_task_lists")] string listName,
+        bool dueDateToday = false,
+        [Description("Reminder time in HH:mm format (e.g. 09:00)")] string? reminderTime = null) => "proposed";
+    private static string UpdateTemplateTool(
+        [Description("The template Id (GUID)")] string templateId,
+        string? title = null,
+        [Description("The Id field of the task list (opaque API identifier from get_task_lists)")] string? listId = null,
+        [Description("The display name of the task list from get_task_lists")] string? listName = null,
+        bool? dueDateToday = null,
+        [Description("Reminder time in HH:mm format (e.g. 09:00)")] string? reminderTime = null) => "proposed";
+    private static string DeleteTemplateTool(
+        [Description("The template Id (GUID)")] string templateId) => "proposed";
+    private static string ExecuteTemplateTool(
+        [Description("The template Id (GUID)")] string templateId) => "proposed";
 
     private async Task<string> ExecuteReadTool(FunctionCallContent call, CancellationToken ct)
     {
@@ -365,6 +402,7 @@ public class ChatService(
                 "get_tasks" => await GetTasksAsync(GetArg(call, "listId")),
                 "get_task" => await GetTaskDetailAsync(GetArg(call, "listId"), GetArg(call, "taskId")),
                 "get_today_tasks" => await GetTodayTasksAsync(),
+                "get_templates" => await GetTemplatesAsync(),
                 _ => $"Unknown tool: {call.Name}"
             };
         }
@@ -385,6 +423,14 @@ public class ChatService(
                 $"Complete task {GetArg(call, "taskId")}"),
             "uncomplete_task" => (TaskActionType.UncompleteTask,
                 $"Uncomplete task {GetArg(call, "taskId")}"),
+            "create_template" => (TaskActionType.CreateTemplate,
+                $"Create template \"{GetArg(call, "title")}\""),
+            "update_template" => (TaskActionType.UpdateTemplate,
+                $"Update template {GetArg(call, "templateId")}"),
+            "delete_template" => (TaskActionType.DeleteTemplate,
+                $"Delete template {GetArg(call, "templateId")}"),
+            "execute_template" => (TaskActionType.ExecuteTemplate,
+                $"Execute template {GetArg(call, "templateId")}"),
             _ => throw new InvalidOperationException($"Unknown write tool: {call.Name}")
         };
 
@@ -402,7 +448,13 @@ public class ChatService(
 
     private async Task ExecuteAction(ProposedAction action, CancellationToken ct)
     {
-        ValidateIdParameter(action, "listId");
+        // Validate Graph API IDs (listId, taskId) — template IDs are GUIDs and don't need this validation
+        var isTemplateAction = action.Type is TaskActionType.CreateTemplate or TaskActionType.UpdateTemplate 
+            or TaskActionType.DeleteTemplate or TaskActionType.ExecuteTemplate;
+
+        if (!isTemplateAction && action.Parameters.ContainsKey("listId"))
+            ValidateIdParameter(action, "listId");
+        
         if (action.Type is TaskActionType.CompleteTask or TaskActionType.UncompleteTask)
             ValidateIdParameter(action, "taskId");
 
@@ -434,6 +486,59 @@ public class ChatService(
                     action.Parameters["listId"],
                     action.Parameters["taskId"],
                     completed: false);
+                break;
+
+            case TaskActionType.CreateTemplate:
+                TimeOnly? reminderTime = action.Parameters.TryGetValue("reminderTime", out var reminderStr)
+                    && TimeOnly.TryParse(reminderStr, out var parsedTime)
+                    ? parsedTime
+                    : null;
+                bool dueDateToday = action.Parameters.TryGetValue("dueDateToday", out var dueDateTodayStr)
+                    && bool.TryParse(dueDateTodayStr, out var parsedDueDateToday)
+                    && parsedDueDateToday;
+                await templateService.CreateAsync(new TaskTemplate
+                {
+                    Title = action.Parameters["title"],
+                    TaskListId = action.Parameters["listId"],
+                    TaskListName = action.Parameters["listName"],
+                    DueDateToday = dueDateToday,
+                    ReminderTime = reminderTime
+                });
+                break;
+
+            case TaskActionType.UpdateTemplate:
+                var templateId = Guid.Parse(action.Parameters["templateId"]);
+                var template = await templateService.GetByIdAsync(templateId);
+                if (template == null)
+                    throw new InvalidOperationException($"Template {templateId} not found.");
+
+                if (action.Parameters.TryGetValue("title", out var title))
+                    template.Title = title;
+                if (action.Parameters.TryGetValue("listId", out var listId))
+                    template.TaskListId = listId;
+                if (action.Parameters.TryGetValue("listName", out var listName))
+                    template.TaskListName = listName;
+                if (action.Parameters.TryGetValue("dueDateToday", out var dueDateTodayUpdateStr)
+                    && bool.TryParse(dueDateTodayUpdateStr, out var parsedDueDateTodayUpdate))
+                    template.DueDateToday = parsedDueDateTodayUpdate;
+                if (action.Parameters.TryGetValue("reminderTime", out var reminderUpdateStr))
+                {
+                    template.ReminderTime = TimeOnly.TryParse(reminderUpdateStr, out var parsedReminderUpdate)
+                        ? parsedReminderUpdate
+                        : null;
+                }
+
+                await templateService.UpdateAsync(template);
+                break;
+
+            case TaskActionType.DeleteTemplate:
+                var deleteTemplateId = Guid.Parse(action.Parameters["templateId"]);
+                await templateService.DeleteAsync(deleteTemplateId);
+                break;
+
+            case TaskActionType.ExecuteTemplate:
+                var executeTemplateId = Guid.Parse(action.Parameters["templateId"]);
+                await templateService.ExecuteTemplateAsync(executeTemplateId);
                 break;
         }
     }
