@@ -1606,3 +1606,150 @@ User controls (user pill, dark mode toggle, sign out) moved from the header bar 
 - Controls no longer need wco-no-drag since they're outside the draggable PWA header region
 
 **Impact:** MainLayout.razor only. No interface or functionality changes.
+
+---
+
+# Decision: Shared Component Library Pattern
+
+**Date:** 2026-03-11  
+**Author:** Frontend  
+**Status:** Implemented
+
+## Context
+
+8 duplicated markup patterns existed across 6 pages. User directive: "No copy-paste  if markup appears in more than one place, extract it."HTML 
+
+## Decision
+
+Created 6 shared components in `Components/Shared/`:
+- ** Overlay + backdrop + header/body/footer structureModalDialog** 
+- ** Section header with gradient icon badgePageHeader** 
+- ** Conditional rose-colored error bannerErrorAlert** 
+- ** Card with icon/heading/description/optional action buttonEmptyState** 
+- ** Loading placeholder gridSkeletonGrid** 
+- ** Floating-label text input with two-way bindingFloatingField** 
+
+Skipped TaskItemRow (#6) and StatusBadge (# insufficient duplication or too divergent to justify extraction.8) 
+
+## Tailwind JIT Rule
+
+All Tailwind class parameters must be passed as **complete class names** (e.g., `from-amber-400`, not `amber-400`) so the JIT scanner finds them in calling pages.
+
+## Impact
+
+- ~200 lines of duplicated markup eliminated
+- 6 pages refactored to use components
+- Build clean; zero breaking changes
+- New pages should use these components instead of copying markup
+
+---
+
+# Decision: Proactive bUnit Testing for Shared Blazor Components
+
+**Date:** 2026-03-11  
+**Author:** Tester  
+**Status:** Implemented
+
+## Context
+
+Frontend is extracting 8 shared Blazor components from duplicated page markup. To support test-driven development and ensure components meet specifications, Tester wrote comprehensive bUnit test suites for 6 core components **before the components were implemented**.
+
+## Decision
+
+Created a new test project `tests/TodoExtended.Components.Tests/` with bUnit + xUnit test coverage:
+
+1. ** 7 tests covering visibility, title display, close callbacks, and body/footer RenderFragmentsModalDialog** 
+2. ** 5 tests covering title rendering, gradient classes, and icon displayPageHeader** 
+3. ** 6 tests covering null/empty handling, rose styling, and warning prefixErrorAlert** 
+4. ** 7 tests covering emoji, heading, description, and action button behaviorEmptyState** 
+5. ** 7 tests covering count, height, animate-pulse, and grid layoutSkeletonGrid** 
+6. ** 7 tests covering label, value binding, type attribute, and change eventsFloatingField** 
+
+## Rationale
+
+**Proactive Testing Benefits:**
+- **Contract-first  Tests define expected component APIs before implementationdesign** 
+- **Parallel  Frontend can implement components knowing the test requirementsdevelopment** 
+- **Faster  Immediate test failures when component behavior deviates from specfeedback** 
+- ** Tests serve as executable specification of component behaviorDocumentation** 
+- **Regression  Components remain stable as markup is refactoredprevention** 
+
+**Component Selection:**
+- Focused on 6 components with clear, stable contracts
+- Skipped StatusBadge and additional speculative components to minimize rework risk
+- All 6 components have clear parameter signatures from the spec
+
+## Test Patterns
+
+All tests follow established project conventions:
+
+- **Naming:** `MethodName_Scenario_ExpectedResult` (e.g., `Render_WhenVisibleIsFalse_RendersNothing`)
+- **Structure:** Arrange-Act-Assert pattern
+- **Framework:** bUnit 1.32.7 + xUnit (matching .NET 10 E2E test project style)
+ output), not exact CSS classes
+- **Coverage:** Happy paths, error cases, null handling, event callbacks, conditional rendering
+
+## Implementation Details
+
+**Project Structure:**
+```
+tests/TodoExtended.Components.Tests/
+ TodoExtended.Components.Tests.csproj
+ _Imports.razor (shared using directives)
+ README.md (comprehensive test documentation)
+ ModalDialogTests.cs
+ PageHeaderTests.cs
+ ErrorAlertTests.cs
+ EmptyStateTests.cs
+ SkeletonGridTests.cs
+ FloatingFieldTests.cs
+```
+
+**Dependencies:**
+- `bunit` (1.32. Blazor component testing7) 
+- `xunit` (2.9. Test framework2) 
+- `Microsoft.NET.Test.Sdk` (17.12. Test runner0) 
+
+**Expected Component Location:**
+- `src/TodoExtended.Web/Components/Shared/*.razor`
+
+## Current Status
+
+Tests written and components implemented. All 39 tests passing after Coordinator resolved 8 API mismatches.
+
+## Integration Notes
+
+When Frontend implements the components, expected adjustments (all now completed):
+
+ `IsNullOrWhiteSpace`
+2. PageHeader SectionContent: API limitation for exact content injection
+3. EmptyState: `OnAction` parameter handling  
+4. FloatingField: Event from `onchange` to `oninput` (Input event)
+
+## Impact
+
+- **Test coverage:** 39 test cases across 6 components
+- **Zero breaking  New test project, no modifications to existing codechanges** 
+- **Documentation:** README.md provides component specifications and expected parameters
+- **Team coordination:** Tests define the contract between Tester and Frontend agents
+
+---
+
+# Decision: Team Directive on Code Reuse and Markup Extraction
+
+**Date:** 2026-03-11  
+**Author:** Marek Fiera (via Copilot)  
+**Status:** Captured for team memory
+
+## Directive
+
+When refactoring code, always focus on extracting common components and reusable classes. For HTML/Razor markup specifically: **always create Blazor components or reusable RenderFragment/razor delegates instead of duplicating markup**. No copy- if markup appears in more than one place, extract it.paste 
+
+## Rationale
+
+This ensures long-term maintainability, reduces cognitive load when reviewing code, and prevents drift when markup patterns need to be updated across multiple pages.
+
+## Implementation
+
+Applied immediately by Frontend agent to shared component extraction work, resulting in 6 new reusable components and ~200 lines of markup duplication eliminated.
+
