@@ -1753,3 +1753,51 @@ This ensures long-term maintainability, reduces cognitive load when reviewing co
 
 Applied immediately by Frontend agent to shared component extraction work, resulting in 6 new reusable components and ~200 lines of markup duplication eliminated.
 
+
+---
+
+# Decision: UX Pattern Library Created
+
+**Date:** 2026-03-11
+**Author:** Frontend
+**Status:** Implemented
+
+## Summary
+
+Created a comprehensive UX Pattern Library at `docs/ux-patterns.md` documenting all 17 pattern categories found across the TodoExtended.Web codebase.
+
+## What
+
+Audited all 12 shared components, 4 layout components, and 8 pages. Catalogued every reusable UI pattern with component name, visual description, parameters, usage locations, and Razor code examples.
+
+## Why
+
+The codebase has grown to include rich patterns (floating labels, toast system, multiple skeleton types, chip variants, modal dialogs) that are easy to accidentally re-implement. A single reference document prevents duplication and ensures visual consistency.
+
+## Impact
+
+- `docs/ux-patterns. new file, 704 linesmd` 
+- No code changes; documentation only
+- Team guideline: check this document before creating new UI patterns
+
+---
+
+# Team Directive: CI Pipeline Maintenance (2026-03-11T09:11:41Z)
+
+**Author:** Marek Fiera (via Copilot)
+**Status:** Policy
+
+Whenever you add a new type of tests, always add a corresponding job to `.github/workflows/ci.yml`.
+
+**Rationale:** User  ensures CI pipeline remains in sync with test additionsrequest 
+
+---
+
+# Team Directive: UX Pattern Reuse (2026-03-11T09:14:44Z)
+
+**Author:** Marek Fiera (via Copilot)
+**Status:** Policy
+
+Maintain a documented list of UX patterns the application uses (cards, lists, loading placeholders, modal dialogs, etc). Always reuse existing patterns instead of creating new ones. If a new pattern is needed, add it to the list first.
+
+**Rationale:** User  ensures consistent, predictable UI and prevents pattern fragmentationrequest 

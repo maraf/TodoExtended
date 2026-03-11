@@ -520,3 +520,22 @@ All Tailwind class parameters must be passed as complete class names (e.g., `fro
 - ~70 lines of duplicated markup eliminated
 - Both Today.razor and Tasks.razor build clean with `-warnaserror`
 
+
+---
+
+##  UX Pattern Library Audit (2026-03-11)Learnings 
+
+### Task
+Analyzed all 12 shared components, 4 layout components, and 8 pages to produce a comprehensive UX Pattern Library at `docs/ux-patterns.md`.
+
+### Key UX Patterns Found
+
+1. **12 shared components** documented: EmptyState, ErrorAlert, FloatingField, ModalDialog, NavItem, NavListItem, PageHeader, SkeletonGrid, TaskListSkeleton, TaskStatsBar, TaskStatusCheckbox, ToastStack
+2. **17 pattern categories** identified: cards, task rows, loading skeletons, modals, error alerts, empty states, page headers, floating label inputs, nav items, stats bars, chips/badges (5 variants), buttons (6 variants), toggle switches, toast notifications, progress bars, gradient decorations, icon badges, tab navigation, spinners, section dividers, responsive grids
+3. **CSS utility system** in `tailwind-input.css` defines `.card`, `.card-hover`, `.chip-*`, `.btn-*`, `.task-row`, `.floating-*`, `.section-title`, `.input`, `. all with dark mode variantslabel` 
+4. **Brand color palette** is Indigo-based (`brand-50` through `brand-900`) with violet, amber, emerald, sky, rose supplementary gradients
+5. **Page header pattern** uses `SectionContent`/`SectionOutlet` to pass page titles into the layout header bar
+6. **Toast notification system** via `INotificationService` with 4 severity levels and auto-purge
+
+### Document Path
+`docs/ux-patterns.md`
