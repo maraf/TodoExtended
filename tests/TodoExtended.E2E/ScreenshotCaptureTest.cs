@@ -67,6 +67,9 @@ public class ScreenshotCaptureTest : PageTest
 
         // Attempt templates-dialog screenshots
         await CaptureTemplatesDialogScreenshots();
+
+        // Capture sidebar-open on mobile
+        await CaptureSidebarOpenScreenshots();
     }
 
     private async Task SignInViaDemoAsync()
@@ -174,6 +177,46 @@ public class ScreenshotCaptureTest : PageTest
                 {
                     TestContext.WriteLine($"[WARN] Failed: templates-dialog--{vp.Name}-{theme}: {ex.Message}");
                 }
+            }
+        }
+    }
+
+    private async Task CaptureSidebarOpenScreenshots()
+    {
+        var mobileVp = new ViewportSpec("mobile", 390, 844);
+
+        foreach (var theme in new[] { "dark", "light" })
+        {
+            try
+            {
+                await Page.SetViewportSizeAsync(mobileVp.Width, mobileVp.Height);
+                await Page.GotoAsync($"{BaseUrl}/today", new() { WaitUntil = WaitUntilState.NetworkIdle });
+                await Page.Locator("h1:has-text('Today')").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
+
+                // Set theme before opening sidebar
+                await SetThemeAsync(theme);
+                await Page.WaitForTimeoutAsync(500);
+
+                // Wait for Blazor circuit so button click works
+                await Page.WaitForTimeoutAsync(3_000);
+
+                // Click the BottomBar toggle to open the sidebar (selector scoped to nav to avoid the hidden header button)
+                var toggleButton = Page.Locator("nav button[aria-label='Toggle menu']").First;
+                await toggleButton.ClickAsync();
+
+                // Wait for sidebar to slide in
+                await Page.WaitForTimeoutAsync(500);
+
+                var fileName = $"sidebar-open--{mobileVp.Name}-{theme}.png";
+                await Page.ScreenshotAsync(new()
+                {
+                    Path = Path.Combine(ScreenshotsDir, fileName),
+                });
+                TestContext.WriteLine($"[OK] {fileName}");
+            }
+            catch (Exception ex)
+            {
+                TestContext.WriteLine($"[WARN] Failed: sidebar-open--{mobileVp.Name}-{theme}: {ex.Message}");
             }
         }
     }
