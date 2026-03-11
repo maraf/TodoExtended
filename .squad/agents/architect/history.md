@@ -81,3 +81,15 @@
 - **Auth patterns in Blazor:** `@attribute [Authorize]` on Tasks, Today, Templates, ApiKeys pages. `<AuthorizeView>` in Home, MainLayout, NavMenu. Routes.razor does NOT use `<AuthorizeRouteView>` — uses `<RouteView>` instead.
 - **Secrets management:** `appsettings.local.json` is the intended location for `ClientId` and `ClientSecret` (gitignored). Currently the file only has logging config; user likely uses `dotnet user-secrets` or environment variables.
 - **Key file paths:** `Program.cs` (auth registration lines 20-25), `appsettings.json` (AzureAd section), `Authentication/ApiKeyAuthenticationHandler.cs`.
+
+### 2026-03- AI Chat Interface Contract (Issue #22)11 
+- Created shared interface contract for AI-powered chat feature on branch `squad/22-ai-chat`.
+- **SDK choice:** `Microsoft.Extensions.AI` 10.4.0 + `Microsoft.Extensions.AI.OpenAI` 10.4. provider-agnostic `IChatClient` abstraction.0 
+ actions executed.
+- **Models:** `ProposedAction`, `ActionConfirmation`, `ActionResult`, `ChatMessage`, `ChatResponse` in `Services/AiChat/AiChatModels.cs`.
+- **Interface:** `IChatService` with `SendMessageAsync` (returns text + proposed actions) and `ExecuteActionsAsync` (executes approved actions).
+- **Config:** `AiChatOptions` bound to `AiChat`  endpoint, model, API key, max history. Default: GitHub Models `openai/gpt-4.1-mini`.section 
+- **Demo mode:** `StubChatService` registered as fallback/demo; real implementation will replace it conditionally.
+- **DI:** Scoped `IChatService` registered in `Program.cs`, options bound via `Configure<AiChatOptions>`.
+- **6 AI tools planned:** Read: `get_task_lists`, `get_tasks`, `get_today_tasks`. Write: `create_task`, `complete_task`, `uncomplete_task`.
+- **Key paths:** `src/TodoExtended.Web/Services/AiChat/` (all 4 files), `Program.cs`, `appsettings.json`.
