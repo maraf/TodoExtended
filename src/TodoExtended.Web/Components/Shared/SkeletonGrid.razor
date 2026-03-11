@@ -1,0 +1,14 @@
+<div class="grid @Columns gap-4">
+    @for (var i = 0; i < Count; i++)
+    {
+        <div class="@Height bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse"></div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Count { get; set; } = 3;
+    /// <summary>Height Tailwind class, e.g. "h-32", "h-36", "h-40"</summary>
+    [Parameter] public string Height { get; set; } = "h-32";
+    /// <summary>Column Tailwind classes, e.g. "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"</summary>
+    [Parameter] public string Columns { get; set; } = "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3";
+}

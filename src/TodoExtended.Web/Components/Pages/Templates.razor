@@ -10,16 +10,13 @@
 
 <PageTitle>Templates</PageTitle>
 
-<SectionContent SectionName="page-header">
-    <div class="flex items-center gap-3">
-        <div class="hidden sm:flex w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 items-center justify-center shadow-lg shadow-violet-500/20 flex-shrink-0">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-            </svg>
-        </div>
-        <h1 class="text-lg font-bold text-white tracking-tight">Templates</h1>
-    </div>
-</SectionContent>
+<PageHeader Title="Templates" FromColor="from-violet-500" ToColor="to-purple-600" ShadowColor="shadow-violet-500/20">
+    <Icon>
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+        </svg>
+    </Icon>
+</PageHeader>
 
 <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <p class="text-slate-500 dark:text-slate-400 text-sm">Manage templates for quick task creation.</p>
@@ -36,30 +33,22 @@
 
 @if (_loading)
 {
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        @for (var i = 0; i < 3; i++)
-        {
-            <div class="h-40 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse"></div>
-        }
-    </div>
+    <SkeletonGrid Height="h-40" />
 }
 else if (_error is not null)
 {
-    <div class="rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-5 py-4 text-sm font-medium">⚠ @_error</div>
+    <ErrorAlert Message="@_error" />
 }
 else if (TemplateItems is not { Count: > 0 })
 {
-    <div class="card dark:bg-slate-800 dark:border-slate-700 flex flex-col items-center justify-center py-20 text-center border-2 border-dashed">
-        <div class="text-5xl mb-4">📝</div>
-        <h3 class="text-xl font-bold text-slate-700 dark:text-slate-300 mb-2">No templates yet</h3>
-        <p class="text-slate-500 dark:text-slate-400 text-sm mb-6">Create templates to quickly add recurring tasks.</p>
-        <button @onclick="OpenAddDialog" class="btn-primary">
+    <EmptyState Emoji="📝" Heading="No templates yet" Description="Create templates to quickly add recurring tasks."
+               ActionLabel="Create First Template" OnAction="OpenAddDialog" Dashed="true">
+        <ActionIcon>
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
-            Create First Template
-        </button>
-    </div>
+        </ActionIcon>
+    </EmptyState>
 }
 else
 {
@@ -119,76 +108,61 @@ else
 }
 
 <!-- Add/Edit Modal -->
-@if (_dialogVisible)
-{
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @onclick="CloseDialog"></div>
-        <div class="relative bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md border border-slate-100 dark:border-slate-700 animate-fade-in">
-            <div class="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-700">
-                <h2 class="text-lg font-bold text-slate-900 dark:text-white">@(_editingTemplateId is not null ? "Edit Template" : "New Template")</h2>
-                <button @onclick="CloseDialog" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-            <div class="px-6 py-5 space-y-4">
-                <div class="floating-field">
-                    <input @bind="_formTitle" @bind:event="oninput" type="text" placeholder=" " class="floating-input" />
-                    <label class="floating-label">Title</label>
-                </div>
-                <div class="floating-field">
-                    <select @bind="_formTaskListId" class="floating-select">
-                        <option value="">Select a list…</option>
-                        @if (TaskLists is not null)
-                        {
-                            @foreach (var list in TaskLists)
-                            {
-                                <option value="@list.Id">@list.DisplayName</option>
-                            }
-                        }
-                    </select>
-                    <label class="floating-label">Task List</label>
-                </div>
-                <div class="floating-field w-28">
-                    <input @bind="_formSortOrder" type="number" placeholder=" " class="floating-input" />
-                    <label class="floating-label">Sort Order</label>
-                </div>
-                <div class="flex items-center gap-3">
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" class="sr-only peer" checked="@_formDueDateToday" @onchange="e => OnDueDateTodayChanged((bool)(e.Value ?? false))" />
-                        <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
-                    </label>
-                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Due Today</span>
-                </div>
-                @if (_formDueDateToday)
-                {
-                    <div class="floating-field">
-                        <input value="@_formReminderTime" @onchange="e => _formReminderTime = e.Value?.ToString()" type="time" placeholder=" " class="floating-input" />
-                        <label class="floating-label">Reminder Time (optional)</label>
-                    </div>
-                }
-                @if (_formError is not null)
-                {
-                    <div class="rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-4 py-3 text-sm">@_formError</div>
-                }
-            </div>
-            <div class="flex justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-700">
-                <button @onclick="CloseDialog" class="btn-ghost">Cancel</button>
-                <button @onclick="SaveTemplate" disabled="@_saving" class="btn-primary">
-                    @if (_saving)
+<ModalDialog Visible="_dialogVisible" Title="@(_editingTemplateId is not null ? "Edit Template" : "New Template")" OnClose="CloseDialog">
+    <Body>
+        <div class="space-y-4">
+            <FloatingField Label="Title" @bind-Value="_formTitle" />
+            <div class="floating-field">
+                <select @bind="_formTaskListId" class="floating-select">
+                    <option value="">Select a list…</option>
+                    @if (TaskLists is not null)
                     {
-                        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-                        </svg>
+                        @foreach (var list in TaskLists)
+                        {
+                            <option value="@list.Id">@list.DisplayName</option>
+                        }
                     }
-                    @(_editingTemplateId is not null ? "Update" : "Create")
-                </button>
+                </select>
+                <label class="floating-label">Task List</label>
             </div>
+            <div class="floating-field w-28">
+                <input @bind="_formSortOrder" type="number" placeholder=" " class="floating-input" />
+                <label class="floating-label">Sort Order</label>
+            </div>
+            <div class="flex items-center gap-3">
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" class="sr-only peer" checked="@_formDueDateToday" @onchange="e => OnDueDateTodayChanged((bool)(e.Value ?? false))" />
+                    <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-brand-600"></div>
+                </label>
+                <span class="text-sm font-medium text-slate-700 dark:text-slate-300">Due Today</span>
+            </div>
+            @if (_formDueDateToday)
+            {
+                <div class="floating-field">
+                    <input value="@_formReminderTime" @onchange="e => _formReminderTime = e.Value?.ToString()" type="time" placeholder=" " class="floating-input" />
+                    <label class="floating-label">Reminder Time (optional)</label>
+                </div>
+            }
+            @if (_formError is not null)
+            {
+                <div class="rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 px-4 py-3 text-sm">@_formError</div>
+            }
         </div>
-    </div>
-}
+    </Body>
+    <Footer>
+        <button @onclick="CloseDialog" class="btn-ghost">Cancel</button>
+        <button @onclick="SaveTemplate" disabled="@_saving" class="btn-primary">
+            @if (_saving)
+            {
+                <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+            }
+            @(_editingTemplateId is not null ? "Update" : "Create")
+        </button>
+    </Footer>
+</ModalDialog>
 
 @code {
     [PersistentState]

@@ -1,0 +1,19 @@
+<SectionContent SectionName="page-header">
+    <div class="flex items-center gap-3">
+        <div class="hidden sm:flex w-10 h-10 rounded-xl bg-gradient-to-br @FromColor @ToColor items-center justify-center shadow-lg @ShadowColor flex-shrink-0">
+            @Icon
+        </div>
+        <h1 class="text-lg font-bold text-white tracking-tight">@Title</h1>
+    </div>
+</SectionContent>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter] public RenderFragment? Icon { get; set; }
+    /// <summary>Full Tailwind "from-" class, e.g. "from-amber-400"</summary>
+    [Parameter] public string FromColor { get; set; } = "from-brand-500";
+    /// <summary>Full Tailwind "to-" class, e.g. "to-orange-500"</summary>
+    [Parameter] public string ToColor { get; set; } = "to-violet-600";
+    /// <summary>Full Tailwind shadow class, e.g. "shadow-brand-500/20"</summary>
+    [Parameter] public string ShadowColor { get; set; } = "shadow-brand-500/20";
+}
