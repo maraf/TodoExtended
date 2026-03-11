@@ -19,6 +19,21 @@ jobs:
       - name: Build TodoExtended.Web
         run: dotnet build src/TodoExtended.Web/TodoExtended.Web.csproj --configuration Release
 
+  component-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run component tests
+        run: dotnet test tests/TodoExtended.Components.Tests/TodoExtended.Components.Tests.csproj --configuration Release
+
   e2e:
     runs-on: ubuntu-latest
     permissions:
