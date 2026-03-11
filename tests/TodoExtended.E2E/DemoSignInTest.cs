@@ -30,11 +30,13 @@ public class DemoSignInTest : PageTest
         // from /auth/demo-signin is stored before / is loaded.
         await demoButton.ClickAsync();
 
-        // After sign-in we land back on the home page — wait for the "Sign out" link
-        // which is always visible in the authenticated sidebar layout.
+        // After sign-in we land back on the home page — wait for the "User menu" button
+        // which only appears in the authenticated layout (MainLayout.Authorized).
+        // "Sign out" is now nested inside the collapsible user menu so it is not
+        // visible by default; the toggle button is always visible once authenticated.
         // Playwright's Expect polls continuously across the navigation (demo-signin → / ),
         // so a generous timeout is sufficient; no separate navigation wait is needed.
-        await Expect(Page.GetByRole(AriaRole.Link, new() { Name = "Sign out" }))
+        await Expect(Page.GetByRole(AriaRole.Button, new() { Name = "User menu" }))
             .ToBeVisibleAsync(new() { Timeout = 15_000 });
 
         // Take and save the screenshot.

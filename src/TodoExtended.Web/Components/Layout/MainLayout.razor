@@ -45,7 +45,7 @@
                     }
 
                     <!-- Sidebar -->
-                    <aside class="@(_sidebarOpen ? "translate-x-0" : "-translate-x-full") lg:translate-x-0 fixed lg:relative top-14 lg:top-0 left-0 bottom-0 z-20 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transition-transform duration-200 ease-out">
+                    <aside class="@(_sidebarOpen ? "translate-x-0" : "-translate-x-full") lg:translate-x-0 fixed lg:relative top-14 lg:top-0 left-0 bottom-14 lg:bottom-0 z-20 w-64 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 flex flex-col transition-transform duration-200 ease-out">
                         <div class="flex-1 overflow-y-auto">
                             <CascadingValue Name="CloseSidebar" Value="@_closeSidebarAction">
                                 <NavMenu />
@@ -53,41 +53,50 @@
                         </div>
 
                         <!-- User controls -->
-                        <div class="border-t border-slate-200 dark:border-slate-700 px-3 py-2 space-y-0.5">
-                            <!-- User -->
-                            <div class="flex items-center gap-3 px-3 py-2 text-slate-600 dark:text-slate-400 text-sm font-medium">
+                        <div class="border-t border-slate-200 dark:border-slate-700 px-3 py-2">
+                            <!-- User info (toggle) -->
+                            <button @onclick="ToggleUserMenu" class="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm font-medium transition-colors" aria-expanded="@_userMenuOpen" aria-label="User menu">
                                 <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                     <path d="M10 10a4 4 0 100-8 4 4 0 000 8zm-7 8a7 7 0 1114 0H3z"/>
                                 </svg>
-                                <span class="truncate">@context.User.Identity?.Name</span>
-                            </div>
-
-                            <!-- Dark mode toggle -->
-                            <button @onclick="ToggleDarkMode" class="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm font-medium transition-colors" aria-label="Toggle dark mode">
-                                @if (_isDarkMode)
-                                {
-                                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-                                    </svg>
-                                    <span>Light mode</span>
-                                }
-                                else
-                                {
-                                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-                                    </svg>
-                                    <span>Dark mode</span>
-                                }
+                                <span class="truncate flex-1 text-left">@context.User.Identity?.Name</span>
+                                <svg class="w-4 h-4 shrink-0 transition-transform duration-200 @(_userMenuOpen ? "rotate-180" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                </svg>
                             </button>
 
-                            <!-- Sign out -->
-                            <a href="@(DemoOptions.Value.Enabled ? "/auth/demo-signout" : "MicrosoftIdentity/Account/SignOut")"
-                               class="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm font-medium transition-colors">
-                                <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                                </svg>
-                                <span>Sign out</span>
-                            </a>
+                            <!-- Expanded items -->
+                            @if (_userMenuOpen)
+                            {
+                                <div class="mt-0.5 space-y-0.5">
+                                    <!-- Dark mode toggle -->
+                                    <button @onclick="ToggleDarkMode" class="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm font-medium transition-colors" aria-label="Toggle dark mode">
+                                        @if (_isDarkMode)
+                                        {
+                                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                                            </svg>
+                                            <span>Light mode</span>
+                                        }
+                                        else
+                                        {
+                                            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                                            </svg>
+                                            <span>Dark mode</span>
+                                        }
+                                    </button>
+
+                                    <!-- Sign out -->
+                                    <a href="@(DemoOptions.Value.Enabled ? "/auth/demo-signout" : "MicrosoftIdentity/Account/SignOut")"
+                                       class="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm font-medium transition-colors">
+                                        <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                                        </svg>
+                                        <span>Sign out</span>
+                                    </a>
+                                </div>
+                            }
                         </div>
                     </aside>
 
@@ -118,6 +127,7 @@
 
     private bool _isDarkMode = false;
     private bool _sidebarOpen = false;
+    private bool _userMenuOpen = false;
     private string? _userId;
     private Action _closeSidebarAction => CloseSidebar;
 
@@ -143,6 +153,8 @@
     }
 
     private void ToggleSidebar() => _sidebarOpen = !_sidebarOpen;
+
+    private void ToggleUserMenu() => _userMenuOpen = !_userMenuOpen;
 
     private void CloseSidebar()
     {
