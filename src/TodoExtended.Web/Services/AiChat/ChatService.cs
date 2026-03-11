@@ -1,3 +1,5 @@
+using System.ClientModel;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
@@ -60,6 +62,8 @@ public class ChatService(
 
         // Tool-calling loop: auto-invoke read tools, collect write tools as proposals
         const int maxIterations = 10;
+        bool retried = false;
+
         for (int i = 0; i < maxIterations; i++)
         {
             logger.LogDebug("AI request iteration {Iteration} with {MessageCount} messages", i + 1, messages.Count);
@@ -68,6 +72,20 @@ public class ChatService(
             try
             {
                 response = await chatClient.GetResponseAsync(messages, chatOptions, ct);
+            }
+            catch (ClientResultException ex) when (IsTokenLimitError(ex))
+            {
+                if (retried)
+                {
+                    logger.LogError(ex, "AI request still exceeds token limit after trimming");
+                    return new ChatResponse("Sorry, the conversation is too long. Please start a new chat.", []);
+                }
+
+                logger.LogWarning("AI request hit token limit (HTTP {Status}), trimming conversation and retrying", ex.Status);
+                retried = true;
+                messages = TrimConversationForRetry(messages);
+                i--; // Retry this iteration
+                continue;
             }
             catch (Exception ex)
             {
@@ -143,6 +161,10 @@ public class ChatService(
                         }
                     }
                 }
+                catch (ClientResultException ex) when (IsTokenLimitError(ex))
+                {
+                    logger.LogWarning("Final AI response hit token limit, using collected text");
+                }
                 catch (Exception ex)
                 {
                     logger.LogWarning(ex, "Failed to get final AI response after proposals");
@@ -203,7 +225,7 @@ public class ChatService(
             new(ChatRole.System, SystemPrompt)
         };
 
-        // Add capped history
+        // Add capped history, only user/assistant text turns (no tool-call/tool-result noise)
         var historyToInclude = history.Count > maxHistory
             ? history.Skip(history.Count - maxHistory).ToList()
             : history;
@@ -225,6 +247,45 @@ public class ChatService(
         messages.Add(new Microsoft.Extensions.AI.ChatMessage(ChatRole.User, userMessage));
         return messages;
     }
+
+    /// <summary>
+    /// Aggressively trims the in-flight conversation for retry after a token limit error.
+    /// Keeps system prompt, strips all tool-call/tool-result messages, halves remaining history.
+    /// </summary>
+    private static List<Microsoft.Extensions.AI.ChatMessage> TrimConversationForRetry(
+        List<Microsoft.Extensions.AI.ChatMessage> messages)
+    {
+        var trimmed = new List<Microsoft.Extensions.AI.ChatMessage>();
+
+        // Keep system prompt
+        var systemMsg = messages.FirstOrDefault(m => m.Role == ChatRole.System);
+        if (systemMsg is not null)
+            trimmed.Add(systemMsg);
+
+        // Keep only user/assistant text messages (drop Tool role and messages with FunctionCallContent)
+        var textMessages = messages
+            .Where(m => m.Role != ChatRole.System && m.Role != ChatRole.Tool)
+            .Where(m => !m.Contents.OfType<FunctionCallContent>().Any())
+            .Where(m => m.Contents.OfType<TextContent>().Any(t => !string.IsNullOrWhiteSpace(t.Text)))
+            .ToList();
+
+        // Halve the remaining messages, keeping the most recent ones + always the last (current user msg)
+        if (textMessages.Count > 4)
+        {
+            var halfPoint = textMessages.Count / 2;
+            textMessages = textMessages.Skip(halfPoint).ToList();
+        }
+
+        trimmed.AddRange(textMessages);
+        return trimmed;
+    }
+
+    /// <summary>
+    /// Checks whether the exception represents a token/context limit error (HTTP 413 or similar).
+    /// </summary>
+    private static bool IsTokenLimitError(ClientResultException ex) =>
+        ex.Status == (int)HttpStatusCode.RequestEntityTooLarge
+        || (ex.Message is not null && ex.Message.Contains("tokens_limit_reached", StringComparison.OrdinalIgnoreCase));
 
     private List<AITool> BuildTools()
     {
