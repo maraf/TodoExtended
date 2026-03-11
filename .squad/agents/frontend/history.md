@@ -605,3 +605,39 @@ Built Chat.razor page and extracted reusable components per Marek's directive:
 
 **Orchestration Log:** .squad/orchestration-log/20260311T095047Z-frontend.md
 
+
+## 2026-03-11: Template Action Types Support
+
+**Status:** Complete
+
+Updated `ProposedActionCard.razor` to handle 4 new template action types being added by Backend in parallel:
+
+**New Enum Values:**
+ "Create Template" label, violet theme, chip-info, document+plus icon
+ "Update Template" label, violet theme, chip-info, pencil/edit icon
+ "Delete Template" label, rose theme, chip-error, trash icon
+ "Execute Template" label, cyan theme, chip-success, lightning icon
+
+**Changes Made:**
+1. ** Added display labels for all 4 new typesActionLabel()** 
+2. ** Violet theme for Create/Update, rose for Delete, cyan for ExecuteAccentBorderClass()** 
+3. ** Matching background colors with `/40` opacity for dark modeAccentBgClass()** 
+4. ** Mapped to existing chip classes (chip-info, chip-error, chip-success)AccentChipClass()** 
+5. ** SVG icons with theme-specific colors (violet-600, rose-600, cyan-600)ActionIcon()** 
+6. **Display  Added `templateId` extraction (though not yet used in  future proofing)display Logic** 
+
+**Available Chip Classes** (from tailwind-input.css):
+- `chip-primary` (brand blue)
+- `chip-success` (emerald)
+- `chip-error` (rose)
+- `chip-warning` (amber)
+- `chip-info` (sky)
+
+**Color Theme Strategy:**
+- Template actions use distinct color schemes to visually differentiate from task actions
+- Create/Update templates: violet/purple (intellectual/creative)
+- Delete template: rose (destructive action)
+- Execute template: cyan/teal (action/execution)
+
+**Tailwind CSS:** Rebuilt via `npm run build:css` to ensure new color classes are compiled
+**Build:** Verified clean (0 errors, 0 warnings)

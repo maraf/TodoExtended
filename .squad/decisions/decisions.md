@@ -1,3 +1,59 @@
+# Template CRUD in AI Chat Service
+
+**Date:** 2026-03-11  
+**Author:** Backend  
+**Status:** Implemented
+
+## Decision
+
+Extended the AI chat service to support full CRUD operations on task templates, following the existing read/write tool pattern.
+
+## Rationale
+
+The AI chat service already had a well-established pattern for task operations:
+- Read tools (get_task_lists, get_tasks, etc.) are auto-invoked and results fed back to the AI
+- Write tools (create_task, complete_task, etc.) become ProposedActions requiring user confirmation
+
+This same pattern was extended to templates without changing the architecture, providing:
+- Consistent UX: users confirm all write operations (create/update/delete/execute templates)
+- Clean separation: read operations (get_templates) are transparent, write operations require explicit approval
+- Reusable infrastructure: ProposedAction flow already exists and handles confirmation UI
+
+## Implementation Details
+
+**New Action Types:**
+- CreateTemplate
+- UpdateTemplate
+- DeleteTemplate
+- ExecuteTemplate
+
+**Tool Parameter Design:**
+- Template IDs are Guids (not opaque Graph API IDs like listId/taskId)
+- This means ValidateIdParameter() doesn't apply to template operations
+- create_template requires both listId (Graph API) and listName (display)
+- update_template has all fields optional except templateId
+- ReminderTime uses HH:mm string format (e.g. "09:00"), parsed to TimeOnly?
+
+**Service Integration:**
+- ChatService now takes ITemplateService via constructor DI
+- All template operations delegate to TemplateService (GetAllAsync, CreateAsync, UpdateAsync, DeleteAsync, ExecuteTemplateAsync)
+- DemoChatService includes canned responses for template queries
+
+## Impact
+
+- No breaking changes to existing task operations
+- Zero API changes (IChatService interface unchanged)
+- Chat service now supports complete template lifecycle through conversational UI
+- Demo mode includes template scenarios for development/testing
+
+## Files Modified
+
+- `src/TodoExtended.Web/Services/AiChat/AiChatModels.cs` — Added enum values
+- `src/TodoExtended.Web/Services/AiChat/ChatService.cs` — Added ITemplateService DI, tools, handlers
+- `src/TodoExtended.Web/Services/AiChat/DemoChatService.cs` — Added canned responses
+
+---
+
 # Decisions: Delta Query Caching (2026-03-05)
 
 **Author:** Architect  

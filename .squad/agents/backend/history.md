@@ -332,3 +332,52 @@ Implemented ChatService with manual tool-calling loop and DemoChatService:
 
 **Orchestration Log:** .squad/orchestration-log/20260311T095047Z-backend.md
 
+
+## 2026-03-11: Template CRUD in AI Chat Service
+
+**Status:** Complete
+
+Extended AI chat service with full template CRUD capability following the existing pattern:
+
+**Changes to AiChatModels.cs:**
+- Added 4 new TaskActionType enum values: CreateTemplate, UpdateTemplate, DeleteTemplate, ExecuteTemplate
+
+**Changes to ChatService.cs:**
+- Added ITemplateService to constructor DI
+- Added template tools to WriteTools set (create_template, update_template, delete_template, execute_template)
+- Updated SystemPrompt to describe template capabilities
+- Added read tool: get_templates (returns all templates)
+- Added write tool stubs: create_template, update_template, delete_template, execute_template
+- Implemented GetTemplatesAsync() to call templateService.GetAllAsync()
+- Added "get_templates" case to ExecuteReadTool()
+- Extended MapToProposedAction() with template action types
+- Extended ExecuteAction() with template operations:
+  - CreateTemplate: parse parameters and call templateService.CreateAsync()
+  - UpdateTemplate: load by ID, update fields, call templateService.UpdateAsync()
+  - DeleteTemplate: call templateService.DeleteAsync()
+  - ExecuteTemplate: call templateService.ExecuteTemplateAsync()
+- Skipped ValidateIdParameter() for template actions (templates use Guid IDs, not opaque Graph API IDs)
+- Added using TodoExtended.Web.Data for TaskTemplate
+
+**Changes to DemoChatService.cs:**
+- Added template keyword detection ("template", "templates")
+- Added CreateTemplate canned response for "create template" / "new template"
+- Added DeleteTemplate canned response for "delete template"
+- Added ExecuteTemplate canned response for "execute template" / "run template" / "use template"
+- Added template list canned response (shows 3 demo templates)
+- Updated default help text to mention template capabilities
+
+**Tool Parameter Design:**
+- get_templates: no parameters
+- create_template: title, listId, listName, dueDateToday (bool), reminderTime (HH:mm string)
+- update_template: templateId (Guid string), all fields optional
+- delete_template: templateId (Guid string)
+- execute_template: templateId (Guid string)
+
+**Key Learnings:**
+- Template IDs are Guids (not opaque Graph API IDs), so ValidateIdParameter() doesn't apply
+- TimeOnly? ReminderTime requires parsing from string (HH:mm format)
+- TaskTemplate requires TaskListName (display name) in addition to TaskListId
+- Template actions follow same ProposedAction confirmation flow as task operations
+
+**Build:** Clean (no errors/warnings)
