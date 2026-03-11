@@ -4,6 +4,7 @@
 @inject IChatService ChatService
 @inject ILogger<Chat> Logger
 @inject IJSRuntime JS
+@using System.Text.Json
 
 <PageTitle>AI Chat</PageTitle>
 
@@ -34,11 +35,22 @@
         }
         else
         {
+            <div class="flex justify-end mb-1">
+                <button @onclick="StartNewConversation"
+                        class="btn-ghost btn-sm text-xs flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    New conversation
+                </button>
+            </div>
+
             @foreach (var entry in _messageEntries)
             {
                 <ChatMessageBubble Message="@entry.Message"
                                    OnActionConfirmation="(c) => HandleActionConfirmation(entry, c)"
-                                   ActionResults="@entry.Results" />
+                                   ActionResults="@entry.Results"
+                                   IsRestored="@entry.IsRestored" />
             }
 
             @if (_isLoading)
@@ -66,7 +78,7 @@
 
     @* Input area *@
     <div class="pt-3 border-t border-slate-200 dark:border-slate-700">
-        <ChatInput OnSend="HandleSend" IsDisabled="_isLoading" />
+        <ChatInput @ref="_chatInput" OnSend="HandleSend" IsDisabled="_isLoading" />
     </div>
 </div>
 
@@ -76,6 +88,73 @@
     private bool _isLoading;
     private string? _error;
     private ElementReference _messagesContainer;
+    private ChatInput? _chatInput;
+
+    private const string LocalStorageKey = "todoextended-chat-history";
+    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await LoadConversationAsync();
+    }
+
+    private async Task LoadConversationAsync()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", LocalStorageKey);
+            if (string.IsNullOrEmpty(json)) return;
+
+            var entries = JsonSerializer.Deserialize<List<PersistedEntry>>(json, JsonOpts);
+            if (entries is null || entries.Count == 0) return;
+
+            // Guard against unexpectedly large stored histories
+            const int maxEntriesToLoad = 200;
+            if (entries.Count > maxEntriesToLoad)
+                entries = entries.TakeLast(maxEntriesToLoad).ToList();
+
+            foreach (var entry in entries)
+            {
+                if (entry.Message is null) continue;
+                _messages.Add(entry.Message);
+                _messageEntries.Add(new MessageEntry(entry.Message) { Results = entry.Results, IsRestored = true });
+            }
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load chat history from localStorage");
+        }
+    }
+
+    private async Task SaveConversationAsync()
+    {
+        try
+        {
+            var entries = _messageEntries.Select(e => new PersistedEntry(e.Message, e.Results)).ToList();
+            var json = JsonSerializer.Serialize(entries, JsonOpts);
+            await JS.InvokeVoidAsync("localStorage.setItem", LocalStorageKey, json);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to save chat history to localStorage");
+        }
+    }
+
+    private async Task StartNewConversation()
+    {
+        _messages.Clear();
+        _messageEntries.Clear();
+        _error = null;
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", LocalStorageKey);
+        }
+        catch { /* ignore */ }
+        StateHasChanged();
+    }
 
     private async Task HandleSend(string text)
     {
@@ -101,6 +180,7 @@
 
             _messages.Add(assistantMessage);
             _messageEntries.Add(new MessageEntry(assistantMessage));
+            await SaveConversationAsync();
         }
         catch (Exception ex)
         {
@@ -112,6 +192,8 @@
             _isLoading = false;
             StateHasChanged();
             await ScrollToBottom();
+            if (_chatInput is not null)
+                await _chatInput.FocusAsync();
         }
     }
 
@@ -137,6 +219,7 @@
                 entry.Confirmations);
 
             entry.Results = results.ToList();
+            await SaveConversationAsync();
         }
         catch (Exception ex)
         {
@@ -166,5 +249,8 @@
         public ChatMessage Message { get; } = message;
         public List<ActionConfirmation> Confirmations { get; } = new();
         public IReadOnlyList<ActionResult>? Results { get; set; }
+        public bool IsRestored { get; init; }
     }
+
+    private record PersistedEntry(ChatMessage Message, IReadOnlyList<ActionResult>? Results);
 }

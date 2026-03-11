@@ -46,6 +46,8 @@
         }
     }
 
+    public async Task FocusAsync() => await _inputRef.FocusAsync();
+
     private async Task HandleKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter" && !e.ShiftKey)

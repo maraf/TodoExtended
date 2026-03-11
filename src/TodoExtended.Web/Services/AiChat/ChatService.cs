@@ -342,13 +342,18 @@ public class ChatService(
     private static string CreateTaskTool(
         [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
         string title,
-        string? dueDate = null) => "proposed";
+        string? dueDate = null,
+        [Description("The display name of the task list from get_task_lists")] string? listName = null) => "proposed";
     private static string CompleteTaskTool(
         [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
-        [Description("The Id field of the task (opaque API identifier from get_tasks/get_today_tasks, not the task title)")] string taskId) => "proposed";
+        [Description("The Id field of the task (opaque API identifier from get_tasks/get_today_tasks, not the task title)")] string taskId,
+        [Description("The display title of the task from get_tasks or get_today_tasks")] string? taskTitle = null,
+        [Description("The display name of the task list from get_task_lists")] string? listName = null) => "proposed";
     private static string UncompleteTaskTool(
         [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
-        [Description("The Id field of the task (opaque API identifier from get_tasks/get_today_tasks, not the task title)")] string taskId) => "proposed";
+        [Description("The Id field of the task (opaque API identifier from get_tasks/get_today_tasks, not the task title)")] string taskId,
+        [Description("The display title of the task from get_tasks or get_today_tasks")] string? taskTitle = null,
+        [Description("The display name of the task list from get_task_lists")] string? listName = null) => "proposed";
 
     private async Task<string> ExecuteReadTool(FunctionCallContent call, CancellationToken ct)
     {
