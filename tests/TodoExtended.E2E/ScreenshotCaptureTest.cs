@@ -33,6 +33,7 @@ public class ScreenshotCaptureTest : PageTest
     [
         new("home", "/", "h2:has-text('Quick Create'), h3:has-text('No templates yet')"),
         new("today", "/today", "h1:has-text('Today')"),
+        new("task-lists", "/task-lists", "h1:has-text('Task Lists')"),
         new("tasks", "/tasks", "h1:has-text('Tasks'), h2:has-text('Pick a list')"),
         new("templates", "/templates", "h1:has-text('Templates')"),
         new("sync-settings", "/sync-settings", "h1:has-text('Sync Settings')"),
