@@ -84,7 +84,7 @@ public class FloatingFieldTests : TestContext
 
         // Act
         var input = cut.Find("input");
-        input.Change("Updated Value");
+        input.Input("Updated Value");
 
         // Assert
         Assert.Equal("Updated Value", changedValue);
