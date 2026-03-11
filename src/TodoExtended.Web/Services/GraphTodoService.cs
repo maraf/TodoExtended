@@ -33,6 +33,21 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             .ToList();
     }
 
+    public async Task<TodoTask?> GetTaskAsync(string taskListId, string taskId)
+    {
+        var t = await graphClient.GetTaskAsync(taskListId, taskId);
+        if (t == null)
+            return null;
+
+        return new TodoTask(
+            t.Id!,
+            t.Title ?? "Untitled",
+            t.Body?.Content,
+            t.Status == Microsoft.Graph.Models.TaskStatus.Completed,
+            ParseDueDate(t.DueDateTime),
+            t.Importance?.ToString());
+    }
+
     public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync()
     {
         var lists = await GetTaskListsAsync();

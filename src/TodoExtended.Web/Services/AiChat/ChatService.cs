@@ -25,11 +25,14 @@ public class ChatService(
         Available capabilities:
         - View task lists and their tasks
         - View today's tasks across all lists
+        - Get full details of a specific task (including description)
         - Create new tasks in specific lists
         - Mark tasks as complete or incomplete
 
         Guidelines:
         - Use the read tools to fetch current data before answering questions about tasks.
+        - Use get_task_lists to discover lists, get_tasks or get_today_tasks to get task titles and IDs.
+        - Use get_task to load full details (including description) for a specific task only when needed.
         - When creating tasks, always confirm which list to add them to.
         - Be concise and helpful.
         - Format task information clearly.
@@ -228,8 +231,9 @@ public class ChatService(
         return
         [
             AIFunctionFactory.Create(GetTaskListsAsync, "get_task_lists", "Get all task lists for the user."),
-            AIFunctionFactory.Create(GetTasksAsync, "get_tasks", "Get all tasks in a specific task list."),
-            AIFunctionFactory.Create(GetTodayTasksAsync, "get_today_tasks", "Get tasks due today across all lists."),
+            AIFunctionFactory.Create(GetTasksAsync, "get_tasks", "Get tasks in a specific list (title, status, due date). Does not include task description."),
+            AIFunctionFactory.Create(GetTodayTasksAsync, "get_today_tasks", "Get tasks due today across all lists (title, status, due date). Does not include task description."),
+            AIFunctionFactory.Create(GetTaskDetailAsync, "get_task", "Get full details of a single task including its description. Use this only when the description is specifically needed."),
             AIFunctionFactory.Create(CreateTaskTool, "create_task", "Create a new task in a task list."),
             AIFunctionFactory.Create(CompleteTaskTool, "complete_task", "Mark a task as completed."),
             AIFunctionFactory.Create(UncompleteTaskTool, "uncomplete_task", "Mark a task as not completed."),
@@ -255,6 +259,15 @@ public class ChatService(
         return JsonSerializer.Serialize(tasks.Select(t => new { t.Id, t.Title, t.IsCompleted, t.DueDate, t.ListId, t.ListName }));
     }
 
+    private async Task<string> GetTaskDetailAsync(string listId, string taskId)
+    {
+        var task = await todoService.GetTaskAsync(listId, taskId);
+        if (task == null)
+            return JsonSerializer.Serialize(new { error = "Task not found" });
+
+        return JsonSerializer.Serialize(new { task.Id, task.Title, task.Body, task.IsCompleted, task.DueDate, task.Importance });
+    }
+
     // Write tool stubs (never actually called — only used for schema generation)
     private static string CreateTaskTool(string listId, string title, string? dueDate = null) => "proposed";
     private static string CompleteTaskTool(string listId, string taskId) => "proposed";
@@ -268,6 +281,7 @@ public class ChatService(
             {
                 "get_task_lists" => await GetTaskListsAsync(),
                 "get_tasks" => await GetTasksAsync(GetArg(call, "listId")),
+                "get_task" => await GetTaskDetailAsync(GetArg(call, "listId"), GetArg(call, "taskId")),
                 "get_today_tasks" => await GetTodayTasksAsync(),
                 _ => $"Unknown tool: {call.Name}"
             };

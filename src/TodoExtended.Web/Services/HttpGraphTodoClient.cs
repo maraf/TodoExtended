@@ -21,6 +21,11 @@ public class HttpGraphTodoClient(GraphServiceClient graphClient) : IGraphTodoCli
         return response?.Value?.AsReadOnly() ?? (IReadOnlyList<Microsoft.Graph.Models.TodoTask>)[];
     }
 
+    public async Task<Microsoft.Graph.Models.TodoTask?> GetTaskAsync(string taskListId, string taskId)
+    {
+        return await graphClient.Me.Todo.Lists[taskListId].Tasks[taskId].GetAsync();
+    }
+
     public async Task<Microsoft.Graph.Models.TodoTask> CreateTaskAsync(string taskListId, Microsoft.Graph.Models.TodoTask task)
     {
         return await graphClient.Me.Todo.Lists[taskListId].Tasks.PostAsync(task)
