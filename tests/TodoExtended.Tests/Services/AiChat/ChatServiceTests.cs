@@ -316,6 +316,42 @@ public class ChatServiceTests
 
     #endregion
 
+    #region GetTaskAsync Tests
+
+    [Fact]
+    public async Task GetTaskAsync_WhenTaskExists_ReturnsTaskWithBody()
+    {
+        // Arrange
+        var todoService = Substitute.For<ITodoService>();
+        var expected = new TodoTask("task-1", "Buy milk", "Get 2% milk from the store", false, null, "normal");
+        todoService.GetTaskAsync("list-1", "task-1").Returns(expected);
+
+        // Act
+        var result = await todoService.GetTaskAsync("list-1", "task-1");
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("task-1", result.Id);
+        Assert.Equal("Buy milk", result.Title);
+        Assert.Equal("Get 2% milk from the store", result.Body);
+    }
+
+    [Fact]
+    public async Task GetTaskAsync_WhenTaskDoesNotExist_ReturnsNull()
+    {
+        // Arrange
+        var todoService = Substitute.For<ITodoService>();
+        todoService.GetTaskAsync(Arg.Any<string>(), Arg.Any<string>()).Returns((TodoTask?)null);
+
+        // Act
+        var result = await todoService.GetTaskAsync("list-1", "nonexistent");
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    #endregion
+
     #region Test Implementation Classes
 
     /// <summary>
