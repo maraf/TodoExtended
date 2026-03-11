@@ -281,3 +281,54 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
   - **Batch processing** (`SyncTasksForListsBatchAsync`): catch per-list in the parallel lambda so one disposed scope doesn't crash the entire `Task.WhenAll`.
 - **Key insight:** In Blazor Server, scoped services like `GraphServiceClient` / `TokenAcquisition` can be disposed at any time when the circuit disconnects. Background operations that depend on scoped auth services must catch `ObjectDisposedException` and gracefully abort. The next active circuit will trigger a fresh sync.
 - **Pattern:** Catch `ObjectDisposedException` before generic `Exception` in catch chains. Log at Warning level (not Error) since it's an expected condition, not a bug.
+
+## Learnings
+
+### AI Chat Service (Issue #22)
+
+- **Architecture:** ChatService uses a manual tool-calling loop instead of FunctionInvokingChatClient. This allows splitting tools into two categories:
+  - **Read tools** (get_task_lists, get_tasks, get_today_tasks): auto-invoked, results fed back to AI for reasoning
+  - **Write tools** (create_task, complete_task, uncomplete_task): mapped to ProposedAction objects for user confirmation
+- **Key files:**
+  - `src/TodoExtended.Web/Services/AiChat/ChatService. Real implementation with IChatClient + ITodoServicecs` 
+  - `src/TodoExtended.Web/Services/AiChat/DemoChatService. Demo mode canned responsescs` 
+  - `src/TodoExtended.Web/Services/AiChat/IChatService. Interface contract (architect-owned)cs` 
+  - `src/TodoExtended.Web/Services/AiChat/AiChatModels. DTOs (architect-owned)cs` 
+  - `src/TodoExtended.Web/Services/AiChat/StubChatService. Fallback when not configuredcs` 
+ StubChatService
+- **Microsoft.Extensions.AI API:** Use `AIFunctionFactory.Create(delegate, name, description)` for tool definitions. `FunctionCallContent` and `FunctionResultContent` for the manual tool loop. `OpenAI.Chat.ChatClient` + `AsIChatClient()` extension for creating IChatClient from OpenAI-compatible endpoints.
+- **JsonElement handling:** Tool call arguments may arrive as `JsonElement` values; use `element.GetString()` to extract strings.
+
+## 2026-03-11: AI Chat Service Implementation (Squad #22)
+
+**Status:** Complete
+
+Implemented ChatService with manual tool-calling loop and DemoChatService:
+
+**ChatService (280 lines):**
+- Manual tool-calling loop (max 10 iterations)
+- Read tools auto-invoked (get_task_lists, get_tasks, get_today_tasks)
+- Write tools converted to ProposedActions (create_task, complete_task, uncomplete_task)
+- FunctionResultContent messages feed data back to AI for reasoning
+- ITodoService injected via constructor (scoped)
+
+**DemoChatService (100 lines):**
+- Keyword-matched canned responses
+- No-op tool execution (demonstrates pattern without API calls)
+- Fallback for demo/development environments
+
+**DI Wiring in Program.cs:**
+- 3-way conditional registration
+ ChatService with real IChatClient
+ DemoChatService
+ StubChatService
+
+**Decisions:**
+- Manual tool loop for full read/write control
+- Singleton IChatClient + scoped ChatService/ITodoService
+- Stub result for write tools to allow AI to compose appropriate response
+
+** Clean (no errors/warnings)Build:** 
+
+**Orchestration Log:** .squad/orchestration-log/20260311T095047Z-backend.md
+
