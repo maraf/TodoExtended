@@ -93,3 +93,25 @@
 - **DI:** Scoped `IChatService` registered in `Program.cs`, options bound via `Configure<AiChatOptions>`.
 - **6 AI tools planned:** Read: `get_task_lists`, `get_tasks`, `get_today_tasks`. Write: `create_task`, `complete_task`, `uncomplete_task`.
 - **Key paths:** `src/TodoExtended.Web/Services/AiChat/` (all 4 files), `Program.cs`, `appsettings.json`.
+
+## 2026-03-11: AI Chat Foundation (Squad #22)
+
+**Status:** Complete  
+**Branch:** squad/22-ai-chat
+
+Created shared interfaces, models, and DI scaffold for AI chat feature:
+- `IChatService` interface with SendMessageAsync/ExecuteActionsAsync
+- `AiChatModels.cs`: ChatMessage, ProposedAction, ActionResult, AiChatOptions
+- `StubChatService` placeholder
+- Microsoft.Extensions.AI NuGet packages added
+- DI scaffold in Program.cs (Development/Demo/Production conditional registration)
+
+**Decisions:**
+- SDK: Microsoft.Extensions.AI (provider-agnostic)
+- Pattern: Structured tool-calling with manual loop
+- Config: AiChatOptions bound to "AiChat" section
+
+** Clean (no errors/warnings)Build:** 
+
+**Orchestration Log:** .squad/orchestration-log/20260311T095047Z-architect.md
+

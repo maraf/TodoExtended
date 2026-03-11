@@ -147,3 +147,37 @@ Coordinator resolved 8 API mismatches during Frontend implementation:
   - `tests/TodoExtended.Components.Tests/` for bUnit component tests
   - `tests/TodoExtended.E2E/` for Playwright E2E tests
 
+
+## 2026-03-11: AI Chat Unit Testing (Squad #22)
+
+**Status:** Complete  
+**Tests:** 19/19 passing
+
+Created TodoExtended.Tests project for service-layer unit testing:
+
+**Test Coverage:**
+- ChatServiceTests: 13 tests (SendMessageAsync, ExecuteActionsAsync, error handling, cancellations)
+- StubChatServiceTests: 6 tests (placeholder behavior, no-op execution)
+- Framework: xUnit + NSubstitute 5.3.0
+
+**Testing Approach:**
+- All tests written against IChatService interface
+- ITodoService mocked with NSubstitute
+- Helper classes (TestChatService, SlowChatService) for contract validation
+- Tests compile independently of ChatService implementation
+
+**Key Patterns:**
+- Exception mocking: `Task.FromException<T>(exception)`
+- Cancellation testing: `ThrowsAnyAsync<OperationCanceledException>()`
+- Mock verification: `.Received()`, `.DidNotReceive()`
+
+**Project Structure:**
+1. `tests/TodoExtended. xUnit services (NEW)Tests/` 
+2. `tests/TodoExtended.Components. bUnit componentsTests/` 
+3. `tests/TodoExtended. Playwright E2EE2E/` 
+
+** Clean (no errors/warnings)  Build:** 
+** 19/19 passTests:** 
+
+**Orchestration Log:** .squad/orchestration-log/20260311T095047Z-tester.md
+

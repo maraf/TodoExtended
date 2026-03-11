@@ -539,3 +539,69 @@ Analyzed all 12 shared components, 4 layout components, and 8 pages to produce a
 
 ### Document Path
 `docs/ux-patterns.md`
+
+---
+
+## AI Chat UI (Issue #22)
+
+### Components Created
+- `src/TodoExtended.Web/Components/Pages/Chat.razor` — Main chat page (route: `/chat`, InteractiveServer)
+- `src/TodoExtended.Web/Components/Shared/ChatInput.razor` — Text input with send button, Enter-to-submit, auto-focus
+- `src/TodoExtended.Web/Components/Shared/ChatMessageBubble.razor` — Message display (user right/blue, assistant left/gray)
+- `src/TodoExtended.Web/Components/Shared/ProposedActionCard.razor` — Action confirm/reject card with type-specific accent colors
+
+### Files Modified
+- `NavMenu.razor` — Added "AI Chat" link under TOOLS section
+- `NavItem.razor` — Added "chat" icon (speech bubble SVG)
+- `_Imports.razor` — Added `@using TodoExtended.Web.Services.AiChat` globally
+
+## Learnings
+
+### AI Chat Architecture Patterns
+- Used `MessageEntry` wrapper class to track per-message state (confirmations, results) without mutating immutable records
+- Chat conversation is ephemeral (in-memory `List<ChatMessage>`) — no persistence needed per spec
+- Actions execute only after ALL proposed actions in a message are decided (approve/reject), to avoid partial execution confusion
+- Auto-scroll via JS eval on `data-chat-scroll` attribute
+- ProposedActionCard uses RenderFragment-returning methods for action-type icons (same pattern as NavItem.GetIcon)
+- PageHeader component used with violet-to-fuchsia gradient for AI Chat branding
+- Tailwind CSS MUST be rebuilt (`npm run build:css`) after adding new utility classes to Razor files
+
+## 2026-03-11: AI Chat UI & Components (Squad #22)
+
+**Status:** Complete
+
+Built Chat.razor page and extracted reusable components per Marek's directive:
+
+**Chat.razor Page:**
+- Ephemeral in-memory conversation state
+ results
+- Injects IChatService and ITodoService
+- MessageEntry wrapper tracks per-message state (confirmations, results)
+- Batch action execution (all decisions before execution)
+
+**Extracted Components:**
+- `ChatInput. Message input with send callbackrazor` 
+- `ChatMessageBubble. Message renderer (user vs AI styling)razor` 
+- `ProposedActionCard. Action card with confirm/reject flowrazor` 
+
+**Navigation:**
+- NavMenu updated with AI Chat link (TOOLS section, first item)
+- Routes to `/chat`
+
+**Global Imports:**
+- Added `@using TodoExtended.Web.Services.AiChat` to _Imports.razor
+
+**Tailwind Rebuild:**
+- Compiled CSS with chat utilities
+
+**Decisions:**
+- Ephemeral state (no persistence)
+- Reusable component architecture
+- Batch action execution to prevent partial execution
+- Global using for AiChat namespace
+
+** Clean (no errors/warnings)  Build:** 
+** RebuiltTailwind:** 
+
+**Orchestration Log:** .squad/orchestration-log/20260311T095047Z-frontend.md
+
