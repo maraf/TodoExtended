@@ -482,3 +482,41 @@ All Tailwind class parameters must be passed as complete class names (e.g., `fro
 - Tester delivered 39 passing bUnit tests
 - Coordinator ensured API alignment
 
+
+## 2026-03-11: TaskListSkeleton & TaskStatsBar Extraction
+
+**Session:** Extract duplicated markup from Today.razor and Tasks.razor into shared components
+
+### Created Components (src/TodoExtended.Web/Components/Shared/)
+
+1. **TaskListSkeleton. Loading skeleton card with animated pulse rows. Parameters: `RowCount` (default 5), `GradientClasses` (default "from-violet-500 via-brand-500 to-sky-500"), `ShowBadgeSkeleton` (default false, adds extra badge placeholder)razor** 
+2. **TaskStatsBar. Stats chips bar with open/done counts and hide/show completed toggle. Parameters: `OpenCount`, `CompletedCount`, `OpenLabel` (default "open"), `@bind-HideCompleted` (two-way binding via EventCallback). Component self-hides when total count is 0.razor** 
+
+### Pages Updated
+
+- **Today. Replaced inline stats bar (28 lines) with `<TaskStatsBar>`, replaced inline skeleton (12 lines) with `<TaskListSkeleton>`. Uses null-safe `?.Count() ?? 0` for nullable TodayTasks list.razor** 
+- **Tasks. Same replacements. TaskListSkeleton uses all defaults; TaskStatsBar uses default "open" label.razor** 
+
+### Learnings
+
+- When extracting components that take computed values from nullable collections, use `?.Count() ?? 0` pattern to avoid CS8604 null reference warnings
+- `@bind-HideCompleted` two-way binding requires matching `HideCompleted` parameter + `HideCompletedChanged` EventCallback<bool> on the component
+- Components with internal `@if` guards (rendering nothing when no data) let callers skip wrapping  cleaner call sitesconditionals 
+
+## 2026-03-11T08:51: Task List Component Extraction Complete
+
+**Scribe Session:** Documented extraction work in logs and decisions
+
+### Artifacts Created
+
+1. `.squad/decisions. Added formal decision record for TaskListSkeleton & TaskStatsBarmd` 
+2. `.squad/log/20260311T0851-task-list-component-extraction. Session summarymd` 
+3. `.squad/orchestration-log/20260311T0851-frontend. Frontend spawn manifest detailsmd` 
+
+### Impact
+
+- Component extraction documented and decision archived
+- 15 new bUnit tests covering both components
+- ~70 lines of duplicated markup eliminated
+- Both Today.razor and Tasks.razor build clean with `-warnaserror`
+

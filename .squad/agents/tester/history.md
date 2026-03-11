@@ -34,6 +34,14 @@
 - **Home page selector:** The authenticated home page shows `<h3>No templates yet</h3>` (not `<h2>` or `<p>`), so the wait selector was updated to `h2:has-text('Quick Create'), h3:has-text('No templates yet')`.
 - **Cleanup:** Always delete `artifacts/todoextended-screenshots.db*` after the test run to avoid stale data.
 
+### bUnit Tests for TaskListSkeleton & TaskStatsBar (2026-03-11)
+
+- **New test files:** `TaskListSkeletonTests.cs` (7 tests), `TaskStatsBarTests.cs` (8 tests) — all 15 passing
+- **TaskListSkeleton patterns:** Uses `.task-row` CSS class for row counting, `.w-16` for badge skeleton detection, `animate-pulse` for animation verification, `.card` + `dark:` for card wrapper assertions
+- **TaskStatsBar patterns:** Empty markup check via `cut.Markup.Trim()` for zero-count case, `.chip-success` for completed chip detection, `button.TextContent` for toggle label text, `EventCallback<bool>` tested by capturing callback value
+- **Proactive approach worked again:** Tests written from spec before verifying components existed; components were already in place and all tests passed first try
+- **TaskStatsBar toggle pattern:** The component uses `!HideCompleted` inversion in the callback — test verifies `HideCompleted=false` produces callback value `true`
+
 ### bUnit Tests for Shared Components (2026-03-11)
 
 - **Test project:** `tests/TodoExtended.Components.Tests/` — New bUnit + xUnit test project targeting net10.0
@@ -96,4 +104,27 @@ Coordinator resolved 8 API mismatches during Frontend implementation:
 ### Dependencies
 - Frontend delivered 6 components matching test specifications
 - Coordinator aligned APIs across both teams
+
+
+## 2026-03-11T08:51: Component Tests Archive
+
+**Scribe Session:** Documented test work in orchestration log
+
+### Artifacts Created
+
+1. `.squad/orchestration-log/20260311T0851-tester. Test spawn manifest and coverage detailsmd` 
+
+### Test Results Summary
+
+- **TaskListSkeletonTests. 7 tests all passingcs** 
+- **TaskStatsBarTests. 8 tests all passingcs** 
+- **Total New  15Tests** 
+- **Overall  54 tests passing (39 existing + 15 new)Suite** 
+
+### Coverage Highlights
+
+- Component rendering with default and custom parameters
+- Two-way binding (@bind-HideCompleted) verification
+- Null collection and zero-count edge cases
+- Event callback assertions for toggle functionality
 
