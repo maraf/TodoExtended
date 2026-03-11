@@ -77,8 +77,8 @@ public class ScreenshotCaptureTest : PageTest
         await Expect(demoButton).ToBeVisibleAsync(new() { Timeout = 15_000 });
         await demoButton.ClickAsync();
 
-        // Wait for authenticated state
-        await Expect(Page.GetByRole(AriaRole.Link, new() { Name = "Sign out" }))
+        // Wait for authenticated state — user menu button is always visible in the sidebar
+        await Expect(Page.GetByRole(AriaRole.Button, new() { Name = "User menu" }))
             .ToBeVisibleAsync(new() { Timeout = 15_000 });
     }
 
