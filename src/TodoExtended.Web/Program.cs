@@ -161,7 +161,7 @@ using (var scope = app.Services.CreateScope())
     {
         if (!db.Users.Any(u => u.Id == "demo-user"))
         {
-            db.Users.Add(new TodoExtended.Web.Data.User
+            db.Users.Add(new User
             {
                 Id = "demo-user",
                 Email = "demo@example.com",
@@ -169,6 +169,105 @@ using (var scope = app.Services.CreateScope())
                 CreatedUtc = DateTime.UtcNow,
                 LastSeenUtc = DateTime.UtcNow
             });
+            db.SaveChanges();
+        }
+
+        // Seed demo API keys so the API Keys screen shows something
+        if (!db.ApiKeys.Any(k => k.UserId == "demo-user"))
+        {
+            var now = DateTime.UtcNow;
+            static string HashKey(string key) =>
+                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key))).ToLowerInvariant();
+
+            db.ApiKeys.AddRange(
+                new ApiKey
+                {
+                    UserId = "demo-user",
+                    Name = "Garmin Watch",
+                    KeyHash = HashKey("tek_demo_garmin_placeholder"),
+                    CreatedUtc = now.AddMonths(-3),
+                    LastUsedUtc = now.AddDays(-7),
+                    IsRevoked = false
+                },
+                new ApiKey
+                {
+                    UserId = "demo-user",
+                    Name = "Mobile App",
+                    KeyHash = HashKey("tek_demo_mobile_placeholder"),
+                    CreatedUtc = now.AddMonths(-1),
+                    LastUsedUtc = now.AddDays(-1),
+                    IsRevoked = false
+                },
+                new ApiKey
+                {
+                    UserId = "demo-user",
+                    Name = "Home Automation",
+                    KeyHash = HashKey("tek_demo_home_placeholder"),
+                    CreatedUtc = now.AddDays(-14),
+                    LastUsedUtc = null,
+                    IsRevoked = false
+                }
+            );
+            db.SaveChanges();
+        }
+
+        // Seed demo templates so the Templates screen shows something
+        if (!db.TaskTemplates.Any())
+        {
+            const string WorkListId = "demo-list-work";
+            const string WorkListName = "📋 Work";
+            const string PersonalListId = "demo-list-personal";
+            const string PersonalListName = "🏠 Personal";
+            const string LearningListId = "demo-list-learning";
+            const string LearningListName = "📚 Learning";
+
+            db.TaskTemplates.AddRange(
+                new TaskTemplate
+                {
+                    Title = "Daily standup notes",
+                    TaskListId = WorkListId,
+                    TaskListName = WorkListName,
+                    DueDateToday = true,
+                    ReminderTime = new TimeOnly(9, 0),
+                    SortOrder = 1
+                },
+                new TaskTemplate
+                {
+                    Title = "Weekly review",
+                    TaskListId = WorkListId,
+                    TaskListName = WorkListName,
+                    DueDateToday = true,
+                    ReminderTime = null,
+                    SortOrder = 2
+                },
+                new TaskTemplate
+                {
+                    Title = "Buy groceries",
+                    TaskListId = PersonalListId,
+                    TaskListName = PersonalListName,
+                    DueDateToday = false,
+                    ReminderTime = null,
+                    SortOrder = 0
+                },
+                new TaskTemplate
+                {
+                    Title = "Morning exercise",
+                    TaskListId = PersonalListId,
+                    TaskListName = PersonalListName,
+                    DueDateToday = true,
+                    ReminderTime = new TimeOnly(7, 0),
+                    SortOrder = 1
+                },
+                new TaskTemplate
+                {
+                    Title = "Read 30 minutes",
+                    TaskListId = LearningListId,
+                    TaskListName = LearningListName,
+                    DueDateToday = true,
+                    ReminderTime = new TimeOnly(21, 0),
+                    SortOrder = 1
+                }
+            );
             db.SaveChanges();
         }
     }
