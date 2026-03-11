@@ -1,0 +1,25 @@
+<div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+    <div class="h-1 bg-gradient-to-r @GradientClasses animate-pulse"></div>
+    @for (int i = 0; i < RowCount; i++)
+    {
+        <div class="task-row">
+            <div class="w-5 h-5 rounded bg-slate-200 dark:bg-slate-700 flex-shrink-0 animate-pulse"></div>
+            <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
+            @if (ShowBadgeSkeleton)
+            {
+                <div class="w-16 h-5 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int RowCount { get; set; } = 5;
+
+    [Parameter]
+    public string GradientClasses { get; set; } = "from-violet-500 via-brand-500 to-sky-500";
+
+    [Parameter]
+    public bool ShowBadgeSkeleton { get; set; }
+}

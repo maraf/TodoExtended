@@ -270,6 +270,25 @@ The application header has been restructured to use a split layout with fixed po
 
 **Impact:** All 6 pages (Tasks, Today, Templates, ApiKeys, SyncSettings, Home) updated to use the new pattern. MainLayout.razor also updated. No breaking changes to functionality. Build verified clean (zero errors).
 
+### Shared TaskListSkeleton and TaskStatsBar Components
+
+**Date:** 2026-03-11
+**Author:** Frontend
+**Status:** Implemented
+
+Extracted two shared Blazor components from duplicated markup in Today.razor and Tasks.razor:
+
+1. **TaskListSkeleton.razor** — Parameterized loading skeleton (row count, gradient, badge placeholder)
+2. **TaskStatsBar.razor** — Stats bar with open/done chips and hide-completed toggle using `@bind-HideCompleted` two-way binding
+
+**Key Decisions:**
+- TaskStatsBar includes the outer `@if (total > 0)` guard internally, so callers don't need wrapping conditionals
+- Callers pass pre-computed `OpenCount`/`CompletedCount` ints rather than the full task list, keeping the component decoupled from specific DTO types
+- Null-safe `?.Count() ?? 0` pattern used at call sites for nullable collections
+- Default parameter values match Tasks.razor usage (the more common page), Today.razor overrides as needed
+
+**Impact:** ~70 lines of duplicated markup eliminated. Both pages build clean with `-warnaserror`.
+
 ## Governance
 
 - All meaningful changes require team consensus
