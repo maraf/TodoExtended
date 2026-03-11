@@ -387,4 +387,18 @@ api.MapPost("/tasks/{taskListId}/{taskId}/complete", async (string taskListId, s
     return Results.Ok(new { status = "completed" });
 });
 
+// Synced task lists
+api.MapGet("/tasklists", async (ITodoService todoService) =>
+{
+    var lists = await todoService.GetTaskListsAsync();
+    return Results.Ok(lists.Where(l => l.IsSynced).Select(l => new ApiTaskList(l.Id, l.DisplayName)));
+});
+
+// Tasks for a specific list
+api.MapGet("/tasklists/{listId}/tasks", async (string listId, ITodoService todoService) =>
+{
+    var tasks = await todoService.GetTasksAsync(listId);
+    return Results.Ok(tasks.Select(t => new ApiTodoTask(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance)));
+});
+
 app.Run();

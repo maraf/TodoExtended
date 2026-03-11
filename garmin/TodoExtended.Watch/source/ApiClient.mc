@@ -20,6 +20,16 @@ module ApiClient {
         _makeGetRequest(url, callback);
     }
 
+    function getTaskLists(callback as ApiCallback) as Void {
+        var url = Settings.getApiBaseUrl() + "/api/tasklists";
+        _makeGetRequest(url, callback);
+    }
+
+    function getTaskListTasks(listId as String, callback as ApiCallback) as Void {
+        var url = Settings.getApiBaseUrl() + "/api/tasklists/" + listId + "/tasks";
+        _makeGetRequest(url, callback);
+    }
+
     function executeTemplate(templateId as String, callback as ApiCallback) as Void {
         var url = Settings.getApiBaseUrl() + "/api/templates/" + templateId + "/execute";
         _makePostRequest(url, callback);

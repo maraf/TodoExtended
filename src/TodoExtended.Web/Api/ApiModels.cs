@@ -15,3 +15,7 @@ public record ApiTodoTaskWithList(
     string? Importance,
     string ListId,
     string ListName);
+
+public record ApiTaskList(
+    string Id,
+    string DisplayName);
