@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.ComponentModel;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -39,6 +40,12 @@ public class ChatService(
         - Be concise and helpful.
         - Format task information clearly.
         - When listing tasks, include their completion status and due dates if available.
+
+        CRITICAL: The listId and taskId parameters must be the exact "Id" field values
+        returned by get_task_lists, get_tasks, get_today_tasks, or get_task.
+        These are opaque API identifiers (e.g. "AQMkADAwATM0MDAAMS0..."), NOT display names.
+        Never pass a task title or list name as an ID parameter.
+        Always call a read tool first to obtain the correct Id values.
         """;
 
     public async Task<ChatResponse> SendMessageAsync(
@@ -308,7 +315,7 @@ public class ChatService(
         return JsonSerializer.Serialize(lists.Select(l => new { l.Id, l.DisplayName }));
     }
 
-    private async Task<string> GetTasksAsync(string listId)
+    private async Task<string> GetTasksAsync([Description("The Id field of the task list (opaque API identifier, not the display name)")] string listId)
     {
         var tasks = await todoService.GetTasksAsync(listId);
         return JsonSerializer.Serialize(tasks.Select(t => new { t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance }));
@@ -320,7 +327,9 @@ public class ChatService(
         return JsonSerializer.Serialize(tasks.Select(t => new { t.Id, t.Title, t.IsCompleted, t.DueDate, t.ListId, t.ListName }));
     }
 
-    private async Task<string> GetTaskDetailAsync(string listId, string taskId)
+    private async Task<string> GetTaskDetailAsync(
+        [Description("The Id field of the task list (opaque API identifier, not the display name)")] string listId,
+        [Description("The Id field of the task (opaque API identifier, not the task title)")] string taskId)
     {
         var task = await todoService.GetTaskAsync(listId, taskId);
         if (task == null)
@@ -330,9 +339,16 @@ public class ChatService(
     }
 
     // Write tool stubs (never actually called — only used for schema generation)
-    private static string CreateTaskTool(string listId, string title, string? dueDate = null) => "proposed";
-    private static string CompleteTaskTool(string listId, string taskId) => "proposed";
-    private static string UncompleteTaskTool(string listId, string taskId) => "proposed";
+    private static string CreateTaskTool(
+        [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
+        string title,
+        string? dueDate = null) => "proposed";
+    private static string CompleteTaskTool(
+        [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
+        [Description("The Id field of the task (opaque API identifier from get_tasks/get_today_tasks, not the task title)")] string taskId) => "proposed";
+    private static string UncompleteTaskTool(
+        [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
+        [Description("The Id field of the task (opaque API identifier from get_tasks/get_today_tasks, not the task title)")] string taskId) => "proposed";
 
     private async Task<string> ExecuteReadTool(FunctionCallContent call, CancellationToken ct)
     {
@@ -381,6 +397,13 @@ public class ChatService(
 
     private async Task ExecuteAction(ProposedAction action, CancellationToken ct)
     {
+        ValidateIdParameter(action, "listId");
+        if (action.Type is TaskActionType.CompleteTask or TaskActionType.UncompleteTask)
+            ValidateIdParameter(action, "taskId");
+
+        logger.LogDebug("ExecuteAction: {Type}, parameters: {Parameters}",
+            action.Type, string.Join(", ", action.Parameters.Select(p => $"{p.Key}={p.Value}")));
+
         switch (action.Type)
         {
             case TaskActionType.CreateTask:
@@ -422,5 +445,30 @@ public class ChatService(
         }
 
         return "";
+    }
+
+    /// <summary>
+    /// Validates that a parameter looks like an opaque Graph API ID rather than a display name.
+    /// Graph IDs are typically long base64-like strings (30+ chars).
+    /// </summary>
+    private void ValidateIdParameter(ProposedAction action, string paramName)
+    {
+        if (!action.Parameters.TryGetValue(paramName, out var value) || string.IsNullOrWhiteSpace(value))
+        {
+            logger.LogWarning("ExecuteAction: Missing required parameter '{ParamName}' for {ActionType}", paramName, action.Type);
+            throw new InvalidOperationException($"Missing required parameter '{paramName}'.");
+        }
+
+        // Graph API IDs are long opaque strings; short human-readable values are almost certainly display names
+        if (value.Length < 20 && !value.Any(c => c == '=' || c == '-' || c == '_'))
+        {
+            logger.LogWarning(
+                "ExecuteAction: Parameter '{ParamName}' value '{Value}' looks like a display name, not a Graph API ID. " +
+                "The AI model should use the Id field from tool responses.",
+                paramName, value);
+            throw new InvalidOperationException(
+                $"Parameter '{paramName}' value '{value}' appears to be a display name instead of a Graph API identifier. " +
+                $"Use the Id field from get_task_lists/get_tasks responses.");
+        }
     }
 }
