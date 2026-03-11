@@ -10,31 +10,23 @@
 
 <PageTitle>Home</PageTitle>
 
-<SectionContent SectionName="page-header">
-    <div class="flex items-center gap-3">
-        <div class="hidden sm:flex w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-violet-600 items-center justify-center shadow-lg shadow-brand-500/20 flex-shrink-0">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-            </svg>
-        </div>
-        <h1 class="text-lg font-bold text-white tracking-tight">Home</h1>
-    </div>
-</SectionContent>
+<PageHeader Title="Home" FromColor="from-brand-500" ToColor="to-violet-600" ShadowColor="shadow-brand-500/20">
+    <Icon>
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+    </Icon>
+</PageHeader>
 
 <AuthorizeView>
     <Authorized>
         @if (_loading)
         {
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                @for (int i = 0; i < 3; i++)
-                {
-                    <div class="h-32 bg-slate-100 dark:bg-slate-800 rounded-2xl animate-pulse"></div>
-                }
-            </div>
+            <SkeletonGrid />
         }
         else if (_templateError is not null)
         {
-            <div class="rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 px-5 py-4 text-sm font-medium">⚠ @_templateError</div>
+            <ErrorAlert Message="@_templateError" />
         }
         else if (_templates is { Count: > 0 })
         {
