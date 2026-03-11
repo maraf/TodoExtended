@@ -61,6 +61,7 @@ public interface ITodoService
 {
     Task<IReadOnlyList<TodoTaskList>> GetTaskListsAsync();
     Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId);
+    Task<TodoTask?> GetTaskAsync(string taskListId, string taskId);
     Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync();
     Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, TimeOnly? reminderTime = null);
     Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed);

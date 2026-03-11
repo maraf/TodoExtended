@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Identity.Web;
 using Microsoft.Identity.Web.UI;
 using TodoExtended.Web.Api;
@@ -11,6 +12,7 @@ using TodoExtended.Web.Components;
 using TodoExtended.Web.Data;
 using TodoExtended.Web.Middleware;
 using TodoExtended.Web.Services;
+using TodoExtended.Web.Services.AiChat;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -140,6 +142,34 @@ builder.Services.AddScoped<IUserPreferenceService, UserPreferenceService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// AI Chat
+builder.Services.Configure<AiChatOptions>(builder.Configuration.GetSection(AiChatOptions.SectionName));
+var aiChatApiKey = builder.Configuration.GetValue<string>("AiChat:ApiKey");
+
+if (isDemoMode)
+{
+    builder.Services.AddScoped<IChatService, DemoChatService>();
+}
+else if (!string.IsNullOrEmpty(aiChatApiKey))
+{
+    var aiChatEndpoint = builder.Configuration.GetValue<string>("AiChat:Endpoint") ?? "https://models.github.ai/inference";
+    var aiChatModel = builder.Configuration.GetValue<string>("AiChat:Model") ?? "openai/gpt-4.1-mini";
+
+    builder.Services.AddSingleton<Microsoft.Extensions.AI.IChatClient>(_ =>
+    {
+        var openAiClient = new OpenAI.Chat.ChatClient(
+            aiChatModel,
+            new System.ClientModel.ApiKeyCredential(aiChatApiKey),
+            new OpenAI.OpenAIClientOptions { Endpoint = new Uri(aiChatEndpoint) });
+        return openAiClient.AsIChatClient();
+    });
+    builder.Services.AddScoped<IChatService, ChatService>();
+}
+else
+{
+    builder.Services.AddScoped<IChatService, StubChatService>();
+}
 
 builder.Services.AddSignalR(o => o.MaximumReceiveMessageSize = 512 * 1024); // 512 KB for large PersistentState payloads
 builder.Services.AddRazorComponents()

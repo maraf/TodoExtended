@@ -70,6 +70,17 @@ public class CachedTodoService(
             .ToList();
     }
 
+    public async Task<TodoTask?> GetTaskAsync(string taskListId, string taskId)
+    {
+        await using var db = await dbContextFactory.CreateDbContextAsync();
+        await EnsureListCacheValidAsync(db, taskListId);
+
+        var t = await db.CachedTasks
+            .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == taskListId && !t.IsDeleted);
+
+        return t == null ? null : new TodoTask(t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance);
+    }
+
     public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync()
     {
         await using var db = await dbContextFactory.CreateDbContextAsync();

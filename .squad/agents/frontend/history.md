@@ -539,3 +539,105 @@ Analyzed all 12 shared components, 4 layout components, and 8 pages to produce a
 
 ### Document Path
 `docs/ux-patterns.md`
+
+---
+
+## AI Chat UI (Issue #22)
+
+### Components Created
+- `src/TodoExtended.Web/Components/Pages/Chat.razor` — Main chat page (route: `/chat`, InteractiveServer)
+- `src/TodoExtended.Web/Components/Shared/ChatInput.razor` — Text input with send button, Enter-to-submit, auto-focus
+- `src/TodoExtended.Web/Components/Shared/ChatMessageBubble.razor` — Message display (user right/blue, assistant left/gray)
+- `src/TodoExtended.Web/Components/Shared/ProposedActionCard.razor` — Action confirm/reject card with type-specific accent colors
+
+### Files Modified
+- `NavMenu.razor` — Added "AI Chat" link under TOOLS section
+- `NavItem.razor` — Added "chat" icon (speech bubble SVG)
+- `_Imports.razor` — Added `@using TodoExtended.Web.Services.AiChat` globally
+
+## Learnings
+
+### AI Chat Architecture Patterns
+- Used `MessageEntry` wrapper class to track per-message state (confirmations, results) without mutating immutable records
+- Chat conversation is ephemeral (in-memory `List<ChatMessage>`) — no persistence needed per spec
+- Actions execute only after ALL proposed actions in a message are decided (approve/reject), to avoid partial execution confusion
+- Auto-scroll via JS eval on `data-chat-scroll` attribute
+- ProposedActionCard uses RenderFragment-returning methods for action-type icons (same pattern as NavItem.GetIcon)
+- PageHeader component used with violet-to-fuchsia gradient for AI Chat branding
+- Tailwind CSS MUST be rebuilt (`npm run build:css`) after adding new utility classes to Razor files
+
+## 2026-03-11: AI Chat UI & Components (Squad #22)
+
+**Status:** Complete
+
+Built Chat.razor page and extracted reusable components per Marek's directive:
+
+**Chat.razor Page:**
+- Ephemeral in-memory conversation state
+ results
+- Injects IChatService and ITodoService
+- MessageEntry wrapper tracks per-message state (confirmations, results)
+- Batch action execution (all decisions before execution)
+
+**Extracted Components:**
+- `ChatInput. Message input with send callbackrazor` 
+- `ChatMessageBubble. Message renderer (user vs AI styling)razor` 
+- `ProposedActionCard. Action card with confirm/reject flowrazor` 
+
+**Navigation:**
+- NavMenu updated with AI Chat link (TOOLS section, first item)
+- Routes to `/chat`
+
+**Global Imports:**
+- Added `@using TodoExtended.Web.Services.AiChat` to _Imports.razor
+
+**Tailwind Rebuild:**
+- Compiled CSS with chat utilities
+
+**Decisions:**
+- Ephemeral state (no persistence)
+- Reusable component architecture
+- Batch action execution to prevent partial execution
+- Global using for AiChat namespace
+
+** Clean (no errors/warnings)  Build:** 
+** RebuiltTailwind:** 
+
+**Orchestration Log:** .squad/orchestration-log/20260311T095047Z-frontend.md
+
+
+## 2026-03-11: Template Action Types Support
+
+**Status:** Complete
+
+Updated `ProposedActionCard.razor` to handle 4 new template action types being added by Backend in parallel:
+
+**New Enum Values:**
+ "Create Template" label, violet theme, chip-info, document+plus icon
+ "Update Template" label, violet theme, chip-info, pencil/edit icon
+ "Delete Template" label, rose theme, chip-error, trash icon
+ "Execute Template" label, cyan theme, chip-success, lightning icon
+
+**Changes Made:**
+1. ** Added display labels for all 4 new typesActionLabel()** 
+2. ** Violet theme for Create/Update, rose for Delete, cyan for ExecuteAccentBorderClass()** 
+3. ** Matching background colors with `/40` opacity for dark modeAccentBgClass()** 
+4. ** Mapped to existing chip classes (chip-info, chip-error, chip-success)AccentChipClass()** 
+5. ** SVG icons with theme-specific colors (violet-600, rose-600, cyan-600)ActionIcon()** 
+6. **Display  Added `templateId` extraction (though not yet used in  future proofing)display Logic** 
+
+**Available Chip Classes** (from tailwind-input.css):
+- `chip-primary` (brand blue)
+- `chip-success` (emerald)
+- `chip-error` (rose)
+- `chip-warning` (amber)
+- `chip-info` (sky)
+
+**Color Theme Strategy:**
+- Template actions use distinct color schemes to visually differentiate from task actions
+- Create/Update templates: violet/purple (intellectual/creative)
+- Delete template: rose (destructive action)
+- Execute template: cyan/teal (action/execution)
+
+**Tailwind CSS:** Rebuilt via `npm run build:css` to ensure new color classes are compiled
+**Build:** Verified clean (0 errors, 0 warnings)

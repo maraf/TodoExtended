@@ -28,6 +28,12 @@ public class DemoGraphTodoClient(DemoDataStore store) : IGraphTodoClient
         return Task.FromResult<IReadOnlyList<Microsoft.Graph.Models.TodoTask>>(tasks);
     }
 
+    public Task<Microsoft.Graph.Models.TodoTask?> GetTaskAsync(string taskListId, string taskId)
+    {
+        var task = store.GetTasks(taskListId).FirstOrDefault(t => t.Id == taskId);
+        return Task.FromResult(task == null ? null : (Microsoft.Graph.Models.TodoTask?)ToGraphTask(task));
+    }
+
     public Task<Microsoft.Graph.Models.TodoTask> CreateTaskAsync(string taskListId, Microsoft.Graph.Models.TodoTask task)
     {
         var created = store.CreateTask(taskListId, task.Title ?? "Untitled", ParseDueDate(task.DueDateTime))

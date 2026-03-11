@@ -281,3 +281,103 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
   - **Batch processing** (`SyncTasksForListsBatchAsync`): catch per-list in the parallel lambda so one disposed scope doesn't crash the entire `Task.WhenAll`.
 - **Key insight:** In Blazor Server, scoped services like `GraphServiceClient` / `TokenAcquisition` can be disposed at any time when the circuit disconnects. Background operations that depend on scoped auth services must catch `ObjectDisposedException` and gracefully abort. The next active circuit will trigger a fresh sync.
 - **Pattern:** Catch `ObjectDisposedException` before generic `Exception` in catch chains. Log at Warning level (not Error) since it's an expected condition, not a bug.
+
+## Learnings
+
+### AI Chat Service (Issue #22)
+
+- **Architecture:** ChatService uses a manual tool-calling loop instead of FunctionInvokingChatClient. This allows splitting tools into two categories:
+  - **Read tools** (get_task_lists, get_tasks, get_today_tasks): auto-invoked, results fed back to AI for reasoning
+  - **Write tools** (create_task, complete_task, uncomplete_task): mapped to ProposedAction objects for user confirmation
+- **Key files:**
+  - `src/TodoExtended.Web/Services/AiChat/ChatService. Real implementation with IChatClient + ITodoServicecs` 
+  - `src/TodoExtended.Web/Services/AiChat/DemoChatService. Demo mode canned responsescs` 
+  - `src/TodoExtended.Web/Services/AiChat/IChatService. Interface contract (architect-owned)cs` 
+  - `src/TodoExtended.Web/Services/AiChat/AiChatModels. DTOs (architect-owned)cs` 
+  - `src/TodoExtended.Web/Services/AiChat/StubChatService. Fallback when not configuredcs` 
+ StubChatService
+- **Microsoft.Extensions.AI API:** Use `AIFunctionFactory.Create(delegate, name, description)` for tool definitions. `FunctionCallContent` and `FunctionResultContent` for the manual tool loop. `OpenAI.Chat.ChatClient` + `AsIChatClient()` extension for creating IChatClient from OpenAI-compatible endpoints.
+- **JsonElement handling:** Tool call arguments may arrive as `JsonElement` values; use `element.GetString()` to extract strings.
+
+## 2026-03-11: AI Chat Service Implementation (Squad #22)
+
+**Status:** Complete
+
+Implemented ChatService with manual tool-calling loop and DemoChatService:
+
+**ChatService (280 lines):**
+- Manual tool-calling loop (max 10 iterations)
+- Read tools auto-invoked (get_task_lists, get_tasks, get_today_tasks)
+- Write tools converted to ProposedActions (create_task, complete_task, uncomplete_task)
+- FunctionResultContent messages feed data back to AI for reasoning
+- ITodoService injected via constructor (scoped)
+
+**DemoChatService (100 lines):**
+- Keyword-matched canned responses
+- No-op tool execution (demonstrates pattern without API calls)
+- Fallback for demo/development environments
+
+**DI Wiring in Program.cs:**
+- 3-way conditional registration
+ ChatService with real IChatClient
+ DemoChatService
+ StubChatService
+
+**Decisions:**
+- Manual tool loop for full read/write control
+- Singleton IChatClient + scoped ChatService/ITodoService
+- Stub result for write tools to allow AI to compose appropriate response
+
+** Clean (no errors/warnings)Build:** 
+
+**Orchestration Log:** .squad/orchestration-log/20260311T095047Z-backend.md
+
+
+## 2026-03-11: Template CRUD in AI Chat Service
+
+**Status:** Complete
+
+Extended AI chat service with full template CRUD capability following the existing pattern:
+
+**Changes to AiChatModels.cs:**
+- Added 4 new TaskActionType enum values: CreateTemplate, UpdateTemplate, DeleteTemplate, ExecuteTemplate
+
+**Changes to ChatService.cs:**
+- Added ITemplateService to constructor DI
+- Added template tools to WriteTools set (create_template, update_template, delete_template, execute_template)
+- Updated SystemPrompt to describe template capabilities
+- Added read tool: get_templates (returns all templates)
+- Added write tool stubs: create_template, update_template, delete_template, execute_template
+- Implemented GetTemplatesAsync() to call templateService.GetAllAsync()
+- Added "get_templates" case to ExecuteReadTool()
+- Extended MapToProposedAction() with template action types
+- Extended ExecuteAction() with template operations:
+  - CreateTemplate: parse parameters and call templateService.CreateAsync()
+  - UpdateTemplate: load by ID, update fields, call templateService.UpdateAsync()
+  - DeleteTemplate: call templateService.DeleteAsync()
+  - ExecuteTemplate: call templateService.ExecuteTemplateAsync()
+- Skipped ValidateIdParameter() for template actions (templates use Guid IDs, not opaque Graph API IDs)
+- Added using TodoExtended.Web.Data for TaskTemplate
+
+**Changes to DemoChatService.cs:**
+- Added template keyword detection ("template", "templates")
+- Added CreateTemplate canned response for "create template" / "new template"
+- Added DeleteTemplate canned response for "delete template"
+- Added ExecuteTemplate canned response for "execute template" / "run template" / "use template"
+- Added template list canned response (shows 3 demo templates)
+- Updated default help text to mention template capabilities
+
+**Tool Parameter Design:**
+- get_templates: no parameters
+- create_template: title, listId, listName, dueDateToday (bool), reminderTime (HH:mm string)
+- update_template: templateId (Guid string), all fields optional
+- delete_template: templateId (Guid string)
+- execute_template: templateId (Guid string)
+
+**Key Learnings:**
+- Template IDs are Guids (not opaque Graph API IDs), so ValidateIdParameter() doesn't apply
+- TimeOnly? ReminderTime requires parsing from string (HH:mm format)
+- TaskTemplate requires TaskListName (display name) in addition to TaskListId
+- Template actions follow same ProposedAction confirmation flow as task operations
+
+**Build:** Clean (no errors/warnings)

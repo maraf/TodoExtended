@@ -33,6 +33,21 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             .ToList();
     }
 
+    public async Task<TodoTask?> GetTaskAsync(string taskListId, string taskId)
+    {
+        var t = await graphClient.GetTaskAsync(taskListId, taskId);
+        if (t == null)
+            return null;
+
+        return new TodoTask(
+            t.Id!,
+            t.Title ?? "Untitled",
+            t.Body?.Content,
+            t.Status == Microsoft.Graph.Models.TaskStatus.Completed,
+            ParseDueDate(t.DueDateTime),
+            t.Importance?.ToString());
+    }
+
     public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync()
     {
         var lists = await GetTaskListsAsync();
@@ -123,7 +138,26 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
         };
 
         logger.LogDebug("UpdateTaskStatusAsync: Sending PatchAsync for taskId={TaskId}, status={Status}", taskId, patch.Status);
-        await graphClient.PatchTaskAsync(taskListId, taskId, patch);
+
+        try
+        {
+            await graphClient.PatchTaskAsync(taskListId, taskId, patch);
+        }
+        catch (Microsoft.Graph.Models.ODataErrors.ODataError ex)
+        {
+            logger.LogError(ex,
+                "UpdateTaskStatusAsync: ODataError Code={Code}, Message={Message}, StatusCode={StatusCode}",
+                ex.Error?.Code, ex.Error?.Message, ex.ResponseStatusCode);
+
+            if (ex.Error?.Details is { Count: > 0 } details)
+            {
+                foreach (var detail in details)
+                    logger.LogError("  ODataError Detail: Code={Code}, Message={Message}", detail.Code, detail.Message);
+            }
+
+            throw;
+        }
+
         logger.LogDebug("UpdateTaskStatusAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
     }
 

@@ -1,0 +1,256 @@
+@page "/chat"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject IChatService ChatService
+@inject ILogger<Chat> Logger
+@inject IJSRuntime JS
+@using System.Text.Json
+
+<PageTitle>AI Chat</PageTitle>
+
+<PageHeader Title="AI Chat" FromColor="from-violet-500" ToColor="to-fuchsia-500" ShadowColor="shadow-violet-500/20">
+    <Icon>
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+        </svg>
+    </Icon>
+</PageHeader>
+
+<div class="flex flex-col" style="height: calc(100vh - 10rem);">
+    @* Messages area *@
+    <div @ref="_messagesContainer" data-chat-scroll class="flex-1 overflow-y-auto space-y-4 pb-4 pr-1">
+        @if (_messages.Count == 0)
+        {
+            <div class="flex flex-col items-center justify-center h-full text-center px-4">
+                <div class="w-16 h-16 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mb-5">
+                    <svg class="w-8 h-8 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                </div>
+                <h2 class="text-lg font-bold text-slate-700 dark:text-slate-200 mb-1">Chat with your tasks</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+                    Ask me to create, complete, or reopen tasks. I'll propose actions for you to approve before making changes.
+                </p>
+            </div>
+        }
+        else
+        {
+            <div class="flex justify-end mb-1">
+                <button @onclick="StartNewConversation"
+                        class="btn-ghost btn-sm text-xs flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    New conversation
+                </button>
+            </div>
+
+            @foreach (var entry in _messageEntries)
+            {
+                <ChatMessageBubble Message="@entry.Message"
+                                   OnActionConfirmation="(c) => HandleActionConfirmation(entry, c)"
+                                   ActionResults="@entry.Results"
+                                   IsRestored="@entry.IsRestored" />
+            }
+
+            @if (_isLoading)
+            {
+                <div class="flex justify-start animate-fade-in">
+                    <div class="bg-slate-100 dark:bg-slate-700 rounded-2xl rounded-bl-md px-4 py-3">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-2 h-2 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:0ms]"></span>
+                            <span class="w-2 h-2 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:150ms]"></span>
+                            <span class="w-2 h-2 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:300ms]"></span>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+    @* Error alert *@
+    @if (_error is not null)
+    {
+        <div class="mb-2">
+            <ErrorAlert Message="@_error" />
+        </div>
+    }
+
+    @* Input area *@
+    <div class="pt-3 border-t border-slate-200 dark:border-slate-700">
+        <ChatInput @ref="_chatInput" OnSend="HandleSend" IsDisabled="_isLoading" />
+    </div>
+</div>
+
+@code {
+    private readonly List<ChatMessage> _messages = new();
+    private readonly List<MessageEntry> _messageEntries = new();
+    private bool _isLoading;
+    private string? _error;
+    private ElementReference _messagesContainer;
+    private ChatInput? _chatInput;
+
+    private const string LocalStorageKey = "todoextended-chat-history";
+    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await LoadConversationAsync();
+    }
+
+    private async Task LoadConversationAsync()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", LocalStorageKey);
+            if (string.IsNullOrEmpty(json)) return;
+
+            var entries = JsonSerializer.Deserialize<List<PersistedEntry>>(json, JsonOpts);
+            if (entries is null || entries.Count == 0) return;
+
+            // Guard against unexpectedly large stored histories
+            const int maxEntriesToLoad = 200;
+            if (entries.Count > maxEntriesToLoad)
+                entries = entries.TakeLast(maxEntriesToLoad).ToList();
+
+            foreach (var entry in entries)
+            {
+                if (entry.Message is null) continue;
+                _messages.Add(entry.Message);
+                _messageEntries.Add(new MessageEntry(entry.Message) { Results = entry.Results, IsRestored = true });
+            }
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load chat history from localStorage");
+        }
+    }
+
+    private async Task SaveConversationAsync()
+    {
+        try
+        {
+            var entries = _messageEntries.Select(e => new PersistedEntry(e.Message, e.Results)).ToList();
+            var json = JsonSerializer.Serialize(entries, JsonOpts);
+            await JS.InvokeVoidAsync("localStorage.setItem", LocalStorageKey, json);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to save chat history to localStorage");
+        }
+    }
+
+    private async Task StartNewConversation()
+    {
+        _messages.Clear();
+        _messageEntries.Clear();
+        _error = null;
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", LocalStorageKey);
+        }
+        catch { /* ignore */ }
+        StateHasChanged();
+    }
+
+    private async Task HandleSend(string text)
+    {
+        _error = null;
+
+        var userMessage = new ChatMessage("user", text, null, DateTimeOffset.Now);
+        _messages.Add(userMessage);
+        _messageEntries.Add(new MessageEntry(userMessage));
+
+        _isLoading = true;
+        StateHasChanged();
+        await ScrollToBottom();
+
+        try
+        {
+            var response = await ChatService.SendMessageAsync(text, _messages);
+
+            var assistantMessage = new ChatMessage(
+                "assistant",
+                response.Text,
+                response.ProposedActions.Count > 0 ? response.ProposedActions : null,
+                DateTimeOffset.Now);
+
+            _messages.Add(assistantMessage);
+            _messageEntries.Add(new MessageEntry(assistantMessage));
+            await SaveConversationAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to send chat message");
+            _error = "Failed to get a response. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            await ScrollToBottom();
+            if (_chatInput is not null)
+                await _chatInput.FocusAsync();
+        }
+    }
+
+    private async Task HandleActionConfirmation(MessageEntry entry, ActionConfirmation confirmation)
+    {
+        entry.Confirmations.Add(confirmation);
+
+        if (entry.Message.ProposedActions is null) return;
+
+        // Wait until all actions are decided
+        if (entry.Confirmations.Count < entry.Message.ProposedActions.Count) return;
+
+        // If no actions were approved, skip execution
+        if (!entry.Confirmations.Any(c => c.Approved)) return;
+
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var results = await ChatService.ExecuteActionsAsync(
+                entry.Message.ProposedActions,
+                entry.Confirmations);
+
+            entry.Results = results.ToList();
+            await SaveConversationAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to execute actions");
+            _error = "Failed to execute actions. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            await ScrollToBottom();
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        await Task.Yield();
+        try
+        {
+            await JS.InvokeVoidAsync("eval", "document.querySelector('[data-chat-scroll]')?.scrollTo({ top: document.querySelector('[data-chat-scroll]').scrollHeight, behavior: 'smooth' })");
+        }
+        catch { /* ignore during prerender */ }
+    }
+
+    private class MessageEntry(ChatMessage message)
+    {
+        public ChatMessage Message { get; } = message;
+        public List<ActionConfirmation> Confirmations { get; } = new();
+        public IReadOnlyList<ActionResult>? Results { get; set; }
+        public bool IsRestored { get; init; }
+    }
+
+    private record PersistedEntry(ChatMessage Message, IReadOnlyList<ActionResult>? Results);
+}
