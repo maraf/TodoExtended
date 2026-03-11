@@ -21,7 +21,8 @@
                     <ProposedActionCard Action="@action"
                                         ActionIndex="@index"
                                         OnConfirmation="OnActionConfirmation"
-                                        Result="@GetResult(index)" />
+                                        Result="@GetResult(index)"
+                                        IsRestored="@IsRestored" />
                 }
             </div>
         }
@@ -36,6 +37,7 @@
     [Parameter, EditorRequired] public ChatMessage Message { get; set; } = default!;
     [Parameter] public EventCallback<ActionConfirmation> OnActionConfirmation { get; set; }
     [Parameter] public IReadOnlyList<ActionResult>? ActionResults { get; set; }
+    [Parameter] public bool IsRestored { get; set; }
 
     private ActionResult? GetResult(int index) =>
         ActionResults?.FirstOrDefault(r => r.ActionIndex == index);
