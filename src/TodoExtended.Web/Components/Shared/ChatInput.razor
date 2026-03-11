@@ -1,0 +1,65 @@
+@* ChatInput.razor — Chat text input with send button *@
+
+<div class="flex items-end gap-2">
+    <div class="flex-1 relative">
+        <textarea @ref="_inputRef"
+                  @bind="_text"
+                  @bind:event="oninput"
+                  @onkeydown="HandleKeyDown"
+                  placeholder="Ask about your tasks…"
+                  disabled="@IsDisabled"
+                  rows="1"
+                  class="input resize-none min-h-[44px] max-h-32 pr-3 !rounded-2xl" />
+    </div>
+    <button @onclick="Send"
+            disabled="@(IsDisabled || string.IsNullOrWhiteSpace(_text))"
+            class="btn-primary !rounded-2xl !px-4 h-[44px] flex-shrink-0"
+            aria-label="Send message">
+        @if (IsDisabled)
+        {
+            <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+        }
+        else
+        {
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+            </svg>
+        }
+    </button>
+</div>
+
+@code {
+    [Parameter] public EventCallback<string> OnSend { get; set; }
+    [Parameter] public bool IsDisabled { get; set; }
+
+    private ElementReference _inputRef;
+    private string _text = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await _inputRef.FocusAsync();
+        }
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await Send();
+        }
+    }
+
+    private async Task Send()
+    {
+        var message = _text.Trim();
+        if (string.IsNullOrWhiteSpace(message) || IsDisabled) return;
+
+        _text = "";
+        await OnSend.InvokeAsync(message);
+    }
+}
