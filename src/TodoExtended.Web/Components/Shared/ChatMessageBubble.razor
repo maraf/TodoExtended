@@ -1,0 +1,46 @@
+@* ChatMessageBubble.razor — Single chat message with optional proposed actions *@
+
+@{ var isUser = Message.Role == "user"; }
+
+<div class="flex @(isUser ? "justify-end" : "justify-start") animate-fade-in">
+    <div class="max-w-[85%] sm:max-w-[75%]">
+        @if (Message.Text is not null)
+        {
+            <div class="@BubbleClasses(isUser) rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words @(isUser ? "rounded-br-md" : "rounded-bl-md")">
+                @Message.Text
+            </div>
+        }
+
+        @if (Message.ProposedActions is { Count: > 0 })
+        {
+            <div class="mt-2 space-y-2">
+                @for (var i = 0; i < Message.ProposedActions.Count; i++)
+                {
+                    var index = i;
+                    var action = Message.ProposedActions[index];
+                    <ProposedActionCard Action="@action"
+                                        ActionIndex="@index"
+                                        OnConfirmation="OnActionConfirmation"
+                                        Result="@GetResult(index)" />
+                }
+            </div>
+        }
+
+        <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-1 @(isUser ? "text-right" : "text-left") px-1">
+            @Message.Timestamp.ToLocalTime().ToString("h:mm tt")
+        </p>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ChatMessage Message { get; set; } = default!;
+    [Parameter] public EventCallback<ActionConfirmation> OnActionConfirmation { get; set; }
+    [Parameter] public IReadOnlyList<ActionResult>? ActionResults { get; set; }
+
+    private ActionResult? GetResult(int index) =>
+        ActionResults?.FirstOrDefault(r => r.ActionIndex == index);
+
+    private static string BubbleClasses(bool isUser) => isUser
+        ? "bg-brand-600 dark:bg-brand-700 text-white"
+        : "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200";
+}

@@ -1,0 +1,129 @@
+@* ProposedActionCard.razor — Action confirmation card for AI-proposed task actions *@
+
+<div class="rounded-xl border @AccentBorderClass() bg-white dark:bg-slate-800 p-3 shadow-sm">
+    <div class="flex items-start gap-3">
+        <div class="flex-shrink-0 w-8 h-8 rounded-lg @AccentBgClass() flex items-center justify-center">
+            @ActionIcon()
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-0.5">
+                <span class="chip @AccentChipClass()">@ActionLabel()</span>
+            </div>
+            <p class="text-sm text-slate-700 dark:text-slate-300">@Action.Description</p>
+        </div>
+    </div>
+
+    @if (Result is not null)
+    {
+        <div class="mt-2 flex items-center gap-2 text-xs font-medium @(Result.Success ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")">
+            @if (Result.Success)
+            {
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+            }
+            else
+            {
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            }
+            <span>@Result.Message</span>
+        </div>
+    }
+    else if (_decided)
+    {
+        <div class="mt-2 flex items-center gap-2 text-xs font-medium @(_approved ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400 dark:text-slate-500")">
+            @if (_approved)
+            {
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Approved</span>
+            }
+            else
+            {
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+                <span>Rejected</span>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="mt-2 flex items-center gap-2">
+            <button @onclick="() => Decide(true)"
+                    class="btn btn-sm bg-emerald-600 hover:bg-emerald-700 text-white focus:ring-emerald-500 shadow-sm">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Approve
+            </button>
+            <button @onclick="() => Decide(false)"
+                    class="btn btn-sm bg-rose-600 hover:bg-rose-700 text-white focus:ring-rose-500 shadow-sm">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Reject
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public ProposedAction Action { get; set; } = default!;
+    [Parameter] public int ActionIndex { get; set; }
+    [Parameter] public EventCallback<ActionConfirmation> OnConfirmation { get; set; }
+    [Parameter] public ActionResult? Result { get; set; }
+
+    private bool _decided;
+    private bool _approved;
+
+    private async Task Decide(bool approved)
+    {
+        _decided = true;
+        _approved = approved;
+        await OnConfirmation.InvokeAsync(new ActionConfirmation(ActionIndex, approved));
+    }
+
+    private string ActionLabel() => Action.Type switch
+    {
+        TaskActionType.CreateTask => "Create",
+        TaskActionType.CompleteTask => "Complete",
+        TaskActionType.UncompleteTask => "Reopen",
+        _ => "Action"
+    };
+
+    private string AccentBorderClass() => Action.Type switch
+    {
+        TaskActionType.CreateTask => "border-emerald-200 dark:border-emerald-800",
+        TaskActionType.CompleteTask => "border-brand-200 dark:border-brand-800",
+        TaskActionType.UncompleteTask => "border-amber-200 dark:border-amber-800",
+        _ => "border-slate-200 dark:border-slate-700"
+    };
+
+    private string AccentBgClass() => Action.Type switch
+    {
+        TaskActionType.CreateTask => "bg-emerald-100 dark:bg-emerald-900/40",
+        TaskActionType.CompleteTask => "bg-brand-100 dark:bg-brand-900/40",
+        TaskActionType.UncompleteTask => "bg-amber-100 dark:bg-amber-900/40",
+        _ => "bg-slate-100 dark:bg-slate-700"
+    };
+
+    private string AccentChipClass() => Action.Type switch
+    {
+        TaskActionType.CreateTask => "chip-success",
+        TaskActionType.CompleteTask => "chip-primary",
+        TaskActionType.UncompleteTask => "chip-warning",
+        _ => "chip-info"
+    };
+
+    private RenderFragment ActionIcon() => Action.Type switch
+    {
+        TaskActionType.CreateTask => @<svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>,
+        TaskActionType.CompleteTask => @<svg class="w-4 h-4 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>,
+        TaskActionType.UncompleteTask => @<svg class="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>,
+        _ => @<svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" stroke-width="2" /></svg>,
+    };
+}
