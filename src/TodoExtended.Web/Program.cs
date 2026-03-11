@@ -11,6 +11,7 @@ using TodoExtended.Web.Components;
 using TodoExtended.Web.Data;
 using TodoExtended.Web.Middleware;
 using TodoExtended.Web.Services;
+using TodoExtended.Web.Services.AiChat;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -140,6 +141,10 @@ builder.Services.AddScoped<IUserPreferenceService, UserPreferenceService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// AI Chat
+builder.Services.Configure<AiChatOptions>(builder.Configuration.GetSection(AiChatOptions.SectionName));
+builder.Services.AddScoped<IChatService, StubChatService>();
 
 builder.Services.AddSignalR(o => o.MaximumReceiveMessageSize = 512 * 1024); // 512 KB for large PersistentState payloads
 builder.Services.AddRazorComponents()
