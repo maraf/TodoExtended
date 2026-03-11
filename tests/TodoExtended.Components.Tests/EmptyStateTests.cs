@@ -69,6 +69,7 @@ public class EmptyStateTests : TestContext
             .Add(p => p.Heading, "No templates")
             .Add(p => p.Description, "Get started")
             .Add(p => p.ActionLabel, actionLabel)
+            .Add(p => p.OnAction, () => { })
         );
 
         // Assert
