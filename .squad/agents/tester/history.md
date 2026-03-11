@@ -128,3 +128,22 @@ Coordinator resolved 8 API mismatches during Frontend implementation:
 - Null collection and zero-count edge cases
 - Event callback assertions for toggle functionality
 
+### AI Chat Service Tests (2026-03-11)
+
+- **New test project:** `tests/TodoExtended.Tests/` — First unit test project for service-layer testing (separate from bUnit component tests)
+- **Test files:** `ChatServiceTests.cs` (13 tests), `StubChatServiceTests.cs` (6 tests) — all 19 passing
+- **Testing approach:** Write tests against INTERFACES using mocks, not implementations (Backend still building real ChatService)
+- **Test patterns:** 
+  - `SendMessageAsync` tests: validation, history handling, cancellation token respect
+  - `ExecuteActionsAsync` tests: CreateTask, CompleteTask, UncompleteTask flows, rejection, mixed confirmations, error handling
+  - StubChatService tests: verify placeholder returns "not configured" message, empty results
+- **Mocking:** NSubstitute 5.3.0 for ITodoService mocks
+- **Key learnings:**
+  - Use `Task.FromException<T>()` for NSubstitute exception mocking, not `.ThrowsAsync()`
+  - Use `Assert.ThrowsAnyAsync<OperationCanceledException>()` for cancellation tests (accepts TaskCanceledException subclass)
+  - Test helper classes embedded in test file for contract validation (TestChatService, SlowChatService)
+- **Project structure:** 
+  - `tests/TodoExtended.Tests/` for unit tests
+  - `tests/TodoExtended.Components.Tests/` for bUnit component tests
+  - `tests/TodoExtended.E2E/` for Playwright E2E tests
+
