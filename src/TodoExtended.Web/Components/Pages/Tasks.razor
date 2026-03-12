@@ -130,11 +130,13 @@ else
     private string? _error;
     private string? _userId;
 
-    private async Task<string> GetUserIdAsync()
+    private async Task<string?> GetUserIdAsync()
     {
         if (_userId is not null) return _userId;
         var state = await AuthState!;
-        _userId = state.User.GetUserId();
+        _userId = state.User.GetUserIdOrNull();
+        if (_userId is null)
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
         return _userId;
     }
 
@@ -162,6 +164,7 @@ else
         try
         {
             var userId = await GetUserIdAsync();
+            if (userId is null) return;
             var allLists = await TodoService.GetTaskListsAsync(userId);
             var matchedList = allLists.FirstOrDefault(l => l.Id == ListId);
             PersistedTaskList = matchedList is not null

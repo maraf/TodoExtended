@@ -236,8 +236,7 @@
 
                 if (string.IsNullOrEmpty(_userId))
                 {
-                    _templateError = "Unable to identify user.";
-                    _loading = false;
+                    NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
                     return;
                 }
 

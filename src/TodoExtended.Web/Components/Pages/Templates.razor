@@ -200,7 +200,7 @@ else
 
             if (string.IsNullOrEmpty(_userId))
             {
-                _error = "Unable to identify user.";
+                NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
                 return;
             }
 

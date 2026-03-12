@@ -231,11 +231,13 @@ else
     private const string BulkOperationId = "bulk";
     private string? _userId;
 
-    private async Task<string> GetUserIdAsync()
+    private async Task<string?> GetUserIdAsync()
     {
         if (_userId is not null) return _userId;
         var state = await AuthState!;
-        _userId = state.User.GetUserId();
+        _userId = state.User.GetUserIdOrNull();
+        if (_userId is null)
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
         return _userId;
     }
 
@@ -244,6 +246,7 @@ else
         try
         {
             var userId = await GetUserIdAsync();
+            if (userId is null) return;
             _syncedLists = await TodoService.GetTaskListsAsync(userId);
         }
         catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
@@ -278,6 +281,7 @@ else
         try
         {
             var userId = await GetUserIdAsync();
+            if (userId is null) return;
             _notSyncedLists = await TodoService.GetNotSyncedTaskListsAsync(userId);
             _notSyncedListsLoaded = true;
         }
@@ -308,6 +312,7 @@ else
         try
         {
             var userId = await GetUserIdAsync();
+            if (userId is null) return;
             await TodoService.SetTaskListSyncedAsync(listId, false, userId);
             var list = _syncedLists.First(l => l.Id == listId);
             _syncedLists = _syncedLists.Where(l => l.Id != listId).ToList();
@@ -338,6 +343,7 @@ else
         try
         {
             var userId = await GetUserIdAsync();
+            if (userId is null) return;
             await TodoService.SetTaskListSyncedAsync(listId, true, userId);
             var list = _notSyncedLists.First(l => l.Id == listId);
             _notSyncedLists = _notSyncedLists.Where(l => l.Id != listId).ToList();
@@ -393,6 +399,7 @@ else
         try
         {
             var userId = await GetUserIdAsync();
+            if (userId is null) return;
             await Task.WhenAll(ids.Select(id => TodoService.SetTaskListSyncedAsync(id, false, userId)));
             var moved = _syncedLists.Where(l => ids.Contains(l.Id)).ToList();
             _syncedLists = _syncedLists.Where(l => !ids.Contains(l.Id)).ToList();
@@ -425,6 +432,7 @@ else
         try
         {
             var userId = await GetUserIdAsync();
+            if (userId is null) return;
             await Task.WhenAll(ids.Select(id => TodoService.SetTaskListSyncedAsync(id, true, userId)));
             var moved = _notSyncedLists.Where(l => ids.Contains(l.Id)).ToList();
             _notSyncedLists = _notSyncedLists.Where(l => !ids.Contains(l.Id)).ToList();

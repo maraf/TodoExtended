@@ -117,7 +117,12 @@ else
         try
         {
             var authState = await AuthState!;
-            var userId = authState.User.GetUserId();
+            var userId = authState.User.GetUserIdOrNull();
+            if (userId is null)
+            {
+                NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+                return;
+            }
 
             Logger.LogDebug("OnInitializedAsync: TodayTasks not in persistent state, fetching fresh");
             TodayTasks = (await TodoService.GetTodayTasksAsync(userId))
