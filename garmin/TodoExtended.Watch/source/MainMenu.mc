@@ -12,9 +12,9 @@ class MainMenuDelegate extends WatchUi.Menu2InputDelegate {
 
     function onSelect(item as WatchUi.MenuItem) as Void {
         var id = item.getId();
+        _todayLoadStartTime = System.getTimer();
         if (id == :today) {
             WatchUi.pushView(new WatchUi.ProgressBar("Loading...", null), new WatchUi.BehaviorDelegate(), WatchUi.SLIDE_UP);
-            _todayLoadStartTime = System.getTimer();
             ApiClient.getTodayTasks(method(:onTodayTasksReceived));
         } else if (id == :templates) {
             WatchUi.pushView(new WatchUi.ProgressBar("Loading...", null), new WatchUi.BehaviorDelegate(), WatchUi.SLIDE_UP);
@@ -38,6 +38,7 @@ class MainMenuDelegate extends WatchUi.Menu2InputDelegate {
 
     function onTodayTasksReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
         _vibrateIfLoadingWasSlow();
+        Attention.backlight(true);
         if (responseCode == 200 && data != null) {
             var tasks = Models.parseTasks(data as Array);
             switchToTodayMenu(tasks);
@@ -49,6 +50,8 @@ class MainMenuDelegate extends WatchUi.Menu2InputDelegate {
     }
 
     function onTemplatesReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
+        _vibrateIfLoadingWasSlow();
+        Attention.backlight(true);
         if (responseCode == 200 && data != null) {
             var templates = Models.parseTemplates(data as Array);
             switchToTemplatesMenu(templates);
@@ -60,6 +63,8 @@ class MainMenuDelegate extends WatchUi.Menu2InputDelegate {
     }
 
     function onTaskListsReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
+        _vibrateIfLoadingWasSlow();
+        Attention.backlight(true);
         if (responseCode == 200 && data != null) {
             var lists = Models.parseTaskLists(data as Array);
             switchToTaskListsMenu(lists);
