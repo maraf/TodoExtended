@@ -31,6 +31,9 @@
 </nav>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     [PersistentState]
     public IReadOnlyList<PersistedTodoTaskList>? TaskLists { get; set; }
 
@@ -46,7 +49,15 @@
 
         try
         {
-            TaskLists = (await TodoService.GetTaskListsAsync())
+            if (AuthState is null) return;
+            var state = await AuthState;
+            if (state.User.Identity?.IsAuthenticated != true) return;
+
+            var userId = state.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+                ?? state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return;
+
+            TaskLists = (await TodoService.GetTaskListsAsync(userId))
                 .Select(l => new PersistedTodoTaskList(l.Id, l.DisplayName))
                 .ToList();
         }

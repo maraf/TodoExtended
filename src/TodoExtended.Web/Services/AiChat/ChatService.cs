@@ -332,19 +332,22 @@ public class ChatService(
     // Read tool delegates (actual execution for auto-invoke)
     private async Task<string> GetTaskListsAsync()
     {
-        var lists = await todoService.GetTaskListsAsync();
+        var userId = GetCurrentUserId();
+        var lists = await todoService.GetTaskListsAsync(userId);
         return JsonSerializer.Serialize(lists.Select(l => new { l.Id, l.DisplayName }));
     }
 
     private async Task<string> GetTasksAsync([Description("The Id field of the task list (opaque API identifier, not the display name)")] string listId)
     {
-        var tasks = await todoService.GetTasksAsync(listId);
+        var userId = GetCurrentUserId();
+        var tasks = await todoService.GetTasksAsync(listId, userId);
         return JsonSerializer.Serialize(tasks.Select(t => new { t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance }));
     }
 
     private async Task<string> GetTodayTasksAsync()
     {
-        var tasks = await todoService.GetTodayTasksAsync();
+        var userId = GetCurrentUserId();
+        var tasks = await todoService.GetTodayTasksAsync(userId);
         return JsonSerializer.Serialize(tasks.Select(t => new { t.Id, t.Title, t.IsCompleted, t.DueDate, t.ListId, t.ListName }));
     }
 
@@ -352,7 +355,8 @@ public class ChatService(
         [Description("The Id field of the task list (opaque API identifier, not the display name)")] string listId,
         [Description("The Id field of the task (opaque API identifier, not the task title)")] string taskId)
     {
-        var task = await todoService.GetTaskAsync(listId, taskId);
+        var userId = GetCurrentUserId();
+        var task = await todoService.GetTaskAsync(listId, taskId, userId);
         if (task == null)
             return JsonSerializer.Serialize(new { error = "Task not found" });
 
@@ -469,6 +473,8 @@ public class ChatService(
         logger.LogDebug("ExecuteAction: {Type}, parameters: {Parameters}",
             action.Type, string.Join(", ", action.Parameters.Select(p => $"{p.Key}={p.Value}")));
 
+        var userId = GetCurrentUserId();
+
         switch (action.Type)
         {
             case TaskActionType.CreateTask:
@@ -479,21 +485,24 @@ public class ChatService(
                 await todoService.CreateTaskAsync(
                     action.Parameters["listId"],
                     action.Parameters["title"],
-                    dueDate);
+                    dueDate,
+                    userId);
                 break;
 
             case TaskActionType.CompleteTask:
                 await todoService.UpdateTaskStatusAsync(
                     action.Parameters["listId"],
                     action.Parameters["taskId"],
-                    completed: true);
+                    completed: true,
+                    userId);
                 break;
 
             case TaskActionType.UncompleteTask:
                 await todoService.UpdateTaskStatusAsync(
                     action.Parameters["listId"],
                     action.Parameters["taskId"],
-                    completed: false);
+                    completed: false,
+                    userId);
                 break;
 
             case TaskActionType.CreateTemplate:
@@ -511,13 +520,13 @@ public class ChatService(
                     TaskListName = action.Parameters["listName"],
                     DueDateToday = dueDateToday,
                     ReminderTime = reminderTime,
-                    UserId = GetCurrentUserId()
-                }, GetCurrentUserId());
+                    UserId = userId
+                }, userId);
                 break;
 
             case TaskActionType.UpdateTemplate:
                 var templateId = Guid.Parse(action.Parameters["templateId"]);
-                var template = await templateService.GetByIdAsync(templateId, GetCurrentUserId());
+                var template = await templateService.GetByIdAsync(templateId, userId);
                 if (template == null)
                     throw new InvalidOperationException($"Template {templateId} not found.");
 
@@ -537,17 +546,17 @@ public class ChatService(
                         : null;
                 }
 
-                await templateService.UpdateAsync(template, GetCurrentUserId());
+                await templateService.UpdateAsync(template, userId);
                 break;
 
             case TaskActionType.DeleteTemplate:
                 var deleteTemplateId = Guid.Parse(action.Parameters["templateId"]);
-                await templateService.DeleteAsync(deleteTemplateId, GetCurrentUserId());
+                await templateService.DeleteAsync(deleteTemplateId, userId);
                 break;
 
             case TaskActionType.ExecuteTemplate:
                 var executeTemplateId = Guid.Parse(action.Parameters["templateId"]);
-                await templateService.ExecuteTemplateAsync(executeTemplateId, GetCurrentUserId());
+                await templateService.ExecuteTemplateAsync(executeTemplateId, userId);
                 break;
         }
     }

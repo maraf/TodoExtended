@@ -110,6 +110,7 @@ public class ChatServiceTests
             Arg.Any<string>(),
             Arg.Any<string>(),
             Arg.Any<DateOnly?>(),
+            Arg.Any<string>(),
             Arg.Any<TimeOnly?>())
             .Returns(new TodoTask("task-456", "Buy groceries", null, false, DateOnly.FromDateTime(DateTime.Today), "normal"));
 
@@ -120,7 +121,7 @@ public class ChatServiceTests
         Assert.Single(results);
         Assert.True(results[0].Success);
         Assert.Equal(0, results[0].ActionIndex);
-        await todoService.Received(1).CreateTaskAsync("list-123", "Buy groceries", Arg.Any<DateOnly?>(), Arg.Any<TimeOnly?>());
+        await todoService.Received(1).CreateTaskAsync("list-123", "Buy groceries", Arg.Any<DateOnly?>(), Arg.Any<string>(), Arg.Any<TimeOnly?>());
     }
 
     [Fact]
@@ -151,7 +152,7 @@ public class ChatServiceTests
         Assert.Single(results);
         Assert.True(results[0].Success);
         Assert.Equal(0, results[0].ActionIndex);
-        await todoService.Received(1).UpdateTaskStatusAsync("list-123", "task-456", true);
+        await todoService.Received(1).UpdateTaskStatusAsync("list-123", "task-456", true, Arg.Any<string>());
     }
 
     [Fact]
@@ -182,7 +183,7 @@ public class ChatServiceTests
         Assert.Single(results);
         Assert.True(results[0].Success);
         Assert.Equal(0, results[0].ActionIndex);
-        await todoService.Received(1).UpdateTaskStatusAsync("list-123", "task-456", false);
+        await todoService.Received(1).UpdateTaskStatusAsync("list-123", "task-456", false, Arg.Any<string>());
     }
 
     [Fact]
@@ -211,7 +212,7 @@ public class ChatServiceTests
 
         // Assert
         Assert.Empty(results);
-        await todoService.DidNotReceive().CreateTaskAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<TimeOnly?>());
+        await todoService.DidNotReceive().CreateTaskAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<string>(), Arg.Any<TimeOnly?>());
     }
 
     [Fact]
@@ -247,7 +248,7 @@ public class ChatServiceTests
             new(2, true)    // Approve third
         }.AsReadOnly();
 
-        todoService.CreateTaskAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<TimeOnly?>())
+        todoService.CreateTaskAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<string>(), Arg.Any<TimeOnly?>())
             .Returns(new TodoTask("new-task", "title", null, false, null, "normal"));
 
         // Act
@@ -257,8 +258,8 @@ public class ChatServiceTests
         Assert.Equal(2, results.Count);
         Assert.Equal(0, results[0].ActionIndex);
         Assert.Equal(2, results[1].ActionIndex);
-        await todoService.Received(2).CreateTaskAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<TimeOnly?>());
-        await todoService.DidNotReceive().UpdateTaskStatusAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>());
+        await todoService.Received(2).CreateTaskAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<string>(), Arg.Any<TimeOnly?>());
+        await todoService.DidNotReceive().UpdateTaskStatusAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>());
     }
 
     [Fact]
@@ -282,7 +283,7 @@ public class ChatServiceTests
             new(0, true)
         }.AsReadOnly();
 
-        todoService.CreateTaskAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<TimeOnly?>())
+        todoService.CreateTaskAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<string>(), Arg.Any<TimeOnly?>())
             .Returns(Task.FromException<TodoTask>(new InvalidOperationException("Network error")));
 
         // Act
@@ -310,8 +311,8 @@ public class ChatServiceTests
 
         // Assert
         Assert.Empty(results);
-        await todoService.DidNotReceive().CreateTaskAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<TimeOnly?>());
-        await todoService.DidNotReceive().UpdateTaskStatusAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>());
+        await todoService.DidNotReceive().CreateTaskAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<string>(), Arg.Any<TimeOnly?>());
+        await todoService.DidNotReceive().UpdateTaskStatusAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>(), Arg.Any<string>());
     }
 
     #endregion
@@ -324,10 +325,10 @@ public class ChatServiceTests
         // Arrange
         var todoService = Substitute.For<ITodoService>();
         var expected = new TodoTask("task-1", "Buy milk", "Get 2% milk from the store", false, null, "normal");
-        todoService.GetTaskAsync("list-1", "task-1").Returns(expected);
+        todoService.GetTaskAsync("list-1", "task-1", Arg.Any<string>()).Returns(expected);
 
         // Act
-        var result = await todoService.GetTaskAsync("list-1", "task-1");
+        var result = await todoService.GetTaskAsync("list-1", "task-1", "test-user");
 
         // Assert
         Assert.NotNull(result);
@@ -341,10 +342,10 @@ public class ChatServiceTests
     {
         // Arrange
         var todoService = Substitute.For<ITodoService>();
-        todoService.GetTaskAsync(Arg.Any<string>(), Arg.Any<string>()).Returns((TodoTask?)null);
+        todoService.GetTaskAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>()).Returns((TodoTask?)null);
 
         // Act
-        var result = await todoService.GetTaskAsync("list-1", "nonexistent");
+        var result = await todoService.GetTaskAsync("list-1", "nonexistent", "test-user");
 
         // Assert
         Assert.Null(result);
@@ -405,7 +406,7 @@ public class ChatServiceTests
                                 ? DateOnly.Parse(action.Parameters["dueDate"])
                                 : null;
                             
-                            await _todoService.CreateTaskAsync(taskListId, title, dueDate);
+                            await _todoService.CreateTaskAsync(taskListId, title, dueDate, "test-user");
                             results.Add(new ActionResult(confirmation.ActionIndex, true, "Task created"));
                             break;
 
@@ -413,7 +414,8 @@ public class ChatServiceTests
                             await _todoService.UpdateTaskStatusAsync(
                                 action.Parameters["taskListId"],
                                 action.Parameters["taskId"],
-                                true);
+                                true,
+                                "test-user");
                             results.Add(new ActionResult(confirmation.ActionIndex, true, "Task completed"));
                             break;
 
@@ -421,7 +423,8 @@ public class ChatServiceTests
                             await _todoService.UpdateTaskStatusAsync(
                                 action.Parameters["taskListId"],
                                 action.Parameters["taskId"],
-                                false);
+                                false,
+                                "test-user");
                             results.Add(new ActionResult(confirmation.ActionIndex, true, "Task uncompleted"));
                             break;
                     }

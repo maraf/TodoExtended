@@ -4,7 +4,7 @@ namespace TodoExtended.Web.Services;
 
 public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService userTimeZoneService, ILogger<GraphTodoService> logger) : ITodoService
 {
-    public async Task<IReadOnlyList<TodoTaskList>> GetTaskListsAsync()
+    public async Task<IReadOnlyList<TodoTaskList>> GetTaskListsAsync(string userId)
     {
         var response = await graphClient.GetTaskListsAsync();
         return response
@@ -12,7 +12,7 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             .ToList();
     }
 
-    public async Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId)
+    public async Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId, string userId)
     {
         var response = await graphClient.GetTasksAsync(taskListId);
 
@@ -33,7 +33,7 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             .ToList();
     }
 
-    public async Task<TodoTask?> GetTaskAsync(string taskListId, string taskId)
+    public async Task<TodoTask?> GetTaskAsync(string taskListId, string taskId, string userId)
     {
         var t = await graphClient.GetTaskAsync(taskListId, taskId);
         if (t == null)
@@ -48,9 +48,9 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             t.Importance?.ToString());
     }
 
-    public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync()
+    public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync(string userId)
     {
-        var lists = await GetTaskListsAsync();
+        var lists = await GetTaskListsAsync(userId);
         // "Today" in the user's configured timezone, with boundaries converted to UTC
         // for the Graph API filter. Microsoft To Do stores due dates as midnight
         // local time converted to UTC, so the filter must use UTC equivalents of
@@ -86,7 +86,7 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
         return result;
     }
 
-    public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, TimeOnly? reminderTime = null)
+    public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, string userId, TimeOnly? reminderTime = null)
     {
         var userZone = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
         var newTask = new Microsoft.Graph.Models.TodoTask
@@ -126,7 +126,7 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             created.Importance?.ToString());
     }
 
-    public async Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed)
+    public async Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed, string userId)
     {
         logger.LogDebug("UpdateTaskStatusAsync: taskListId={TaskListId}, taskId={TaskId}, completed={Completed}", taskListId, taskId, completed);
 
@@ -161,10 +161,10 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
         logger.LogDebug("UpdateTaskStatusAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
     }
 
-    public Task SetTaskListSyncedAsync(string taskListId, bool isSynced) =>
+    public Task SetTaskListSyncedAsync(string taskListId, bool isSynced, string userId) =>
         throw new NotSupportedException("Syncing task lists is only supported with local cache.");
 
-    public Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync() =>
+    public Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync(string userId) =>
         Task.FromResult<IReadOnlyList<TodoTaskList>>([]);
 
     /// <summary>

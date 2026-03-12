@@ -209,7 +209,7 @@ else
             }
 
             var templatesTask = TemplateService.GetAllAsync(_userId);
-            var taskListsTask = TodoService.GetTaskListsAsync();
+            var taskListsTask = TodoService.GetTaskListsAsync(_userId);
             await Task.WhenAll(templatesTask, taskListsTask);
 
             TemplateItems = templatesTask.Result.OrderBy(t => t.SortOrder).ThenBy(t => t.Title)
@@ -348,7 +348,7 @@ else
         try
         {
             DateOnly? dueDate = template.DueDateToday ? DateOnly.FromDateTime(DateTime.Today) : null;
-            await TodoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate, template.ReminderTime);
+            await TodoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate, _userId!, template.ReminderTime);
             Notifications.Add($"Task \"{template.Title}\" created.", NotifySeverity.Success);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)

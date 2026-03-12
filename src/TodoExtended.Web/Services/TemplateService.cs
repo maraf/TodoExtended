@@ -71,6 +71,6 @@ public class TemplateService(IDbContextFactory<AppDbContext> dbContextFactory, I
             ? await userTimeZoneService.GetTodayAsync()
             : null;
 
-        return await todoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate, template.ReminderTime);
+        return await todoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate, userId, template.ReminderTime);
     }
 }

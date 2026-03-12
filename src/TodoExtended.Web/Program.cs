@@ -385,31 +385,35 @@ api.MapPost("/templates/{id}/execute", async (Guid id, HttpContext context, ITem
 });
 
 // Today's tasks endpoint
-api.MapGet("/today", async (ITodoService todoService) =>
+api.MapGet("/today", async (HttpContext context, ITodoService todoService) =>
 {
-    var tasks = await todoService.GetTodayTasksAsync();
+    var userId = GetUserId(context);
+    var tasks = await todoService.GetTodayTasksAsync(userId);
     return Results.Ok(tasks.Select(t => new ApiTodoTaskWithList(
         t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance, t.ListId, t.ListName)));
 });
 
 // Mark task as completed
-api.MapPost("/tasks/{taskListId}/{taskId}/complete", async (string taskListId, string taskId, ITodoService todoService) =>
+api.MapPost("/tasks/{taskListId}/{taskId}/complete", async (string taskListId, string taskId, HttpContext context, ITodoService todoService) =>
 {
-    await todoService.UpdateTaskStatusAsync(taskListId, taskId, completed: true);
+    var userId = GetUserId(context);
+    await todoService.UpdateTaskStatusAsync(taskListId, taskId, completed: true, userId);
     return Results.Ok(new { status = "completed" });
 });
 
 // Synced task lists
-api.MapGet("/tasklists", async (ITodoService todoService) =>
+api.MapGet("/tasklists", async (HttpContext context, ITodoService todoService) =>
 {
-    var lists = await todoService.GetTaskListsAsync();
+    var userId = GetUserId(context);
+    var lists = await todoService.GetTaskListsAsync(userId);
     return Results.Ok(lists.Where(l => l.IsSynced).Select(l => new ApiTaskList(l.Id, l.DisplayName)));
 });
 
 // Tasks for a specific list
-api.MapGet("/tasklists/{listId}/tasks", async (string listId, ITodoService todoService) =>
+api.MapGet("/tasklists/{listId}/tasks", async (string listId, HttpContext context, ITodoService todoService) =>
 {
-    var tasks = await todoService.GetTasksAsync(listId);
+    var userId = GetUserId(context);
+    var tasks = await todoService.GetTasksAsync(listId, userId);
     return Results.Ok(tasks.Select(t => new ApiTodoTask(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance)));
 });
 

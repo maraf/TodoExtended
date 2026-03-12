@@ -4,6 +4,31 @@
 
 ## Recent Work
 
+### 2026-03-12 — Explicit userId Parameter Refactoring
+
+Refactored `ITodoService` interface to require explicit `string userId` parameters on all 8 methods, eliminating `IHttpContextAccessor` dependency from `CachedTodoService`.
+
+**Changes:**
+- `ITodoService` interface: all 8 methods now require explicit `string userId`
+- `CachedTodoService`: removed `IHttpContextAccessor` constructor parameter
+- Blazor pages (6 total): extract userId from `CascadingParameter Task<AuthenticationState>`, pass to service calls
+- API endpoints (4 total): extract userId from `HttpContext.User` claims
+- `ChatService`: extract userId via `IHttpContextAccessor` at HTTP boundary, pass through to ITodoService
+- `TemplateService.ExecuteTemplateAsync`: pass userId to ITodoService calls
+
+**Rationale:**
+- Eliminates circuit disposal issues in Blazor Server (no HttpContext access inside scoped services)
+- Improves testability (no mock IHttpContextAccessor needed)
+- Consistent with TemplateService pattern
+- Follows Architect guidance on service layer design
+
+**Build & Test:**
+- ✅ Build: Clean (0 errors, 0 warnings)
+- ✅ Unit Tests: 21 passing
+- ✅ No regressions
+
+**Orchestration Log:** `.squad/orchestration-log/20260312T105900Z-backend.md`
+
 ### 2026-03-12 — Per-User Data Scoping Implementation Complete
 
 Implemented per-user data isolation across all locally-stored entities following Architect's audit:
@@ -375,3 +400,28 @@ Implemented full per-user data isolation across all locally-stored entities. Pre
 - **SQLite migration:** `AddColumn` with `defaultValue: ""` then `UPDATE ... SET UserId = (SELECT Id FROM Users LIMIT 1)` is simpler than table rebuild for adding required columns.
 
 **Build:** Clean (no errors/warnings)
+
+### Explicit userId Refactoring (ITodoService)
+
+Refactored `ITodoService` and all implementations/callers to accept explicit `string userId` parameters instead of relying on `IHttpContextAccessor`:
+
+**Interface Change:** All `ITodoService` methods now require `string userId` — `GetTaskListsAsync(userId)`, `GetTasksAsync(listId, userId)`, `GetTodayTasksAsync(userId)`, `CreateTaskAsync(listId, title, dueDate, userId, reminderTime)`, `UpdateTaskStatusAsync(listId, taskId, completed, userId)`, `SetTaskListSyncedAsync(listId, isSynced, userId)`, `GetNotSyncedTaskListsAsync(userId)`.
+
+**CachedTodoService:** Removed `IHttpContextAccessor` dependency and `GetCurrentUserId()` helper. All methods receive userId from callers. Internal `SyncTasksForListAsync` no longer has optional `userId` fallback.
+
+**GraphTodoService:** Added userId parameter to match interface; parameter ignored since Graph uses token-based auth.
+
+**TemplateService.ExecuteTemplateAsync:** Now passes its existing `userId` parameter through to `ITodoService.CreateTaskAsync`.
+
+**ChatService:** Extracts userId via `GetCurrentUserId()` (from `IHttpContextAccessor`) once per tool/action invocation, passes to all ITodoService calls. ChatService still uses IHttpContextAccessor since it's an infrastructure service at the HTTP boundary.
+
+**Blazor Pages Updated:** Tasks.razor, Today.razor, NavMenu.razor, SyncSettings.razor — added `[CascadingParameter] Task<AuthenticationState>? AuthState` and extract userId from claims. Templates.razor already had userId, just updated ITodoService calls.
+
+**TaskStatusCheckbox.razor:** Added `[CascadingParameter] Task<AuthenticationState>? AuthState` to extract userId for `UpdateTaskStatusAsync`.
+
+**API Endpoints:** All endpoints now extract userId from `HttpContext` via `GetUserId()` helper and pass to ITodoService.
+
+**Tests:** Updated all 21 ChatServiceTests mock signatures; all passing.
+
+**Build:** ✅ `dotnet build -warnaserror` — 0 errors, 0 warnings
+**Tests:** ✅ 21/21 passing

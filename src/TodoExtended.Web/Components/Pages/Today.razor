@@ -93,6 +93,9 @@ else
 }
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     [PersistentState]
     public IReadOnlyList<PersistedTodoTaskWithList>? TodayTasks { get; set; }
 
@@ -111,8 +114,13 @@ else
 
         try
         {
+            var authState = await AuthState!;
+            var userId = authState.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+                ?? authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? throw new InvalidOperationException("User not authenticated");
+
             Logger.LogDebug("OnInitializedAsync: TodayTasks not in persistent state, fetching fresh");
-            TodayTasks = (await TodoService.GetTodayTasksAsync())
+            TodayTasks = (await TodoService.GetTodayTasksAsync(userId))
                 .Select(t => new PersistedTodoTaskWithList(t.Id, t.Title, t.IsCompleted, t.Importance, t.ListId, t.ListName))
                 .ToList();
             Logger.LogDebug("OnInitializedAsync: Fetched {Count} tasks", TodayTasks?.Count ?? 0);

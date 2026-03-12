@@ -111,6 +111,9 @@ else
     [Parameter]
     public string? ListId { get; set; }
 
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     [PersistentState]
     public IReadOnlyList<PersistedTodoTask>? TaskItems { get; set; }
 
@@ -123,6 +126,17 @@ else
     private bool _loadingTasks;
     private bool _hideCompleted = true;
     private string? _error;
+    private string? _userId;
+
+    private async Task<string> GetUserIdAsync()
+    {
+        if (_userId is not null) return _userId;
+        var state = await AuthState!;
+        _userId = state.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+            ?? state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? throw new InvalidOperationException("User not authenticated");
+        return _userId;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -147,13 +161,14 @@ else
 
         try
         {
-            var allLists = await TodoService.GetTaskListsAsync();
+            var userId = await GetUserIdAsync();
+            var allLists = await TodoService.GetTaskListsAsync(userId);
             var matchedList = allLists.FirstOrDefault(l => l.Id == ListId);
             PersistedTaskList = matchedList is not null
                 ? new PersistedTodoTaskList(matchedList.Id, matchedList.DisplayName)
                 : null;
 
-            TaskItems = (await TodoService.GetTasksAsync(ListId))
+            TaskItems = (await TodoService.GetTasksAsync(ListId, userId))
                 .Select(t => new PersistedTodoTask(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance))
                 .ToList();
             PersistedListId = ListId;

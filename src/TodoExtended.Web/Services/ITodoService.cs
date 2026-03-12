@@ -59,12 +59,12 @@ public record TodoTaskWithList(
 
 public interface ITodoService
 {
-    Task<IReadOnlyList<TodoTaskList>> GetTaskListsAsync();
-    Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId);
-    Task<TodoTask?> GetTaskAsync(string taskListId, string taskId);
-    Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync();
-    Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, TimeOnly? reminderTime = null);
-    Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed);
-    Task SetTaskListSyncedAsync(string taskListId, bool isSynced);
-    Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync();
+    Task<IReadOnlyList<TodoTaskList>> GetTaskListsAsync(string userId);
+    Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId, string userId);
+    Task<TodoTask?> GetTaskAsync(string taskListId, string taskId, string userId);
+    Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync(string userId);
+    Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, string userId, TimeOnly? reminderTime = null);
+    Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed, string userId);
+    Task SetTaskListSyncedAsync(string taskListId, bool isSynced, string userId);
+    Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync(string userId);
 }

@@ -25,6 +25,7 @@ else
     [Parameter] public EventCallback<bool> OnStatusChanged { get; set; }
     [Parameter] public EventCallback<string> OnError { get; set; }
 
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
     [Inject] private ITodoService TodoService { get; set; } = default!;
     [Inject] private NavigationManager NavigationManager { get; set; } = default!;
 
@@ -46,7 +47,12 @@ else
 
         try
         {
-            await TodoService.UpdateTaskStatusAsync(ListId, TaskId, newStatus);
+            var state = await AuthState!;
+            var userId = state.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+                ?? state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? throw new InvalidOperationException("User not authenticated");
+
+            await TodoService.UpdateTaskStatusAsync(ListId, TaskId, newStatus, userId);
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
