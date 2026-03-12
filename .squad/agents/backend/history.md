@@ -381,3 +381,61 @@ Extended AI chat service with full template CRUD capability following the existi
 - Template actions follow same ProposedAction confirmation flow as task operations
 
 **Build:** Clean (no errors/warnings)
+
+## 2026-03-12: Per-User Data Scoping Implementation
+
+**Status:** Complete
+
+Implemented full per-user data isolation across all locally-stored entities. Previously, templates, cached task lists, cached tasks, and sync metadata were shared globally across all users.
+
+### Phase 1 — TaskTemplate User Scoping
+- Added `UserId` (required) + `User` FK to `TaskTemplate` entity
+- Updated `ITemplateService`: all 6 methods now accept explicit `string userId`
+- Rewrote `TemplateService` to use `IDbContextFactory<AppDbContext>` (was constructor-injected `AppDbContext`), filter all queries by `UserId`, validate ownership on mutations
+- Updated `Templates.razor` and `Home.razor` to extract OID from `AuthenticationStateProvider` and pass to all service calls
+- Updated API endpoints (`GET /api/templates`, `POST /api/templates/{id}/execute`) with `GetUserId(HttpContext)` helper
+- Updated `ChatService` to inject `IHttpContextAccessor` and pass userId to all template operations
+
+### Phase 2 — Cache + Delta Token User Scoping
+- Added `UserId` (required) to `CachedTaskList` and `CachedTask` entities
+- Added `UserId` (nullable) to `SyncMetadata` entity
+- Updated `CachedTodoService`:
+  - Injects `IHttpContextAccessor` to resolve current user
+  - Per-user delta token key: `$"TaskListsDeltaToken:{userId}"`
+  - Per-user sync lock: `ConcurrentDictionary<string, SemaphoreSlim>` replaces global `SemaphoreSlim`
+  - All cache reads filtered by `UserId`
+  - All cache writes set `UserId` on new rows
+  - `ClearCacheAndInitialSyncAsync` only deletes current user's rows
+
+### Phase 3 — Schema Migration
+- Single EF Core migration: `AddUserScopingToAllEntities`
+- Adds UserId columns to TaskTemplates, CachedTasks, CachedTaskLists, SyncMetadata
+- Data migration: assigns orphaned rows to single existing user (if exactly one exists)
+- Renames global `TaskListsDeltaToken` key to per-user format
+- Indexes: `{UserId, IsSynced}` on CachedTaskLists, `{UserId, IsDeleted, DueDate}` on CachedTasks, UserId on TaskTemplates
+- FK: TaskTemplates → Users with cascade delete
+
+### Key Files Changed
+- `src/TodoExtended.Web/Data/TaskTemplate.cs`
+- `src/TodoExtended.Web/Data/CachedTaskList.cs`
+- `src/TodoExtended.Web/Data/CachedTask.cs`
+- `src/TodoExtended.Web/Data/SyncMetadata.cs`
+- `src/TodoExtended.Web/Data/AppDbContext.cs`
+- `src/TodoExtended.Web/Services/ITemplateService.cs`
+- `src/TodoExtended.Web/Services/TemplateService.cs`
+- `src/TodoExtended.Web/Services/CachedTodoService.cs`
+- `src/TodoExtended.Web/Services/AiChat/ChatService.cs`
+- `src/TodoExtended.Web/Components/Pages/Templates.razor`
+- `src/TodoExtended.Web/Components/Pages/Home.razor`
+- `src/TodoExtended.Web/Program.cs`
+
+## Learnings
+
+### Per-User Data Scoping
+
+- **Pattern: explicit userId for business services, IHttpContextAccessor for infrastructure services.** TemplateService accepts `string userId` in every method. CachedTodoService (implementing ITodoService) uses `IHttpContextAccessor` internally since changing ITodoService would cascade to all consumers.
+- **OID claim types:** Always check both `"http://schemas.microsoft.com/identity/claims/objectidentifier"` and `ClaimTypes.NameIdentifier` — the former is from OIDC, the latter from API key auth.
+- **Per-user sync locks:** `ConcurrentDictionary<string, SemaphoreSlim>` keyed by userId so users sync independently.
+- **SQLite migration:** `AddColumn` with `defaultValue: ""` then `UPDATE ... SET UserId = (SELECT Id FROM Users LIMIT 1)` is simpler than table rebuild for adding required columns.
+
+**Build:** Clean (no errors/warnings)

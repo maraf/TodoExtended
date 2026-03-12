@@ -9,6 +9,7 @@ public class CachedTaskList
     public bool IsSynced { get; set; } = true;
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
+    public required string UserId { get; set; }
     
     public ICollection<CachedTask> Tasks { get; set; } = [];
 }

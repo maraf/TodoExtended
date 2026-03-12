@@ -165,6 +165,9 @@ else
 </ModalDialog>
 
 @code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
     [PersistentState]
     public IReadOnlyList<PersistedTaskTemplate>? TemplateItems { get; set; }
 
@@ -176,6 +179,7 @@ else
     private string? _error;
     private string? _formError;
     private bool _dialogVisible;
+    private string? _userId;
 
     private string _formTitle = "";
     private string _formTaskListId = "";
@@ -194,7 +198,17 @@ else
 
         try
         {
-            var templatesTask = TemplateService.GetAllAsync();
+            var authState = await AuthState!;
+            _userId = authState.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+                ?? authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(_userId))
+            {
+                _error = "Unable to identify user.";
+                return;
+            }
+
+            var templatesTask = TemplateService.GetAllAsync(_userId);
             var taskListsTask = TodoService.GetTaskListsAsync();
             await Task.WhenAll(templatesTask, taskListsTask);
 
@@ -280,7 +294,7 @@ else
         {
             if (_editingTemplateId is not null)
             {
-                var existing = await TemplateService.GetByIdAsync(_editingTemplateId.Value);
+                var existing = await TemplateService.GetByIdAsync(_editingTemplateId.Value, _userId!);
                 if (existing is not null)
                 {
                     existing.Title = _formTitle.Trim();
@@ -289,7 +303,7 @@ else
                     existing.DueDateToday = _formDueDateToday;
                     existing.ReminderTime = reminderTime;
                     existing.SortOrder = _formSortOrder;
-                    await TemplateService.UpdateAsync(existing);
+                    await TemplateService.UpdateAsync(existing, _userId!);
                 }
 
                 Notifications.Add("Template updated.", NotifySeverity.Success);
@@ -303,9 +317,10 @@ else
                     TaskListName = selectedList.DisplayName,
                     DueDateToday = _formDueDateToday,
                     ReminderTime = reminderTime,
-                    SortOrder = _formSortOrder
+                    SortOrder = _formSortOrder,
+                    UserId = _userId!
                 };
-                await TemplateService.CreateAsync(template);
+                await TemplateService.CreateAsync(template, _userId!);
                 Notifications.Add("Template created.", NotifySeverity.Success);
             }
 
@@ -360,7 +375,7 @@ else
     {
         try
         {
-            await TemplateService.DeleteAsync(templateId);
+            await TemplateService.DeleteAsync(templateId, _userId!);
             await RefreshTemplates();
             Notifications.Add("Template deleted.", NotifySeverity.Success);
         }
@@ -377,7 +392,7 @@ else
 
     private async Task RefreshTemplates()
     {
-        var all = await TemplateService.GetAllAsync();
+        var all = await TemplateService.GetAllAsync(_userId!);
         TemplateItems = all.OrderBy(t => t.SortOrder).ThenBy(t => t.Title)
             .Select(t => new PersistedTaskTemplate(t.Id, t.Title, t.TaskListId, t.TaskListName, t.DueDateToday, t.ReminderTime, t.SortOrder))
             .ToList();

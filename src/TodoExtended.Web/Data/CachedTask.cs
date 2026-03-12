@@ -13,6 +13,7 @@ public class CachedTask
     public DateTime LastSyncUtc { get; set; }
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
+    public required string UserId { get; set; }
     
     public CachedTaskList? List { get; set; }
 }

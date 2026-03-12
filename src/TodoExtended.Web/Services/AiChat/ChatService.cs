@@ -1,6 +1,7 @@
 using System.ClientModel;
 using System.ComponentModel;
 using System.Net;
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
@@ -18,10 +19,16 @@ public class ChatService(
     IChatClient chatClient,
     ITodoService todoService,
     ITemplateService templateService,
+    IHttpContextAccessor httpContextAccessor,
     IOptions<AiChatOptions> options,
     ILogger<ChatService> logger) : IChatService
 {
     private static readonly HashSet<string> WriteTools = ["create_task", "complete_task", "uncomplete_task", "create_template", "update_template", "delete_template", "execute_template"];
+
+    private string GetCurrentUserId() =>
+        httpContextAccessor.HttpContext?.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+        ?? httpContextAccessor.HttpContext?.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+        ?? throw new InvalidOperationException("User ID not found in claims");
 
     private const string SystemPrompt = """
         You are a helpful task management assistant for the TodoExtended app.
@@ -354,7 +361,8 @@ public class ChatService(
 
     private async Task<string> GetTemplatesAsync()
     {
-        var templates = await templateService.GetAllAsync();
+        var userId = GetCurrentUserId();
+        var templates = await templateService.GetAllAsync(userId);
         return JsonSerializer.Serialize(templates.Select(t => new { t.Id, t.Title, t.TaskListId, t.TaskListName, t.DueDateToday, t.ReminderTime, t.SortOrder }));
     }
 
@@ -502,13 +510,14 @@ public class ChatService(
                     TaskListId = action.Parameters["listId"],
                     TaskListName = action.Parameters["listName"],
                     DueDateToday = dueDateToday,
-                    ReminderTime = reminderTime
-                });
+                    ReminderTime = reminderTime,
+                    UserId = GetCurrentUserId()
+                }, GetCurrentUserId());
                 break;
 
             case TaskActionType.UpdateTemplate:
                 var templateId = Guid.Parse(action.Parameters["templateId"]);
-                var template = await templateService.GetByIdAsync(templateId);
+                var template = await templateService.GetByIdAsync(templateId, GetCurrentUserId());
                 if (template == null)
                     throw new InvalidOperationException($"Template {templateId} not found.");
 
@@ -528,17 +537,17 @@ public class ChatService(
                         : null;
                 }
 
-                await templateService.UpdateAsync(template);
+                await templateService.UpdateAsync(template, GetCurrentUserId());
                 break;
 
             case TaskActionType.DeleteTemplate:
                 var deleteTemplateId = Guid.Parse(action.Parameters["templateId"]);
-                await templateService.DeleteAsync(deleteTemplateId);
+                await templateService.DeleteAsync(deleteTemplateId, GetCurrentUserId());
                 break;
 
             case TaskActionType.ExecuteTemplate:
                 var executeTemplateId = Guid.Parse(action.Parameters["templateId"]);
-                await templateService.ExecuteTemplateAsync(executeTemplateId);
+                await templateService.ExecuteTemplateAsync(executeTemplateId, GetCurrentUserId());
                 break;
         }
     }

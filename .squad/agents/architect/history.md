@@ -115,3 +115,14 @@ Created shared interfaces, models, and DI scaffold for AI chat feature:
 
 **Orchestration Log:** .squad/orchestration-log/20260311T095047Z-architect.md
 
+### 2026-03-12 — Per-User Data Scoping Audit
+
+- **Audited all 8 EF Core entities** for user-scoping. Found `ApiKey`, `UserToken` properly scoped; `TaskTemplate`, `CachedTaskList`, `CachedTask`, `SyncMetadata` are NOT user-scoped.
+- **Critical gap: TaskTemplate** has no `UserId` column. `ITemplateService` methods accept no userId parameter. All CRUD and execution is globally shared. Affects `Templates.razor`, `Home.razor`, `GET/POST /api/templates`, and `ChatService`.
+- **Critical gap: CachedTodoService** stores cached tasks/lists without UserId. All cache queries return all users' data. `ClearCacheAndInitialSyncAsync` wipes the entire cache for all users.
+- **Delta token issue:** `TaskListsDeltaTokenKey = "TaskListsDeltaToken"` is a single global key in SyncMetadata. All users overwrite each other's delta token. Per-list tokens in `CachedTaskList.DeltaToken` are per-list but not per-user.
+- **Pattern: ApiKeys.razor** is the model for proper user-scoping — extracts OID from `AuthenticationStateProvider` claims and passes it explicitly to every `IApiKeyService` call. Other pages should follow this pattern.
+- **No global query filters** exist in `AppDbContext.OnModelCreating`. Decided against adding them (complexity of injecting user context into DbContext). Prefer explicit service-layer filtering.
+- **Design output:** `.squad/decisions/inbox/architect-user-scoping-audit.md` — full entity audit, gap analysis, proposed schema changes, migration strategy, and phased implementation plan.
+- **Key file paths:** `Data/AppDbContext.cs` (8 DbSets, no query filters), `Services/TemplateService.cs` (no userId), `Services/CachedTodoService.cs` (global delta token at line 18, global cache clear at lines 702-711), `Authentication/ApiKeyAuthenticationHandler.cs` (proper claims), `Middleware/UserSyncMiddleware.cs` (proper user creation).
+

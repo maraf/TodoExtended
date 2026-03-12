@@ -242,7 +242,7 @@ using (var scope = app.Services.CreateScope())
         }
 
         // Seed demo templates so the Templates screen shows something
-        if (!db.TaskTemplates.Any())
+        if (!db.TaskTemplates.Any(t => t.UserId == "demo-user"))
         {
             const string WorkListId = "demo-list-work";
             const string WorkListName = "📋 Work";
@@ -259,7 +259,8 @@ using (var scope = app.Services.CreateScope())
                     TaskListName = WorkListName,
                     DueDateToday = true,
                     ReminderTime = new TimeOnly(9, 0),
-                    SortOrder = 1
+                    SortOrder = 1,
+                    UserId = "demo-user"
                 },
                 new TaskTemplate
                 {
@@ -268,7 +269,8 @@ using (var scope = app.Services.CreateScope())
                     TaskListName = WorkListName,
                     DueDateToday = true,
                     ReminderTime = null,
-                    SortOrder = 2
+                    SortOrder = 2,
+                    UserId = "demo-user"
                 },
                 new TaskTemplate
                 {
@@ -277,7 +279,8 @@ using (var scope = app.Services.CreateScope())
                     TaskListName = PersonalListName,
                     DueDateToday = false,
                     ReminderTime = null,
-                    SortOrder = 0
+                    SortOrder = 0,
+                    UserId = "demo-user"
                 },
                 new TaskTemplate
                 {
@@ -286,7 +289,8 @@ using (var scope = app.Services.CreateScope())
                     TaskListName = PersonalListName,
                     DueDateToday = true,
                     ReminderTime = new TimeOnly(7, 0),
-                    SortOrder = 1
+                    SortOrder = 1,
+                    UserId = "demo-user"
                 },
                 new TaskTemplate
                 {
@@ -295,7 +299,8 @@ using (var scope = app.Services.CreateScope())
                     TaskListName = LearningListName,
                     DueDateToday = true,
                     ReminderTime = new TimeOnly(21, 0),
-                    SortOrder = 1
+                    SortOrder = 1,
+                    UserId = "demo-user"
                 }
             );
             db.SaveChanges();
@@ -352,18 +357,25 @@ if (isDemoMode)
 // API Endpoints
 var api = app.MapGroup("/api").RequireAuthorization().DisableAntiforgery();
 
+static string GetUserId(HttpContext context) =>
+    context.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+    ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+    ?? throw new UnauthorizedAccessException("User ID not found in claims");
+
 // Template endpoints
-api.MapGet("/templates", async (ITemplateService templateService) =>
+api.MapGet("/templates", async (HttpContext context, ITemplateService templateService) =>
 {
-    var templates = await templateService.GetAllAsync();
+    var userId = GetUserId(context);
+    var templates = await templateService.GetAllAsync(userId);
     return Results.Ok(templates);
 });
 
-api.MapPost("/templates/{id}/execute", async (Guid id, ITemplateService templateService) =>
+api.MapPost("/templates/{id}/execute", async (Guid id, HttpContext context, ITemplateService templateService) =>
 {
+    var userId = GetUserId(context);
     try
     {
-        var task = await templateService.ExecuteTemplateAsync(id);
+        var task = await templateService.ExecuteTemplateAsync(id, userId);
         return Results.Ok(new ApiTodoTask(task.Id, task.Title, task.IsCompleted, task.DueDate, task.Importance));
     }
     catch (InvalidOperationException ex)

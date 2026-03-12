@@ -4,10 +4,10 @@ namespace TodoExtended.Web.Services;
 
 public interface ITemplateService
 {
-    Task<IReadOnlyList<TaskTemplate>> GetAllAsync();
-    Task<TaskTemplate?> GetByIdAsync(Guid id);
-    Task<TaskTemplate> CreateAsync(TaskTemplate template);
-    Task UpdateAsync(TaskTemplate template);
-    Task DeleteAsync(Guid id);
-    Task<TodoTask> ExecuteTemplateAsync(Guid templateId);
+    Task<IReadOnlyList<TaskTemplate>> GetAllAsync(string userId);
+    Task<TaskTemplate?> GetByIdAsync(Guid id, string userId);
+    Task<TaskTemplate> CreateAsync(TaskTemplate template, string userId);
+    Task UpdateAsync(TaskTemplate template, string userId);
+    Task DeleteAsync(Guid id, string userId);
+    Task<TodoTask> ExecuteTemplateAsync(Guid templateId, string userId);
 }

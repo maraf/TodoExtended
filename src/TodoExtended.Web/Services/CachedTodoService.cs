@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using TodoExtended.Web.Data;
@@ -9,21 +11,32 @@ public class CachedTodoService(
     GraphTodoService graphService,
     IGraphTodoClient graphClient,
     IDbContextFactory<AppDbContext> dbContextFactory,
+    IHttpContextAccessor httpContextAccessor,
     IOptions<TodoCacheOptions> options,
     IUserTimeZoneService userTimeZoneService,
     ILogger<CachedTodoService> logger) : ITodoService
 {
     private readonly TodoCacheOptions _options = options.Value;
-    private static readonly SemaphoreSlim _syncLock = new(1, 1);
-    private static readonly string TaskListsDeltaTokenKey = "TaskListsDeltaToken";
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _syncLocks = new();
+
+    private static string GetTaskListsDeltaTokenKey(string userId) => $"TaskListsDeltaToken:{userId}";
+
+    private string GetCurrentUserId() =>
+        httpContextAccessor.HttpContext?.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
+        ?? httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+        ?? throw new InvalidOperationException("User ID not found in claims");
+
+    private static SemaphoreSlim GetSyncLock(string userId) =>
+        _syncLocks.GetOrAdd(userId, _ => new SemaphoreSlim(1, 1));
 
     public async Task<IReadOnlyList<TodoTaskList>> GetTaskListsAsync()
     {
+        var userId = GetCurrentUserId();
         await using var db = await dbContextFactory.CreateDbContextAsync();
-        await EnsureListsCacheValidAsync(db);
+        await EnsureListsCacheValidAsync(db, userId);
         
         return await db.CachedTaskLists
-            .Where(l => l.IsSynced)
+            .Where(l => l.UserId == userId && l.IsSynced)
             .OrderBy(l => l.DisplayName)
             .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsSynced))
             .ToListAsync();
@@ -31,9 +44,10 @@ public class CachedTodoService(
 
     public async Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync()
     {
+        var userId = GetCurrentUserId();
         await using var db = await dbContextFactory.CreateDbContextAsync();
         return await db.CachedTaskLists
-            .Where(l => !l.IsSynced)
+            .Where(l => l.UserId == userId && !l.IsSynced)
             .OrderBy(l => l.DisplayName)
             .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsSynced))
             .ToListAsync();
@@ -41,8 +55,10 @@ public class CachedTodoService(
 
     public async Task SetTaskListSyncedAsync(string taskListId, bool isSynced)
     {
+        var userId = GetCurrentUserId();
         await using var db = await dbContextFactory.CreateDbContextAsync();
-        var cachedList = await db.CachedTaskLists.FindAsync(taskListId)
+        var cachedList = await db.CachedTaskLists
+            .FirstOrDefaultAsync(l => l.Id == taskListId && l.UserId == userId)
             ?? throw new InvalidOperationException($"Task list '{taskListId}' not found in cache.");
 
         cachedList.IsSynced = isSynced;
@@ -54,11 +70,12 @@ public class CachedTodoService(
 
     public async Task<IReadOnlyList<TodoTask>> GetTasksAsync(string taskListId)
     {
+        var userId = GetCurrentUserId();
         await using var db = await dbContextFactory.CreateDbContextAsync();
-        await EnsureListCacheValidAsync(db, taskListId);
+        await EnsureListCacheValidAsync(db, taskListId, userId);
         
         var tasks = await db.CachedTasks
-            .Where(t => t.ListId == taskListId && !t.IsDeleted)
+            .Where(t => t.ListId == taskListId && t.UserId == userId && !t.IsDeleted)
             .ToListAsync();
         
         return tasks
@@ -72,25 +89,27 @@ public class CachedTodoService(
 
     public async Task<TodoTask?> GetTaskAsync(string taskListId, string taskId)
     {
+        var userId = GetCurrentUserId();
         await using var db = await dbContextFactory.CreateDbContextAsync();
-        await EnsureListCacheValidAsync(db, taskListId);
+        await EnsureListCacheValidAsync(db, taskListId, userId);
 
         var t = await db.CachedTasks
-            .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == taskListId && !t.IsDeleted);
+            .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == taskListId && t.UserId == userId && !t.IsDeleted);
 
         return t == null ? null : new TodoTask(t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance);
     }
 
     public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync()
     {
+        var userId = GetCurrentUserId();
         await using var db = await dbContextFactory.CreateDbContextAsync();
-        await EnsureCacheValidAsync(db);
+        await EnsureCacheValidAsync(db, userId);
         
         var today = await userTimeZoneService.GetTodayAsync();
         
         var tasks = await db.CachedTasks
             .Include(t => t.List)
-            .Where(t => !t.IsDeleted && t.DueDate == today && t.List!.IsSynced)
+            .Where(t => t.UserId == userId && !t.IsDeleted && t.DueDate == today && t.List!.IsSynced)
             .ToListAsync();
         
         return tasks
@@ -105,6 +124,7 @@ public class CachedTodoService(
 
     public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, TimeOnly? reminderTime = null)
     {
+        var userId = GetCurrentUserId();
         var created = await graphService.CreateTaskAsync(taskListId, title, dueDate, reminderTime);
         
         await using var db = await dbContextFactory.CreateDbContextAsync();
@@ -121,6 +141,7 @@ public class CachedTodoService(
             LastSyncUtc = DateTime.UtcNow,
             CreatedUtc = DateTime.UtcNow,
             UpdatedUtc = DateTime.UtcNow,
+            UserId = userId,
         };
         
         db.CachedTasks.Add(cachedTask);
@@ -144,18 +165,19 @@ public class CachedTodoService(
         }
     }
 
-    private async Task EnsureCacheValidAsync(AppDbContext db)
+    private async Task EnsureCacheValidAsync(AppDbContext db, string userId)
     {
-        if (!await IsCacheStaleAsync(db))
+        if (!await IsCacheStaleAsync(db, userId))
             return;
 
-        await _syncLock.WaitAsync();
+        var syncLock = GetSyncLock(userId);
+        await syncLock.WaitAsync();
         try
         {
-            if (!await IsCacheStaleAsync(db))
+            if (!await IsCacheStaleAsync(db, userId))
                 return;
 
-            await SyncAsync(db);
+            await SyncAsync(db, userId);
         }
         catch (ObjectDisposedException)
         {
@@ -163,22 +185,23 @@ public class CachedTodoService(
         }
         finally
         {
-            _syncLock.Release();
+            syncLock.Release();
         }
     }
 
-    private async Task EnsureListsCacheValidAsync(AppDbContext db)
+    private async Task EnsureListsCacheValidAsync(AppDbContext db, string userId)
     {
-        if (!await IsCacheStaleAsync(db))
+        if (!await IsCacheStaleAsync(db, userId))
             return;
 
-        await _syncLock.WaitAsync();
+        var syncLock = GetSyncLock(userId);
+        await syncLock.WaitAsync();
         try
         {
-            if (!await IsCacheStaleAsync(db))
+            if (!await IsCacheStaleAsync(db, userId))
                 return;
 
-            await SyncListsOnlyAsync(db);
+            await SyncListsOnlyAsync(db, userId);
         }
         catch (ObjectDisposedException)
         {
@@ -186,30 +209,31 @@ public class CachedTodoService(
         }
         finally
         {
-            _syncLock.Release();
+            syncLock.Release();
         }
     }
 
-    private async Task EnsureListCacheValidAsync(AppDbContext db, string taskListId)
+    private async Task EnsureListCacheValidAsync(AppDbContext db, string taskListId, string userId)
     {
         if (!await IsListCacheStaleAsync(db, taskListId))
             return;
 
-        await _syncLock.WaitAsync();
+        var syncLock = GetSyncLock(userId);
+        await syncLock.WaitAsync();
         try
         {
             if (!await IsListCacheStaleAsync(db, taskListId))
                 return;
 
-            var list = await db.CachedTaskLists.FindAsync(taskListId);
+            var list = await db.CachedTaskLists.FirstOrDefaultAsync(l => l.Id == taskListId && l.UserId == userId);
             if (list == null)
             {
                 logger.LogInformation("List {ListId} not in cache, performing full sync", taskListId);
-                await SyncAsync(db);
+                await SyncAsync(db, userId);
                 return;
             }
 
-            await SyncTasksForListAsync(db, list.Id, list.DeltaToken);
+            await SyncTasksForListAsync(db, list.Id, list.DeltaToken, userId);
             list.LastSyncUtc = DateTime.UtcNow;
             await db.SaveChangesAsync();
         }
@@ -221,13 +245,13 @@ public class CachedTodoService(
         {
             logger.LogError(ex, "Single-list sync failed for {ListId}, falling back to full sync", taskListId);
             if (ShouldRebuildCache(ex))
-                await ClearCacheAndInitialSyncAsync(db);
+                await ClearCacheAndInitialSyncAsync(db, userId);
             else
                 throw;
         }
         finally
         {
-            _syncLock.Release();
+            syncLock.Release();
         }
     }
 
@@ -245,19 +269,19 @@ public class CachedTodoService(
         return (DateTime.UtcNow - lastSync.Value) > cacheMaxAge;
     }
 
-    private async Task<bool> IsCacheStaleAsync(AppDbContext db)
+    private async Task<bool> IsCacheStaleAsync(AppDbContext db, string userId)
     {
         var cacheMaxAge = TimeSpan.FromMinutes(_options.StalenessThresholdMinutes);
         var now = DateTime.UtcNow;
         
         var oldestSync = await db.CachedTaskLists
-            .Where(l => l.IsSynced)
+            .Where(l => l.UserId == userId && l.IsSynced)
             .Select(l => (DateTime?)l.LastSyncUtc)
             .MinAsync();
         
         if (oldestSync == null)
         {
-            logger.LogDebug("Cache is stale: no synced lists in cache");
+            logger.LogDebug("Cache is stale: no synced lists in cache for user {UserId}", userId);
             return true;
         }
 
@@ -271,23 +295,23 @@ public class CachedTodoService(
         return isStale;
     }
 
-    private async Task SyncAsync(AppDbContext db)
+    private async Task SyncAsync(AppDbContext db, string userId)
     {
-        logger.LogInformation("Starting cache sync");
+        logger.LogInformation("Starting cache sync for user {UserId}", userId);
         
         try
         {
-            var hasAnyLists = await db.CachedTaskLists.AnyAsync();
+            var hasAnyLists = await db.CachedTaskLists.Where(l => l.UserId == userId).AnyAsync();
             
             if (!hasAnyLists)
             {
                 logger.LogInformation("Cold cache: performing initial sync");
-                await InitialSyncAsync(db);
+                await InitialSyncAsync(db, userId);
             }
             else
             {
                 logger.LogInformation("Warm cache: performing delta sync");
-                await DeltaSyncAsync(db);
+                await DeltaSyncAsync(db, userId);
             }
             
             logger.LogInformation("Cache sync completed successfully");
@@ -303,7 +327,7 @@ public class CachedTodoService(
             if (ShouldRebuildCache(ex))
             {
                 logger.LogWarning("Rebuilding cache due to invalid delta token or sync error");
-                await ClearCacheAndInitialSyncAsync(db);
+                await ClearCacheAndInitialSyncAsync(db, userId);
             }
             else
             {
@@ -312,13 +336,13 @@ public class CachedTodoService(
         }
     }
 
-    private async Task SyncListsOnlyAsync(AppDbContext db)
+    private async Task SyncListsOnlyAsync(AppDbContext db, string userId)
     {
-        logger.LogInformation("Starting lists-only cache sync");
+        logger.LogInformation("Starting lists-only cache sync for user {UserId}", userId);
 
         try
         {
-            var hasAnyLists = await db.CachedTaskLists.AnyAsync();
+            var hasAnyLists = await db.CachedTaskLists.Where(l => l.UserId == userId).AnyAsync();
 
             if (!hasAnyLists)
             {
@@ -336,6 +360,7 @@ public class CachedTodoService(
                         LastSyncUtc = now,
                         CreatedUtc = now,
                         UpdatedUtc = now,
+                        UserId = userId,
                     });
                 }
 
@@ -343,11 +368,11 @@ public class CachedTodoService(
             }
             else
             {
-                await SyncTaskListsAsync(db);
+                await SyncTaskListsAsync(db, userId);
 
                 // Update LastSyncUtc so staleness check passes without syncing tasks
                 var lists = await db.CachedTaskLists
-                    .Where(l => l.IsSynced)
+                    .Where(l => l.UserId == userId && l.IsSynced)
                     .ToListAsync();
 
                 var now = DateTime.UtcNow;
@@ -370,7 +395,7 @@ public class CachedTodoService(
             if (ShouldRebuildCache(ex))
             {
                 logger.LogWarning("Falling back to full sync due to error");
-                await ClearCacheAndInitialSyncAsync(db);
+                await ClearCacheAndInitialSyncAsync(db, userId);
             }
             else
             {
@@ -379,7 +404,7 @@ public class CachedTodoService(
         }
     }
 
-    private async Task InitialSyncAsync(AppDbContext db)
+    private async Task InitialSyncAsync(AppDbContext db, string userId)
     {
         var lists = await graphService.GetTaskListsAsync();
         var now = DateTime.UtcNow;
@@ -395,6 +420,7 @@ public class CachedTodoService(
                 LastSyncUtc = now,
                 CreatedUtc = now,
                 UpdatedUtc = now,
+                UserId = userId,
             };
             
             db.CachedTaskLists.Add(cachedList);
@@ -403,15 +429,15 @@ public class CachedTodoService(
 
         // Sync tasks for all lists in parallel
         await SyncTasksForListsBatchAsync(
-            lists.Select(l => (l.Id, (string?)null)).ToList());
+            lists.Select(l => (l.Id, (string?)null)).ToList(), userId);
     }
 
-    private async Task DeltaSyncAsync(AppDbContext db)
+    private async Task DeltaSyncAsync(AppDbContext db, string userId)
     {
-        await SyncTaskListsAsync(db);
+        await SyncTaskListsAsync(db, userId);
 
         var lists = await db.CachedTaskLists
-            .Where(l => l.IsSynced)
+            .Where(l => l.UserId == userId && l.IsSynced)
             .Select(l => new { l.Id, l.DeltaToken })
             .ToListAsync();
 
@@ -422,10 +448,10 @@ public class CachedTodoService(
         }
 
         await SyncTasksForListsBatchAsync(
-            lists.Select(l => (l.Id, l.DeltaToken)).ToList());
+            lists.Select(l => (l.Id, l.DeltaToken)).ToList(), userId);
     }
 
-    private async Task SyncTasksForListsBatchAsync(List<(string Id, string? DeltaToken)> lists)
+    private async Task SyncTasksForListsBatchAsync(List<(string Id, string? DeltaToken)> lists, string userId)
     {
         if (lists.Count == 0) return;
 
@@ -443,7 +469,7 @@ public class CachedTodoService(
             try
             {
                 await using var scopedDb = await dbContextFactory.CreateDbContextAsync();
-                await ProcessTasksDeltaPagesAsync(scopedDb, kvp.Key, kvp.Value);
+                await ProcessTasksDeltaPagesAsync(scopedDb, kvp.Key, kvp.Value, userId);
             }
             catch (ObjectDisposedException)
             {
@@ -458,11 +484,12 @@ public class CachedTodoService(
         await Task.WhenAll(tasks);
     }
 
-    private async Task SyncTaskListsAsync(AppDbContext db)
+    private async Task SyncTaskListsAsync(AppDbContext db, string userId)
     {
         logger.LogDebug("Syncing task lists with delta query");
 
-        var deltaTokenMetadata = await db.SyncMetadata.FindAsync(TaskListsDeltaTokenKey);
+        var deltaTokenKey = GetTaskListsDeltaTokenKey(userId);
+        var deltaTokenMetadata = await db.SyncMetadata.FindAsync(deltaTokenKey);
         var deltaToken = deltaTokenMetadata?.Value;
 
         try
@@ -505,6 +532,7 @@ public class CachedTodoService(
                                     LastSyncUtc = now,
                                     CreatedUtc = now,
                                     UpdatedUtc = now,
+                                    UserId = userId,
                                 };
                                 db.CachedTaskLists.Add(cachedList);
                             }
@@ -534,9 +562,10 @@ public class CachedTodoService(
                         {
                             deltaTokenMetadata = new SyncMetadata
                             {
-                                Key = TaskListsDeltaTokenKey,
+                                Key = deltaTokenKey,
                                 Value = page.OdataDeltaLink,
                                 UpdatedUtc = DateTime.UtcNow,
+                                UserId = userId,
                             };
                             db.SyncMetadata.Add(deltaTokenMetadata);
                         }
@@ -567,17 +596,19 @@ public class CachedTodoService(
         }
     }
 
-    private async Task SyncTasksForListAsync(AppDbContext scopedDb, string listId, string? deltaToken)
+    private async Task SyncTasksForListAsync(AppDbContext scopedDb, string listId, string? deltaToken, string? userId = null)
     {
         if (string.IsNullOrEmpty(deltaToken))
             logger.LogWarning("Syncing tasks for list {ListId}: no delta token available, performing full sync — @removed items are not returned by a full sync so deleted tasks will not be detected", listId);
         else
             logger.LogDebug("Syncing tasks for list {ListId} with delta token", listId);
 
+        var resolvedUserId = userId ?? GetCurrentUserId();
+
         try
         {
             var firstPage = await graphClient.GetTasksDeltaPageAsync(listId, deltaToken);
-            await ProcessTasksDeltaPagesAsync(scopedDb, listId, firstPage);
+            await ProcessTasksDeltaPagesAsync(scopedDb, listId, firstPage, resolvedUserId);
         }
         catch (ObjectDisposedException)
         {
@@ -596,7 +627,7 @@ public class CachedTodoService(
     /// (OdataNextLink) until all pages are consumed, then saves the delta token.
     /// Shared by both single-list sync and batch sync paths.
     /// </summary>
-    private async Task ProcessTasksDeltaPagesAsync(AppDbContext scopedDb, string listId, GraphDeltaPage<Microsoft.Graph.Models.TodoTask> page)
+    private async Task ProcessTasksDeltaPagesAsync(AppDbContext scopedDb, string listId, GraphDeltaPage<Microsoft.Graph.Models.TodoTask> page, string userId)
     {
         while (true)
         {
@@ -647,6 +678,7 @@ public class CachedTodoService(
                                 LastSyncUtc = now,
                                 CreatedUtc = now,
                                 UpdatedUtc = now,
+                                UserId = userId,
                             };
                             scopedDb.CachedTasks.Add(cachedTask);
                         }
@@ -699,15 +731,16 @@ public class CachedTodoService(
         }
     }
 
-    private async Task ClearCacheAndInitialSyncAsync(AppDbContext db)
+    private async Task ClearCacheAndInitialSyncAsync(AppDbContext db, string userId)
     {
-        logger.LogInformation("Clearing cache and performing full rebuild");
+        logger.LogInformation("Clearing cache for user {UserId} and performing full rebuild", userId);
+        var deltaTokenKey = GetTaskListsDeltaTokenKey(userId);
         
-        await db.Database.ExecuteSqlRawAsync("DELETE FROM CachedTasks");
-        await db.Database.ExecuteSqlRawAsync("DELETE FROM CachedTaskLists");
-        await db.Database.ExecuteSqlRawAsync("DELETE FROM SyncMetadata WHERE Key = {0}", TaskListsDeltaTokenKey);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM CachedTasks WHERE UserId = {0}", userId);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM CachedTaskLists WHERE UserId = {0}", userId);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM SyncMetadata WHERE Key = {0}", deltaTokenKey);
         
-        await InitialSyncAsync(db);
+        await InitialSyncAsync(db, userId);
     }
 
     private static bool ShouldRebuildCache(Exception ex)

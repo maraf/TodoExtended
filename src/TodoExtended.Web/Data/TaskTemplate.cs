@@ -9,4 +9,6 @@ public class TaskTemplate
     public bool DueDateToday { get; set; }
     public TimeOnly? ReminderTime { get; set; }
     public int SortOrder { get; set; }
+    public required string UserId { get; set; }
+    public User? User { get; set; }
 }
