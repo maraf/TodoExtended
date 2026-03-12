@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Microsoft.Identity.Client;
 using TodoExtended.Web.Data;
 using System.Globalization;
 
@@ -165,6 +166,11 @@ public class CachedTodoService(
 
             await SyncAsync(db, userId);
         }
+        catch (MsalServiceException)
+        {
+            logger.LogWarning("Cache sync aborted: irrecoverable MSAL authentication failure (e.g. invalid_client). Re-throwing to trigger sign-out");
+            throw;
+        }
         catch (ObjectDisposedException)
         {
             logger.LogWarning("Cache sync aborted: authentication scope disposed (Blazor circuit likely disconnected). Serving stale cache");
@@ -188,6 +194,11 @@ public class CachedTodoService(
                 return;
 
             await SyncListsOnlyAsync(db, userId);
+        }
+        catch (MsalServiceException)
+        {
+            logger.LogWarning("Lists-only cache sync aborted: irrecoverable MSAL authentication failure. Re-throwing to trigger sign-out");
+            throw;
         }
         catch (ObjectDisposedException)
         {
@@ -222,6 +233,11 @@ public class CachedTodoService(
             await SyncTasksForListAsync(db, list.Id, list.DeltaToken, userId);
             list.LastSyncUtc = DateTime.UtcNow;
             await db.SaveChangesAsync();
+        }
+        catch (MsalServiceException)
+        {
+            logger.LogWarning("Single-list sync for {ListId} aborted: irrecoverable MSAL authentication failure. Re-throwing to trigger sign-out", taskListId);
+            throw;
         }
         catch (ObjectDisposedException)
         {
@@ -302,6 +318,11 @@ public class CachedTodoService(
             
             logger.LogInformation("Cache sync completed successfully");
         }
+        catch (MsalServiceException)
+        {
+            logger.LogWarning("Cache sync aborted: irrecoverable MSAL authentication failure (e.g. invalid_client)");
+            throw;
+        }
         catch (ObjectDisposedException)
         {
             logger.LogWarning("Cache sync aborted: authentication scope disposed (Blazor circuit likely disconnected)");
@@ -369,6 +390,11 @@ public class CachedTodoService(
             }
 
             logger.LogInformation("Lists-only cache sync completed successfully");
+        }
+        catch (MsalServiceException)
+        {
+            logger.LogWarning("Lists-only cache sync aborted: irrecoverable MSAL authentication failure");
+            throw;
         }
         catch (ObjectDisposedException)
         {
@@ -456,6 +482,10 @@ public class CachedTodoService(
             {
                 await using var scopedDb = await dbContextFactory.CreateDbContextAsync();
                 await ProcessTasksDeltaPagesAsync(scopedDb, kvp.Key, kvp.Value, userId);
+            }
+            catch (MsalServiceException)
+            {
+                logger.LogWarning("Task sync for list {ListId} aborted during batch: irrecoverable MSAL authentication failure", kvp.Key);
             }
             catch (ObjectDisposedException)
             {
@@ -570,6 +600,11 @@ public class CachedTodoService(
                 }
             }
         }
+        catch (MsalServiceException)
+        {
+            logger.LogWarning("Task lists delta sync aborted: irrecoverable MSAL authentication failure");
+            throw;
+        }
         catch (ObjectDisposedException)
         {
             logger.LogWarning("Task lists delta sync aborted: authentication scope disposed (Blazor circuit likely disconnected)");
@@ -593,6 +628,11 @@ public class CachedTodoService(
         {
             var firstPage = await graphClient.GetTasksDeltaPageAsync(listId, deltaToken);
             await ProcessTasksDeltaPagesAsync(scopedDb, listId, firstPage, userId);
+        }
+        catch (MsalServiceException)
+        {
+            logger.LogWarning("Task sync for list {ListId} aborted: irrecoverable MSAL authentication failure", listId);
+            throw;
         }
         catch (ObjectDisposedException)
         {

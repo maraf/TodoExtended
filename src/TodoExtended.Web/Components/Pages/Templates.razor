@@ -218,6 +218,11 @@ else
                 .Select(l => new PersistedTodoTaskList(l.Id, l.DisplayName))
                 .ToList();
         }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
+        }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
@@ -327,6 +332,11 @@ else
             _dialogVisible = false;
             ResetForm();
         }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
+        }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
@@ -349,6 +359,11 @@ else
             DateOnly? dueDate = template.DueDateToday ? DateOnly.FromDateTime(DateTime.Today) : null;
             await TodoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate, _userId!, template.ReminderTime);
             Notifications.Add($"Task \"{template.Title}\" created.", NotifySeverity.Success);
+        }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -377,6 +392,11 @@ else
             await TemplateService.DeleteAsync(templateId, _userId!);
             await RefreshTemplates();
             Notifications.Add("Template deleted.", NotifySeverity.Success);
+        }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {

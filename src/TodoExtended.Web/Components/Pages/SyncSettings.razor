@@ -246,6 +246,11 @@ else
             var userId = await GetUserIdAsync();
             _syncedLists = await TodoService.GetTaskListsAsync(userId);
         }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
+        }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
@@ -276,6 +281,11 @@ else
             _notSyncedLists = await TodoService.GetNotSyncedTaskListsAsync(userId);
             _notSyncedListsLoaded = true;
         }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
+        }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
@@ -304,6 +314,11 @@ else
             _notSyncedLists = [.. _notSyncedLists, list with { IsSynced = false }];
             Notifications.Add($"List \"{list.DisplayName}\" removed from sync.", NotifySeverity.Success);
         }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
+        }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
@@ -328,6 +343,11 @@ else
             _notSyncedLists = _notSyncedLists.Where(l => l.Id != listId).ToList();
             _syncedLists = [.. _syncedLists, list with { IsSynced = true }];
             Notifications.Add($"List \"{list.DisplayName}\" added to sync.", NotifySeverity.Success);
+        }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
@@ -380,6 +400,11 @@ else
             _selectedListIds.ExceptWith(ids);
             Notifications.Add($"{moved.Count} list(s) removed from sync.", NotifySeverity.Success);
         }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
+        }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
@@ -406,6 +431,11 @@ else
             _syncedLists = [.. _syncedLists, .. moved.Select(l => l with { IsSynced = true })];
             _selectedListIds.ExceptWith(ids);
             Notifications.Add($"{moved.Count} list(s) added to sync.", NotifySeverity.Success);
+        }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {

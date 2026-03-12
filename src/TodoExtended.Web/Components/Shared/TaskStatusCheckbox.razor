@@ -52,6 +52,11 @@ else
 
             await TodoService.UpdateTaskStatusAsync(ListId, TaskId, newStatus, userId);
         }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
+        }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);

@@ -170,6 +170,11 @@ else
 
             await RefreshKeys();
         }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
+        }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
@@ -222,6 +227,11 @@ else
             _formKeyName = "";
             Notifications.Add("API key created.", NotifySeverity.Success);
         }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
+        }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
@@ -253,6 +263,11 @@ else
             await ApiKeyService.RevokeKeyAsync(keyId, _userId!);
             await RefreshKeys();
             Notifications.Add("API key revoked.", NotifySeverity.Success);
+        }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
         }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {

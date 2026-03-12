@@ -171,6 +171,11 @@ else
                 .ToList();
             PersistedListId = ListId;
         }
+        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
+        {
+            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
+            return;
+        }
         catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
