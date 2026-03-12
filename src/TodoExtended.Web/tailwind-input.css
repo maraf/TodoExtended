@@ -123,10 +123,12 @@
   color: theme('colors.brand.400');
 }
 
-/* Select and time inputs always show label floated (they always display a value) */
+/* Select, time, and number inputs always show label floated (they always display a value) */
+/* time-picker-label is used by the custom TimePicker component */
 .floating-field .floating-select ~ .floating-label,
 .floating-field .floating-input[type="time"] ~ .floating-label,
-.floating-field .floating-input[type="number"] ~ .floating-label {
+.floating-field .floating-input[type="number"] ~ .floating-label,
+.floating-field .time-picker-label {
   top: 0.35rem;
   font-size: 0.7rem;
   font-weight: 600;
@@ -134,7 +136,8 @@
 }
 .dark .floating-field .floating-select ~ .floating-label,
 .dark .floating-field .floating-input[type="time"] ~ .floating-label,
-.dark .floating-field .floating-input[type="number"] ~ .floating-label {
+.dark .floating-field .floating-input[type="number"] ~ .floating-label,
+.dark .floating-field .time-picker-label {
   color: theme('colors.brand.400');
 }
 

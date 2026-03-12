@@ -138,10 +138,7 @@ else
             </div>
             @if (_formDueDateToday)
             {
-                <div class="floating-field">
-                    <input value="@_formReminderTime" @onchange="e => _formReminderTime = e.Value?.ToString()" type="time" placeholder=" " class="floating-input" />
-                    <label class="floating-label">Reminder Time (optional)</label>
-                </div>
+                <TimePicker Label="Reminder Time (optional)" @bind-Value="_formReminderTime" />
             }
             @if (_formError is not null)
             {
@@ -184,7 +181,7 @@ else
     private string _formTitle = "";
     private string _formTaskListId = "";
     private bool _formDueDateToday;
-    private string? _formReminderTime;
+    private TimeOnly? _formReminderTime;
     private int _formSortOrder;
     private Guid? _editingTemplateId;
 
@@ -250,7 +247,7 @@ else
         _formTitle = template.Title;
         _formTaskListId = template.TaskListId;
         _formDueDateToday = template.DueDateToday;
-        _formReminderTime = template.ReminderTime?.ToString("HH:mm");
+        _formReminderTime = template.ReminderTime;
         _formSortOrder = template.SortOrder;
         _formError = null;
         _dialogVisible = true;
@@ -285,12 +282,7 @@ else
             return;
         }
 
-        TimeOnly? reminderTime = null;
-        if (_formDueDateToday && !string.IsNullOrEmpty(_formReminderTime)
-            && TimeOnly.TryParseExact(_formReminderTime, "HH:mm", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var t))
-        {
-            reminderTime = t;
-        }
+        TimeOnly? reminderTime = _formDueDateToday ? _formReminderTime : null;
 
         _saving = true;
 
