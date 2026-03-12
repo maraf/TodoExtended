@@ -63,6 +63,17 @@ namespace TodoExtended.Web.Migrations
                 UPDATE SyncMetadata SET Key = 'TaskListsDeltaToken:' || (SELECT Id FROM Users LIMIT 1) WHERE Key = 'TaskListsDeltaToken' AND (SELECT COUNT(*) FROM Users) = 1;
                 """);
 
+            // Remove orphaned rows that couldn't be assigned to a user.
+            // These are cache/template rows with no valid owner — they'll be
+            // re-created on next sync. Required before FK enforcement because
+            // SQLite can't disable foreign_keys inside a transaction.
+            migrationBuilder.Sql("""
+                DELETE FROM TaskTemplates WHERE UserId NOT IN (SELECT Id FROM Users);
+                DELETE FROM CachedTasks WHERE UserId NOT IN (SELECT Id FROM Users);
+                DELETE FROM CachedTaskLists WHERE UserId NOT IN (SELECT Id FROM Users);
+                DELETE FROM SyncMetadata WHERE UserId IS NOT NULL AND UserId NOT IN (SELECT Id FROM Users);
+                """);
+
             migrationBuilder.CreateIndex(
                 name: "IX_TaskTemplates_UserId",
                 table: "TaskTemplates",
