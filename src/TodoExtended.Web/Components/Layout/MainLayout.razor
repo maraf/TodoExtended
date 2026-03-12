@@ -153,7 +153,7 @@
         if (AuthState is not null)
         {
             var authState = await AuthState;
-            _userId = authState.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
+            _userId = authState.User.GetUserIdOrNull();
             if (_userId is not null)
             {
                 _isDarkMode = await UserPreferenceService.GetIsDarkModeAsync(_userId);

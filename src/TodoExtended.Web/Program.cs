@@ -13,6 +13,7 @@ using TodoExtended.Web.Data;
 using TodoExtended.Web.Middleware;
 using TodoExtended.Web.Services;
 using TodoExtended.Web.Services.AiChat;
+using TodoExtended.Web.Extensions;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -72,7 +73,7 @@ else
         if (isApiKey && context != null)
         {
             // API key flow: use factory to create client with MSAL cache lookup
-            var userId = context.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")!.Value;
+            var userId = context.User.GetUserId();
             var factory = sp.GetRequiredService<ApiKeyGraphClientFactory>();
             return factory.CreateForUser(userId);
         }
@@ -357,22 +358,18 @@ if (isDemoMode)
 // API Endpoints
 var api = app.MapGroup("/api").RequireAuthorization().DisableAntiforgery();
 
-static string GetUserId(HttpContext context) =>
-    context.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
-    ?? context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-    ?? throw new UnauthorizedAccessException("User ID not found in claims");
 
 // Template endpoints
 api.MapGet("/templates", async (HttpContext context, ITemplateService templateService) =>
 {
-    var userId = GetUserId(context);
+    var userId = context.User.GetUserId();
     var templates = await templateService.GetAllAsync(userId);
     return Results.Ok(templates);
 });
 
 api.MapPost("/templates/{id}/execute", async (Guid id, HttpContext context, ITemplateService templateService) =>
 {
-    var userId = GetUserId(context);
+    var userId = context.User.GetUserId();
     try
     {
         var task = await templateService.ExecuteTemplateAsync(id, userId);
@@ -387,7 +384,7 @@ api.MapPost("/templates/{id}/execute", async (Guid id, HttpContext context, ITem
 // Today's tasks endpoint
 api.MapGet("/today", async (HttpContext context, ITodoService todoService) =>
 {
-    var userId = GetUserId(context);
+    var userId = context.User.GetUserId();
     var tasks = await todoService.GetTodayTasksAsync(userId);
     return Results.Ok(tasks.Select(t => new ApiTodoTaskWithList(
         t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance, t.ListId, t.ListName)));
@@ -396,7 +393,7 @@ api.MapGet("/today", async (HttpContext context, ITodoService todoService) =>
 // Mark task as completed
 api.MapPost("/tasks/{taskListId}/{taskId}/complete", async (string taskListId, string taskId, HttpContext context, ITodoService todoService) =>
 {
-    var userId = GetUserId(context);
+    var userId = context.User.GetUserId();
     await todoService.UpdateTaskStatusAsync(taskListId, taskId, completed: true, userId);
     return Results.Ok(new { status = "completed" });
 });
@@ -404,7 +401,7 @@ api.MapPost("/tasks/{taskListId}/{taskId}/complete", async (string taskListId, s
 // Synced task lists
 api.MapGet("/tasklists", async (HttpContext context, ITodoService todoService) =>
 {
-    var userId = GetUserId(context);
+    var userId = context.User.GetUserId();
     var lists = await todoService.GetTaskListsAsync(userId);
     return Results.Ok(lists.Where(l => l.IsSynced).Select(l => new ApiTaskList(l.Id, l.DisplayName)));
 });
@@ -412,7 +409,7 @@ api.MapGet("/tasklists", async (HttpContext context, ITodoService todoService) =
 // Tasks for a specific list
 api.MapGet("/tasklists/{listId}/tasks", async (string listId, HttpContext context, ITodoService todoService) =>
 {
-    var userId = GetUserId(context);
+    var userId = context.User.GetUserId();
     var tasks = await todoService.GetTasksAsync(listId, userId);
     return Results.Ok(tasks.Select(t => new ApiTodoTask(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance)));
 });

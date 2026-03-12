@@ -53,8 +53,7 @@
             var state = await AuthState;
             if (state.User.Identity?.IsAuthenticated != true) return;
 
-            var userId = state.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
-                ?? state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var userId = state.User.GetUserIdOrNull();
             if (string.IsNullOrEmpty(userId)) return;
 
             TaskLists = (await TodoService.GetTaskListsAsync(userId))

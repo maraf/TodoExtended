@@ -160,7 +160,7 @@ else
         try
         {
             var authState = await AuthState!;
-            _userId = authState.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
+            _userId = authState.User.GetUserIdOrNull();
 
             if (string.IsNullOrEmpty(_userId))
             {

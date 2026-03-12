@@ -232,8 +232,7 @@
             var state = await AuthState;
             if (state.User.Identity?.IsAuthenticated == true)
             {
-                _userId = state.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
-                    ?? state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                _userId = state.User.GetUserIdOrNull();
 
                 if (string.IsNullOrEmpty(_userId))
                 {

@@ -115,9 +115,7 @@ else
         try
         {
             var authState = await AuthState!;
-            var userId = authState.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
-                ?? authState.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                ?? throw new InvalidOperationException("User not authenticated");
+            var userId = authState.User.GetUserId();
 
             Logger.LogDebug("OnInitializedAsync: TodayTasks not in persistent state, fetching fresh");
             TodayTasks = (await TodoService.GetTodayTasksAsync(userId))

@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
+using TodoExtended.Web.Extensions;
 using TodoExtended.Web.Services;
 using TodoExtended.Web.Data;
 
@@ -26,9 +27,8 @@ public class ChatService(
     private static readonly HashSet<string> WriteTools = ["create_task", "complete_task", "uncomplete_task", "create_template", "update_template", "delete_template", "execute_template"];
 
     private string GetCurrentUserId() =>
-        httpContextAccessor.HttpContext?.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
-        ?? httpContextAccessor.HttpContext?.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-        ?? throw new InvalidOperationException("User ID not found in claims");
+        httpContextAccessor.HttpContext?.User.GetUserIdOrNull()
+        ?? throw new InvalidOperationException("User not authenticated");
 
     private const string SystemPrompt = """
         You are a helpful task management assistant for the TodoExtended app.

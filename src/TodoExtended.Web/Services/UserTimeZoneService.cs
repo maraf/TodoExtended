@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using TodoExtended.Web.Data;
+using TodoExtended.Web.Extensions;
 
 namespace TodoExtended.Web.Services;
 
@@ -11,16 +12,7 @@ public class UserTimeZoneService(
 {
     public async Task<TimeZoneInfo> GetCurrentUserTimeZoneAsync()
     {
-        var oid = httpContextAccessor.HttpContext?.User
-            .FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
-
-        if (string.IsNullOrEmpty(oid))
-        {
-            // API key auth — try to get user ID from claims
-            var userIdClaim = httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (!string.IsNullOrEmpty(userIdClaim))
-                oid = userIdClaim;
-        }
+        var oid = httpContextAccessor.HttpContext?.User.GetUserIdOrNull();
 
         if (!string.IsNullOrEmpty(oid))
         {

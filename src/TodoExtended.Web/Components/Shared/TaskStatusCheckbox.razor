@@ -48,9 +48,7 @@ else
         try
         {
             var state = await AuthState!;
-            var userId = state.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
-                ?? state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-                ?? throw new InvalidOperationException("User not authenticated");
+            var userId = state.User.GetUserId();
 
             await TodoService.UpdateTaskStatusAsync(ListId, TaskId, newStatus, userId);
         }

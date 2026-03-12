@@ -132,9 +132,7 @@ else
     {
         if (_userId is not null) return _userId;
         var state = await AuthState!;
-        _userId = state.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value
-            ?? state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-            ?? throw new InvalidOperationException("User not authenticated");
+        _userId = state.User.GetUserId();
         return _userId;
     }
 
