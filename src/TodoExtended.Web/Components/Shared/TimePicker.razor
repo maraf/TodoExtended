@@ -1,0 +1,133 @@
+<div class="floating-field @Class">
+    <button type="button" @onclick="ToggleDropdown"
+            class="floating-input w-full text-left cursor-pointer pr-9">
+        @if (Value is not null)
+        {
+            <span class="font-medium">@Value.Value.ToString("HH:mm")</span>
+        }
+        else
+        {
+            <span class="text-slate-400 dark:text-slate-500">Select time…</span>
+        }
+    </button>
+    <svg class="absolute right-4 bottom-3 w-3.5 h-3.5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <label class="floating-label time-picker-label">@Label</label>
+
+    @if (_open)
+    {
+        <div class="fixed inset-0 z-40" @onclick="CloseDropdown"></div>
+        <div class="absolute z-50 top-full left-0 mt-1.5 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-fade-in" style="min-width: 244px">
+            <div class="p-3">
+                @if (_pendingHour is null)
+                {
+                    <p class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 px-0.5">Select Hour</p>
+                    <div class="grid grid-cols-6 gap-1">
+                        @for (int h = 0; h < 24; h++)
+                        {
+                            var hour = h;
+                            <button type="button" @onclick="() => SelectHour(hour)"
+                                    class="@HourButtonClass(hour)">
+                                @hour.ToString("D2")
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="flex items-center justify-between mb-2 px-0.5">
+                        <button type="button" @onclick="BackToHour"
+                                class="text-xs text-brand-600 hover:text-brand-800 dark:text-brand-400 dark:hover:text-brand-300 font-semibold flex items-center gap-1 transition-colors">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                            @_pendingHour.Value.ToString("D2"):__
+                        </button>
+                        <p class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Minute</p>
+                    </div>
+                    <div class="grid grid-cols-4 gap-1">
+                        @foreach (var min in _minuteOptions)
+                        {
+                            var minute = min;
+                            <button type="button" @onclick="() => SelectMinute(minute)"
+                                    class="@MinuteButtonClass(minute)">
+                                @minute.ToString("D2")
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+            @if (Value is not null)
+            {
+                <div class="border-t border-slate-100 dark:border-slate-700 px-3 py-2">
+                    <button type="button" @onclick="ClearValue"
+                            class="w-full text-xs text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors text-center">
+                        Clear
+                    </button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter] public TimeOnly? Value { get; set; }
+    [Parameter] public EventCallback<TimeOnly?> ValueChanged { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private static readonly int[] _minuteOptions = Enumerable.Range(0, 12).Select(i => i * 5).ToArray();
+
+    private bool _open;
+    private int? _pendingHour;
+
+    private void ToggleDropdown()
+    {
+        _open = !_open;
+        if (_open) _pendingHour = null;
+    }
+
+    private void CloseDropdown()
+    {
+        _open = false;
+        _pendingHour = null;
+    }
+
+    private void SelectHour(int hour)
+    {
+        _pendingHour = hour;
+    }
+
+    private void BackToHour()
+    {
+        _pendingHour = null;
+    }
+
+    private async Task SelectMinute(int minute)
+    {
+        if (_pendingHour is null) return;
+        await ValueChanged.InvokeAsync(new TimeOnly(_pendingHour.Value, minute));
+        _open = false;
+        _pendingHour = null;
+    }
+
+    private async Task ClearValue()
+    {
+        await ValueChanged.InvokeAsync(null);
+        _open = false;
+        _pendingHour = null;
+    }
+
+    private string HourButtonClass(int hour) =>
+        "py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer " +
+        (Value is not null && Value.Value.Hour == hour
+            ? "bg-brand-600 text-white"
+            : "text-slate-600 dark:text-slate-300 hover:bg-brand-50 dark:hover:bg-slate-700");
+
+    private string MinuteButtonClass(int minute) =>
+        "py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer " +
+        (Value is not null && Value.Value.Minute == minute
+            ? "bg-brand-600 text-white"
+            : "text-slate-600 dark:text-slate-300 hover:bg-brand-50 dark:hover:bg-slate-700");
+}
