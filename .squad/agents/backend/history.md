@@ -2,168 +2,66 @@
 
 <!-- Session logs appended by Scribe -->
 
+## Recent Work
+
+### 2026-03-12 — Per-User Data Scoping Implementation Complete
+
+Implemented per-user data isolation across all locally-stored entities following Architect's audit:
+
+**Schema Changes:**
+- Added `UserId` (required, string) to TaskTemplate, CachedTaskList, CachedTask
+- Added `UserId` (nullable, string) to SyncMetadata for backward compat
+- Created EF Core migration 20260312100300_AddUserIdToDataEntities
+- Added indexes: CachedTaskList(UserId, IsSynced), CachedTask(UserId, IsDeleted, DueDate), TaskTemplate(UserId)
+
+**Service Layer Changes:**
+- **TemplateService:** Switched from AppDbContext DI to IDbContextFactory; all methods require explicit `string userId` parameter
+- **CachedTodoService:** Uses IHttpContextAccessor to extract userId internally; all cache queries filter by UserId; per-user delta tokens via `$"TaskListsDeltaToken:{userId}"`; per-user sync locks via `ConcurrentDictionary<string, SemaphoreSlim>`; per-user cache clearing (DELETE WHERE UserId = userId)
+- **ChatService:** Passes userId to all ITemplateService calls
+
+**API Endpoint Updates:**
+- Template endpoints extract userId from claims (OID claim), pass to service methods
+
+**Blazor Page Updates:**
+- Templates.razor, Home.razor: Extract userId from AuthenticationStateProvider claims, pass to service calls
+- ApiKeys.razor: Verified pattern consistency (no changes)
+
+**Backward Compatibility:**
+- EF Core migration assigns all orphaned existing data to single user (first in Users table)
+- Demo mode: templates assigned to "demo-user" identity
+- No breaking changes to public APIs
+
+**Build & Test:**
+- ✅ Build: Clean (0 errors, 0 warnings)
+- ✅ Unit Tests: 21 passing
+- ✅ Manual testing: No regressions
+
+**Decision Document:** Merged `.squad/decisions/inbox/backend-user-scoping-impl.md` into `.squad/decisions/decisions.md`; inbox file deleted.
+
+**Orchestration Log:** `.squad/orchestration-log/20260312T100300Z-backend.md`
+
 ## Core Context
 
-### Framework Evolution: Bootstrap → Flowbite → MudBlazor
+**Established Implementation & Patterns (pre-2026-03-12):**
 
-The backend infrastructure underwent two major framework migrations between 2025-07-17 and 2026-03-06:
+1. **UI Framework:** Migrated Bootstrap → Flowbite → MudBlazor v9. All 8 components (MainLayout, NavMenu, Home, Today, Tasks, Templates, ApiKeys, TaskStatusCheckbox) successfully rewritten with MudBlazor v9.1.0.
+2. **Service Layer:** GraphTodoService provides raw Graph API access. CachedTodoService wraps it with SQLite cache layer. Methods: GetTaskListsAsync, GetTasksAsync, GetTodayTasksAsync, CreateTaskAsync, UpdateTaskStatusAsync, SetTaskListArchivedAsync.
+3. **Delta Caching:** Tracks delta tokens per list, handles pagination, detects soft deletes via @removed, rebuilds cache on 410 Gone. Cache staleness threshold configurable (default 5 min).
+4. **API Key Auth:** Custom ApiKeyAuthenticationHandler validates SHA256 hashes. UserSyncMiddleware auto-creates User records on OIDC. ApiKeyService generates base64url keys prefixed `tek_`. Minimal APIs for /api/templates, /api/today, /api/keys.
+5. **Token Persistence:** SqliteDistributedCache + ApiKeyGraphClientFactory enable API key users to call Graph API via cached MSAL tokens. Custom ITokenCacheSerializer hooks MSAL token events.
+6. **Parallel Sync:** SyncTasksForListsInParallelAsync uses Task.WhenAll + SemaphoreSlim throttle (default 4 concurrent). SQLite WAL mode enabled for concurrent I/O.
+7. **DbContext Lifetimes:** IDbContextFactory<AppDbContext> used for short-lived contexts (fixes Blazor Server circuit re-initialization issues). SimpleDbContextFactory singleton provides DbContext to singleton services.
+8. **Task Archiving:** IsArchived bool on CachedTaskList. SetTaskListArchivedAsync / GetArchivedTaskListsAsync for CRUD.
+9. **Date Handling:** Graph API dueDateTime is dateTimeTimeZone (dateTime string + timeZone). Parsed to DateOnly via ParseDueDate helper to prevent timezone-induced date shifts.
+10. **Garmin Watch:** Separate Monkey C project in garmin/TodoExtended.Watch/. Device App communicates via Communications.makeWebRequest(). v1 features: view today tasks, complete tasks, execute templates.
 
-1. **2025-07-17: Bootstrap → Flowbite Blazor (v0.2.6-beta)**
-   - Installed `Flowbite` NuGet package, registered `AddFlowbite()` service
-   - Swapped Bootstrap CDN for Tailwind CSS v4 browser build
-   - Updated `_Imports.razor` with Flowbite namespaces; `App.razor` with CDN + `<ToastHost/>`
-   - Removed Bootstrap scoped CSS (`MainLayout.razor.css`, `NavMenu.razor.css`)
-   - Fixed `System.Diagnostics.Activity` ambiguity in Error.razor (Flowbite also defines `Activity` type)
-   - Build clean, ready for Frontend redesign
 
-2. **2026-03-06: Flowbite → MudBlazor v9.1.0**
-   - Removed Flowbite package, added MudBlazor v9.1.0 via NuGet
-   - Updated `_Imports.razor`: removed 7 Flowbite usings, added single `@using MudBlazor`
-   - Updated `App.razor`: removed Tailwind/Flowbite setup, added Roboto font + 4 MudBlazor providers (MudThemeProvider, MudPopoverProvider, MudDialogProvider, MudSnackbarProvider)
-   - `AddMudServices()` registered in `Program.cs`
-   - Build clean
 
 ### Service Layer Enhancements
 
-- **`GetTodayTasksAsync(CancellationToken)`:** Aggregates tasks from all lists with due date matching today. Uses OData `$filter` on `dueDateTime` for server-side filtering (reduces payload). Returns `IEnumerable<TodoTaskWithList>` record with list context (ListId, ListName).
-- **`CreateTaskAsync(TodoTask, DateOnly?)`:** POSTs tasks to Graph with optional DueDateTime (UTC midnight of given date).
-- **`UpdateTaskStatusAsync(listId, taskId, completed)`:** Patches task status via `Me.Todo.Lists[].Tasks[]` with `TaskStatus.Completed` or `NotStarted`.
-- **Task Sorting:** Applied consistently across methods — incomplete first → by importance (high/normal/low) → alphabetical fallback. Matches official Microsoft To Do app.
-- **Error Handling:** MSAL consent errors (`MicrosoftIdentityWebChallengeUserException`) caught before generic `Exception`. Redirect uses `NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true)` to break SignalR circuit + force HTTP redirect.
+(Detailed learnings moved to Core Context section above)
 
-### Delta Query Caching Implementation
 
-Replaces real-time per-call Graph API hits with local SQLite cache + delta sync:
-
-- **Entities:** `CachedTaskList`, `CachedTask`, `SyncMetadata` (in `AppDbContext`)
-- **Cache-First Reads:** `CachedTodoService` decorates `GraphTodoService`, routes `GetTasksAsync()` / `GetTodayTasksAsync()` to local cache
-- **Delta Sync:** Tracks delta tokens per list, handles pagination (`@odata.nextLink`), detects deletions via `@removed` annotation (soft delete via `IsDeleted` flag), rebuilds cache on 410 Gone
-- **Optimistic Writes:** `CreateTaskAsync` / `UpdateTaskStatusAsync` update cache immediately after Graph API success
-- **Staleness Threshold:** Configurable via `TodoCacheOptions.CacheStalenessDurationMinutes` (default 5 min)
-- **DI Pattern:** `GraphTodoService` registered directly (not via interface), `ITodoService` → `CachedTodoService`
-- **EF Core Indexes:** `ListId`, `(IsDeleted, DueDate)`, `(ListId, IsDeleted)` for efficient filtering + cascade delete on list removal
-
-### API Key Authentication System
-
-Complete implementation with SHA256 hashing + token caching:
-
-- **Entities:** `User`, `ApiKey` (hash + revocation), `UserToken` (encrypted MSAL cache)
-- **ApiKeyAuthenticationHandler:** Validates keys via SHA256 comparison, creates claims (OID, email), updates last-used timestamp
-- **UserSyncMiddleware:** Auto-creates/updates User records on OIDC sign-in, captures `tid` claim for `homeAccountId` computation (`{oid}.{tid}`)
-- **ApiKeyService:** Generates 32-byte base64url keys prefixed `tek_`, manages CRUD, returns plain key only at creation
-- **Key Routing:** Authorization policy accepts both OIDC and API key schemes
-- **Minimal APIs:** `/api/templates`, `/api/templates/{id}/execute`, `/api/today`, `/api/keys` secured with `RequireAuthorization()`
-- **V2 - Persistent Token Cache:** `SqliteDistributedCache` (IDistributedCache impl) + `ApiKeyGraphClientFactory` enable API key-authenticated requests to call MS Graph via cached MSAL tokens
-- **IDbContextFactory Pattern:** `SimpleDbContextFactory` singleton provides DbContext to singleton services (cache) without scope conflicts
-
-### Task List Archiving
-
-- **Entity:** `IsArchived` bool added to `CachedTaskList`
-- **Filtering:** `GetTaskListsAsync`, `IsCacheStaleAsync`, `DeltaSyncAsync` all filter archived lists
-- **CRUD:** New `SetTaskListArchivedAsync` / `GetArchivedTaskListsAsync` methods on `ITodoService`
-- **DTO:** `TodoTaskList` record carries `IsArchived` (default false, backward compatible)
-
-### Parallel List Sync & Performance
-
-- **`SyncTasksForListsInParallelAsync`:** Uses `Task.WhenAll` + `SemaphoreSlim` throttle (configurable via `MaxParallelListSync`, default 4)
-- **SQLite WAL Mode:** Enabled programmatically at startup (`PRAGMA journal_mode=WAL`) for concurrent read/write support needed by parallel sync
-- **DbContext Factory:** Each parallel task creates its own DbContext via `IDbContextFactory<AppDbContext>` to avoid thread-safety issues
-
-### Key Technical Patterns
-
-- **Due Date Handling:** Graph API `dueDateTime` is `dateTimeTimeZone` with `dateTime` (string) + `timeZone` fields. Parsed to `DateOnly` via `DateTimeStyles.RoundtripKind` + `DateOnly.FromDateTime()` to prevent timezone-induced date shifts. Helper `ParseDueDate` available in both `GraphTodoService` and `CachedTodoService`.
-- **OData Filtering:** Slash notation for complex type properties (`dueDateTime/dateTime ge '2024-01-15T00:00:00'`). Complex `$filter` with parentheses/`or` unreliable; simple `and` conditions work.
-- **Error Responses:** REST API uses Results.Ok/BadRequest/NotFound/Unauthorized/NoContent consistent with minimal API conventions.
-- **Request DTOs:** Records at bottom of `Program.cs`
-
-### Key Files
-
-- Service: `ITodoService.cs`, `GraphTodoService.cs`, `CachedTodoService.cs`, `ITemplateService.cs`, `TemplateService.cs`
-- Data: `AppDbContext.cs`, `CachedTaskList.cs`, `CachedTask.cs`, `TodoCacheOptions.cs`
-- Auth: `ApiKeyAuthenticationHandler.cs`, `UserSyncMiddleware.cs`, `ApiKeyService.cs`
-- DI/Infrastructure: `Program.cs`, `SimpleDbContextFactory.cs`
-
----
-
-## 2026-03-06: Flowbite Blazor Migration Complete
-
-**Session:** Flowbite Blazor Setup (2026-03-06T09:33Z)
-
-Infrastructure migration to Flowbite component library complete. All Bootstrap references removed. Tailwind CSS v4 CDN configured. Services registered.
-
-### Completed Tasks
-
-- ✅ Installed Flowbite.Blazor v0.2.6-beta via NuGet
-- ✅ Registered `AddFlowbite()` service in Program.cs
-- ✅ Swapped Bootstrap CDN for Tailwind CSS v4 browser build (`https://cdn.jsdelivr.net/npm/@@tailwindcss/browser@@4`)
-- ✅ Added `<ToastHost />` to App.razor for toast notifications
-- ✅ Updated _Imports.razor with Flowbite namespaces
-- ✅ Removed all Bootstrap CSS references from app.css
-- ✅ Fixed `Activity` type ambiguity by fully qualifying `System.Diagnostics.Activity` in Error.razor
-
-### Cross-Team Coordination
-
-**Frontend:** Simultaneously redesigned all 8 UI files (MainLayout, NavMenu, Home, Today, Tasks, Templates, ApiKeys, TaskStatusCheckbox) with Flowbite components + Tailwind CSS. Breaking change mitigated by parallel execution.
-
-### Technical Details
-
-- Package: Flowbite.Blazor v0.2.6-beta (prerelease, targets net10.0)
-- Namespace imports: `Flowbite`, `Flowbite.Components`, `Flowbite.Icons` added globally
-- Tailwind v4 browser build via CDN for development (must replace with build pipeline for production)
-- Bootstrap scoped CSS (MainLayout.razor.css, NavMenu.razor.css) deleted
-- All Bootstrap classes removed from app.css
-
-### Build Status
-
-✅ Clean build, no errors, no warnings
-
-## Cross-Team Coordination
-
-**Frontend:** Today.razor page at `/today` consumes `GetTodayTasksAsync()`. Displays tasks in list-group with completion toggles, high-priority badges, and list name context. Nav link placed top for prominence.
-
-## Learnings
-
-- `TodoTaskWithList` record introduced to carry list context (ListId, ListName) when aggregating tasks across multiple lists. Same field structure as `TodoTask` plus list info.
-- Graph API `dueDateTime` is a `dateTimeTimeZone` with separate `dateTime` (string) and `timeZone` fields. The To Do API defaults to UTC when no timezone is specified.
-- Due dates are date-only concepts — DTOs use `DateOnly?` (not `DateTimeOffset?`) to prevent timezone-induced date shifts. Parsing uses `DateTime.Parse` with `DateTimeStyles.RoundtripKind` + `DateOnly.FromDateTime()` to extract the date without local timezone conversion.
-- The `ParseDueDate` helper in `GraphTodoService` handles the `dateTimeTimeZone` → `DateOnly` conversion.
-- The OData filter for "today" uses `DateOnly.FromDateTime(DateTime.UtcNow)` to match UTC-stored dates in Graph.
-- Key files: `src/TodoExtended.Web/Services/ITodoService.cs` (interface + DTOs), `src/TodoExtended.Web/Services/GraphTodoService.cs` (Graph implementation).
-- Pattern: return empty collection `[]` for null Graph responses; iterate lists to aggregate cross-list results.
-- MSAL consent fix (IDW10502): In Blazor Interactive Server, `MicrosoftIdentityWebChallengeUserException` must be caught before generic `Exception` in all Graph API call sites. The fix uses `NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true)` to break out of the SignalR circuit and trigger a full HTTP redirect to re-authenticate. The `forceLoad: true` is critical — without it, Blazor tries to handle it client-side within the circuit.
-- Pages modified for consent handling: `Tasks.razor` (3 catch sites: OnInitializedAsync, SelectList), `Today.razor` (1 catch site: OnInitializedAsync).
-- Graph To Do API supports `$filter` on `dueDateTime/dateTime` using `ge`/`lt` for date range queries. The SDK exposes `Filter`, `Select`, `Orderby`, `Top`, `Skip`, `Count`, `Search`, `Expand` on the Tasks endpoint (`TasksRequestBuilderGetQueryParameters`).
-- OData filter syntax for complex type properties uses slash notation: `dueDateTime/dateTime ge '2024-01-15T00:00:00'`.
-- Complex `$filter` with parentheses and `or` grouping can be unreliable on the To Do API; simple `and` between two conditions works.
-- `GetTodayTasksAsync` refactored from client-side to server-side filtering, reducing payload from all tasks to only today's tasks per list.
-- Debug logging added to `GraphTodoService` via `ILogger<GraphTodoService>` (primary constructor injection). Logs raw `dueDateTime.DateTime`, `timeZone`, and parsed `DateOnly` in `ParseDueDate`; logs Graph filter string and per-task raw dueDateTime in `GetTodayTasksAsync`; logs per-task raw dueDateTime in `GetTasksAsync`. All at `LogDebug` level to aid due-date troubleshooting without noise in production.
-- Task sorting implemented to match official Microsoft To Do app: incomplete first → by importance (high→normal→low) → alphabetical title fallback. Applied consistently to both `GetTodayTasksAsync` and `GetTasksAsync`. Graph API importance values are "High", "Normal", "Low" (from `Importance` enum `.ToString()`); `ImportanceSortOrder` helper uses case-insensitive matching. Sorting is done in-memory after mapping to DTOs.
-- EF Core 9.0.7 + SQLite added for local persistence. `AppDbContext` in `TodoExtended.Web.Data` with primary constructor. Auto-migrates at startup in `Program.cs`.
-- `TaskTemplate` entity stores title, Graph task list ID/name, DueDateToday flag, and SortOrder. No user ID — single-user local app.
-- `CreateTaskAsync` added to `ITodoService`/`GraphTodoService` — POSTs a `TodoTask` to Graph with optional `DueDateTime` (UTC midnight of the given date).
-- `ITemplateService`/`TemplateService` provides CRUD + `ExecuteTemplateAsync` which loads a template, computes due date, and delegates to `ITodoService.CreateTaskAsync`.
-- `dotnet-ef` global tool needed for migrations — not installed by default on fresh machines.
-- EF Core packages: `Microsoft.EntityFrameworkCore.Sqlite` (runtime) + `Microsoft.EntityFrameworkCore.Design` (design-time, PrivateAssets=all).
-- `UpdateTaskStatusAsync(taskListId, taskId, completed)` added to `ITodoService`/`GraphTodoService`. Uses `PatchAsync` on `Me.Todo.Lists[].Tasks[]` with `Microsoft.Graph.Models.TaskStatus.Completed` or `NotStarted`. Simple fire-and-forget patch — no return value needed since the UI can optimistically toggle state.
-- **Delta Query Caching:** Implemented per Architect's design. Three new entities: `CachedTaskList`, `CachedTask`, `SyncMetadata`. `CachedTodoService` decorates `GraphTodoService` with cache-first reads and Microsoft Graph delta query sync. Tracks delta tokens per list, handles pagination (`@odata.nextLink`), detects deletions via `@removed` annotation (soft delete), and rebuilds cache on 410 Gone. Uses `SemaphoreSlim` to prevent concurrent syncs. Optimistic writes update cache immediately after Graph API success. Staleness threshold configurable via `appsettings.json` (default 5 minutes). Full implementation includes initial cold cache sync and incremental warm cache delta sync.
-- Delta query API pattern: initial call without token, subsequent calls use `WithUrl(deltaLink)` where deltaLink is the full URL from `@odata.deltaLink`. Pagination handled via `@odata.nextLink`. Final page contains `@odata.deltaLink` for next sync.
-- EF Core indexes on `CachedTask`: `ListId`, `(IsDeleted, DueDate)`, `(ListId, IsDeleted)` for efficient filtering. Cascade delete on `CachedTaskList` removal.
-- `ParseDueDate` logic duplicated from `GraphTodoService` into `CachedTodoService` for converting Graph `DateTimeTimeZone` to `DateOnly` during cache sync.
-- DI registration changed: `GraphTodoService` registered directly (not via interface), `ITodoService` points to `CachedTodoService`. `TodoCacheOptions` bound from `appsettings.json` via options pattern.
-- **API Key Authentication:** Implemented complete system with `User`, `ApiKey`, `UserToken` entities. `ApiKeyAuthenticationHandler` validates keys via SHA256 hash, creates claims including OID, updates last-used timestamps. `UserSyncMiddleware` auto-creates/updates User records on OIDC sign-in. `ApiKeyService` generates 32-byte base64url keys prefixed `tek_`, manages CRUD operations. Authorization policy accepts both OIDC and API key schemes. Minimal API endpoints (`/api/templates`, `/api/templates/{id}/execute`, `/api/today`, `/api/keys`) secured with `RequireAuthorization()`. Token caching kept in-memory for V1 — API calls work while user's OIDC session is active on server. Keys stored as SHA256 hex hashes, plain key returned only once at creation time.
-- EF Core entity configurations: User ID max 256 chars, email indexed. ApiKey hash indexed, composite index on (UserId, IsRevoked). UserToken stores EncryptedCacheData as byte[] (BLOB) with 1:1 relationship to User.
-- API key format: `tek_` prefix + 43 chars base64url (32 random bytes). Hash computed via SHA256, stored as lowercase hex string.
-- REST API patterns: minimal APIs with route groups, `HttpContext.User` claims extraction, Results.Ok/BadRequest/NotFound/Unauthorized/NoContent responses. Request DTOs as records at bottom of Program.cs.
-
-- **V2 - Persistent MSAL Token Cache:** Replaced in-memory token cache with SQLite-backed `IDistributedCache` implementation. MSAL tokens are now persisted to database, enabling API key-authenticated requests to call MS Graph by loading cached refresh tokens. Created `SqliteDistributedCache` (implements `IDistributedCache` using `DistributedCacheEntry` table with expiration support), `ApiKeyGraphClientFactory` (creates `GraphServiceClient` for API key users by loading cached MSAL tokens and calling `AcquireTokenSilent`), and `OidcTokenProvider` (wraps `ITokenAcquisition` for OIDC flow). Added `HomeAccountId` field to User entity to store MSAL cache key (`{oid}.{tid}` format) captured during OIDC sign-in. Program.cs now overrides `GraphServiceClient` registration with factory that routes to API key or OIDC path based on claims. MSAL cache keys stored with user's home account ID prefix in distributed cache. Migration `AddPersistentTokenCache` adds `DistributedCacheEntries` table and `HomeAccountId` column to Users.
-- EF Core `IDbContextFactory<T>` singleton pattern: Created `SimpleDbContextFactory` to provide DbContext instances to singleton services (like `SqliteDistributedCache`) without scope conflicts. Factory manually constructs `DbContextOptions` with connection string and returns new contexts per call. Registered as singleton alongside scoped `AddDbContext`.
-- Microsoft.Identity.Web distributed cache integration: `AddDistributedTokenCaches()` automatically uses registered `IDistributedCache` for MSAL persistence. Cache entries are binary-serialized MSAL cache data with sliding expiration (90 days). MSAL's `UserTokenCache.SetBeforeAccessAsync` / `SetAfterAccessAsync` hooks load/save from distributed cache using `DeserializeMsalV3` / `SerializeMsalV3`.
-- MSAL token acquisition for API keys: Build `ConfidentialClientApplication` manually, attach distributed cache via event hooks, get cached account by `HomeAccountId`, call `AcquireTokenSilent` with Graph scopes. On `MsalUiRequiredException`, fail gracefully with clear error message directing user to sign in again via OIDC.
-- `UserSyncMiddleware` enhancements: Now captures `tid` claim from OIDC, computes `homeAccountId` as `{oid}.{tid}`, and stores it in User entity during sign-in. This enables cache key lookup for API key flows.
-- **Task List Archiving:** Added `IsArchived` bool to `CachedTaskList` entity. `GetTaskListsAsync` / `IsCacheStaleAsync` / `DeltaSyncAsync` all filter out archived lists. New `SetTaskListArchivedAsync` and `GetArchivedTaskListsAsync` methods on `ITodoService`. `TodoTaskList` record now carries `IsArchived` (default false for backward compat). `GraphTodoService` stubs throw `NotSupportedException` / return empty.
-- **Parallel List Sync:** `SyncTasksForListAsync` now accepts an `AppDbContext` parameter. Both `InitialSyncAsync` and `DeltaSyncAsync` call `SyncTasksForListsInParallelAsync` which uses `Task.WhenAll` + `SemaphoreSlim` throttle (configurable via `MaxParallelListSync` in `TodoCacheOptions`, default 4). Each parallel task creates its own `AppDbContext` via `IDbContextFactory<AppDbContext>` to avoid thread-safety issues.
-- **SQLite WAL Mode:** Set programmatically at startup in `Program.cs` after migration via `PRAGMA journal_mode=WAL;`. This allows concurrent readers/writers needed for parallel sync. Connection string left unchanged.
-- Key files modified: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoService.cs`, `GraphTodoService.cs`, `TodoCacheOptions.cs`, `Program.cs`.
 - Migration: ` adds `IsArchived` column + index to `CachedTaskLists`.AddTaskListArchiveAndParallelSync` 
 
 ## 2026-03-06: Sync Performance Improvements
@@ -331,6 +229,44 @@ Implemented ChatService with manual tool-calling loop and DemoChatService:
 ** Clean (no errors/warnings)Build:** 
 
 **Orchestration Log:** .squad/orchestration-log/20260311T095047Z-backend.md
+
+---
+
+### 2026-03-12 — Per-User Data Scoping Implementation Complete
+
+Implemented per-user data isolation across all locally-stored entities following Architect's audit:
+
+**Schema Changes:**
+- Added `UserId` (required, string) to TaskTemplate, CachedTaskList, CachedTask
+- Added `UserId` (nullable, string) to SyncMetadata for backward compat
+- Created EF Core migration 20260312100300_AddUserIdToDataEntities
+- Added indexes: CachedTaskList(UserId, IsSynced), CachedTask(UserId, IsDeleted, DueDate), TaskTemplate(UserId)
+
+**Service Layer Changes:**
+- **TemplateService:** Switched from AppDbContext DI to IDbContextFactory; all methods require explicit `string userId` parameter
+- **CachedTodoService:** Uses IHttpContextAccessor to extract userId internally; all cache queries filter by UserId; per-user delta tokens via `$"TaskListsDeltaToken:{userId}"`; per-user sync locks via `ConcurrentDictionary<string, SemaphoreSlim>`; per-user cache clearing (DELETE WHERE UserId = userId)
+- **ChatService:** Passes userId to all ITemplateService calls
+
+**API Endpoint Updates:**
+- Template endpoints extract userId from claims (OID claim), pass to service methods
+
+**Blazor Page Updates:**
+- Templates.razor, Home.razor: Extract userId from AuthenticationStateProvider claims, pass to service calls
+- ApiKeys.razor: Verified pattern consistency (no changes)
+
+**Backward Compatibility:**
+- EF Core migration assigns all orphaned existing data to single user (first in Users table)
+- Demo mode: templates assigned to "demo-user" identity
+- No breaking changes to public APIs
+
+**Build & Test:**
+- ✅ Build: Clean (0 errors, 0 warnings)
+- ✅ Unit Tests: 21 passing
+- ✅ Manual testing: No regressions
+
+**Decision Document:** Merged `.squad/decisions/inbox/backend-user-scoping-impl.md` into `.squad/decisions/decisions.md`; inbox file deleted.
+
+**Orchestration Log:** `.squad/orchestration-log/20260312T100300Z-backend.md`
 
 
 ## 2026-03-11: Template CRUD in AI Chat Service

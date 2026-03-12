@@ -1515,3 +1515,135 @@ Replaced all app branding visuals with the new golden yellow `TodoExtended_icon.
 
 ---
 
+# Design: Per-User Data Scoping Audit & Remediation
+
+**Author:** Architect  
+**Date:** 2026-03-12  
+**Status:** Implemented  
+**Related:** Backend implementation decision below
+
+## Summary
+
+Audited all 8 EF Core entities and identified 3 critical gaps where data was not scoped by user:
+1. **TaskTemplate** — no UserId column; all templates globally shared
+2. **CachedTaskList/CachedTask** — no UserId column; cache conflates all users' data
+3. **SyncMetadata** — global delta token key overwritten across users
+
+Also identified 3 high-risk items in service/cache layers:
+1. Global delta token: `TaskListsDeltaToken` shared by all users
+2. Global sync lock: single `SemaphoreSlim` blocks all users
+3. Global cache clearing: `ClearCacheAndInitialSyncAsync` wipes all users' data
+
+## Entity Audit
+
+| Entity | User-Scoped? | Risk Level | Status |
+|--------|:------------:|:----------:|--------|
+| `User` | N/A (root) | — | ✅ Identity root |
+| `ApiKey` | ✅ Yes | ✅ Safe | ✅ Already scoped |
+| `UserToken` | ✅ Yes | ✅ Safe | ✅ Already scoped |
+| `TaskTemplate` | ❌ **Shared** | 🔴 Critical | ✅ Fixed |
+| `CachedTaskList` | ❌ **Shared** | 🔴 Critical | ✅ Fixed |
+| `CachedTask` | ❌ **Shared** | 🔴 Critical | ✅ Fixed |
+| `SyncMetadata` | ❌ **Global** | 🟠 High | ✅ Fixed |
+| `DistributedCacheEntry` | ❌ **Global** | ✅ Safe | — |
+
+## Service Audit
+
+| Service | Status | Action |
+|---------|--------|--------|
+| `ApiKeyService` | ✅ Properly scoped | No changes |
+| `TemplateService` | 🔴 Not scoped | ✅ Fixed — accepts userId |
+| `CachedTodoService` | 🔴 Cache not scoped | ✅ Fixed — filters all queries by userId |
+| `UserTimeZoneService` | ✅ Properly scoped | No changes |
+| `UserPreferenceService` | ✅ Properly scoped | No changes |
+| `ChatService` | ⚠️ Inherits template vuln | ✅ Fixed — passes userId |
+
+## Design Solutions
+
+### Schema Changes
+- Add `UserId` to `TaskTemplate`, `CachedTaskList`, `CachedTask`
+- Add nullable `UserId` to `SyncMetadata` for backward compat
+
+### Service Changes
+- **ITemplateService:** All methods require explicit `userId` parameter
+- **CachedTodoService:** Use IHttpContextAccessor to extract userId internally; all queries filter by UserId; delta tokens keyed per-user
+- **API endpoints:** Extract userId from claims, pass to services
+- **Blazor pages:** Extract userId from AuthenticationStateProvider, pass to services
+
+### Delta Token Fix
+- Change from global `"TaskListsDeltaToken"` to `$"TaskListsDeltaToken:{userId}"`
+- Each user maintains independent delta tokens
+
+### Sync Lock Fix
+- Replace `static SemaphoreSlim` with `static ConcurrentDictionary<string, SemaphoreSlim>` per userId
+- Users sync independently without blocking each other
+
+## Migration Strategy
+
+1. **Backward compat:** Assign all orphaned existing data to single user (from Users table)
+2. **Safe rollback:** All schema changes are additive (new columns)
+3. **Demo mode:** Templates assigned to "demo-user" identity
+
+---
+
+# Decision: Per-User Data Scoping Implementation
+
+**Author:** Backend  
+**Date:** 2026-03-12  
+**Status:** ✅ Implemented
+
+## Summary
+
+Implemented per-user data scoping across all locally-stored entities (TaskTemplate, CachedTaskList, CachedTask, SyncMetadata). All users' data is now isolated in database and service layer.
+
+## Implementation Details
+
+### Key Decisions
+
+1. **Explicit userId for TemplateService, IHttpContextAccessor for CachedTodoService**
+   - `ITemplateService` methods accept explicit `string userId` — follows ApiKeyService pattern
+   - `CachedTodoService` uses `IHttpContextAccessor` internally to avoid cascading signature changes to `ITodoService`
+
+2. **TemplateService switched to IDbContextFactory**
+   - Prevents `ObjectDisposedException` in Blazor Server circuit re-initialization
+   - Follows same pattern as CachedTodoService fix (documented in earlier decision)
+
+3. **Per-user sync locks**
+   - `static ConcurrentDictionary<string, SemaphoreSlim>` keyed by userId
+   - Independent user syncs with no blocking
+
+4. **Per-user delta tokens**
+   - Key changed from `"TaskListsDeltaToken"` to `$"TaskListsDeltaToken:{userId}"`
+   - Each user maintains independent sync state
+
+5. **SyncMetadata.UserId is nullable**
+   - Backward compatibility; PK remains just `Key` (now per-user by convention)
+
+### Files Changed (12)
+
+1. `Data/AppDbContext.cs` — added UserId columns, indexes, FK constraints
+2. `Data/Migrations/20260312100300_AddUserIdToDataEntities.cs` — EF Core migration
+3. `Services/TemplateService.cs` — userId parameter on all methods, IDbContextFactory
+4. `Services/CachedTodoService.cs` — per-user delta tokens, sync locks, cache queries, clearing
+5. `Pages/Templates.razor` — extract userId, pass to service calls
+6. `Pages/Home.razor` — extract userId, pass to service calls
+7. `Services/ChatService.cs` — pass userId to template operations
+8. `Api/TemplateEndpoints.cs` — extract userId from claims
+9. `Data/Models/TaskTemplate.cs` — added UserId property
+10. Supporting updates to ensure consistency
+
+### Build & Test Results
+
+✅ **Build:** Clean (0 errors, 0 warnings)  
+✅ **Unit Tests:** 21 passing  
+✅ **Verification:** Tested locally with no regressions
+
+### Backward Compatibility
+
+- EF Core migration auto-runs at startup
+- Existing single-user SQLite data assigned to first user in migration
+- Demo mode works (templates assigned to "demo-user")
+- No breaking changes to public APIs
+
+---
+
