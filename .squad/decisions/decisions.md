@@ -1755,3 +1755,35 @@ All `ITodoService` methods now accept an explicit `string userId` parameter. `Ca
 - `TemplateService.ExecuteTemplateAsync`: passes its existing userId to ITodoService
 - All 21 existing tests updated and passing
 
+
+---
+
+# Decision: ClaimsPrincipalExtensions for UserId Extraction
+
+**Date:** 2026-03-12  
+**Author:** Backend  
+**Status:** Implemented
+
+## Summary
+
+Extracted duplicated userId claim resolution logic into ClaimsPrincipalExtensions with two extension methods on ClaimsPrincipal:
+
+- GetUserId() → returns string, throws InvalidOperationException("User not authenticated") if claims not found
+- GetUserIdOrNull() → returns string?, returns null if claims not found
+
+Both check OID claim first (http://schemas.microsoft.com/identity/claims/objectidentifier), then fall back to ClaimTypes.NameIdentifier.
+
+## Implementation
+
+**New file:** src/TodoExtended.Web/Extensions/ClaimsPrincipalExtensions.cs
+
+**Call sites updated (12 across 10 files):**
+- GetUserId() (throws): Tasks.razor, SyncSettings.razor, Today.razor, TaskStatusCheckbox.razor, ChatService.cs, Program.cs (GetUserId helper + API key graph client)
+- GetUserIdOrNull() (nullable): NavMenu.razor, Home.razor, Templates.razor, MainLayout.razor, ApiKeys.razor, UserTimeZoneService.cs
+
+**Exception standardization:**
+- Previously one site in Program.cs used UnauthorizedAccessException
+- All sites now standardized to InvalidOperationException
+- Rationale: Authentication checks occur upstream; these code paths assume already-authenticated users
+
+**Not changed:** UserSyncMiddleware.cs — intentionally extracts only OID claim (API key users excluded upstream). ApiKeyAuthenticationHandler.cs and demo user setup — these *create* claims, not extract them.
