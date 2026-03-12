@@ -32,6 +32,28 @@ module Models {
         }
     }
 
+    class TaskItem {
+        var id as String;
+        var title as String;
+        var isCompleted as Boolean;
+
+        function initialize(data as Dictionary) {
+            id = data.get("id") as String;
+            title = data.get("title") as String;
+            isCompleted = data.get("isCompleted") as Boolean;
+        }
+    }
+
+    class TodoTaskList {
+        var id as String;
+        var displayName as String;
+
+        function initialize(data as Dictionary) {
+            id = data.get("id") as String;
+            displayName = data.get("displayName") as String;
+        }
+    }
+
     class Template {
         var id as String;
         var title as String;
@@ -57,6 +79,22 @@ module Models {
             tasks[i] = new TodoTask(data[i] as Dictionary);
         }
         return tasks;
+    }
+
+    function parseTaskItems(data as Array) as Array<TaskItem> {
+        var tasks = new Array<TaskItem>[data.size()];
+        for (var i = 0; i < data.size(); i++) {
+            tasks[i] = new TaskItem(data[i] as Dictionary);
+        }
+        return tasks;
+    }
+
+    function parseTaskLists(data as Array) as Array<TodoTaskList> {
+        var lists = new Array<TodoTaskList>[data.size()];
+        for (var i = 0; i < data.size(); i++) {
+            lists[i] = new TodoTaskList(data[i] as Dictionary);
+        }
+        return lists;
     }
 
     function parseTemplates(data as Array) as Array<Template> {

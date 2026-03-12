@@ -22,6 +22,7 @@ class TodoExtendedApp extends Application.AppBase {
         var menu = new WatchUi.Menu2({ :title => WatchUi.loadResource(Rez.Strings.AppName) });
         menu.addItem(new WatchUi.MenuItem("Today", null, :today, {}));
         menu.addItem(new WatchUi.MenuItem("Templates", null, :templates, {}));
+        menu.addItem(new WatchUi.MenuItem("Task Lists", null, :taskLists, {}));
         return [menu, new MainMenuDelegate()];
     }
 
