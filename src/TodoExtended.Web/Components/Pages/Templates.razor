@@ -1,6 +1,5 @@
 @page "/templates"
 @attribute [Authorize]
-@using Microsoft.Identity.Web
 @using TodoExtended.Web.Data
 @inject ITemplateService TemplateService
 @inject ITodoService TodoService
@@ -196,13 +195,7 @@ else
         try
         {
             var authState = await AuthState!;
-            _userId = authState.User.GetUserIdOrNull();
-
-            if (string.IsNullOrEmpty(_userId))
-            {
-                NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-                return;
-            }
+            _userId = authState.User.GetUserId();
 
             var templatesTask = TemplateService.GetAllAsync(_userId);
             var taskListsTask = TodoService.GetTaskListsAsync(_userId);
@@ -215,17 +208,7 @@ else
                 .Select(l => new PersistedTodoTaskList(l.Id, l.DisplayName))
                 .ToList();
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             _error = $"Failed to load data: {ex.Message}";
         }
@@ -324,17 +307,7 @@ else
             _dialogVisible = false;
             ResetForm();
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             _formError = $"Failed to save template: {ex.Message}";
         }
@@ -352,17 +325,7 @@ else
             await TodoService.CreateTaskAsync(template.TaskListId, template.Title, dueDate, _userId!, template.ReminderTime);
             Notifications.Add($"Task \"{template.Title}\" created.", NotifySeverity.Success);
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             Notifications.Add($"Failed to create task: {ex.Message}", NotifySeverity.Error);
         }
@@ -385,17 +348,7 @@ else
             await RefreshTemplates();
             Notifications.Add("Template deleted.", NotifySeverity.Success);
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             Notifications.Add($"Failed to delete: {ex.Message}", NotifySeverity.Error);
         }

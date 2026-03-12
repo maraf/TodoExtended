@@ -1,6 +1,5 @@
 @page "/sync-settings"
 @attribute [Authorize]
-@using Microsoft.Identity.Web
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
 @inject INotificationService Notifications
@@ -231,13 +230,11 @@ else
     private const string BulkOperationId = "bulk";
     private string? _userId;
 
-    private async Task<string?> GetUserIdAsync()
+    private async Task<string> GetUserIdAsync()
     {
         if (_userId is not null) return _userId;
         var state = await AuthState!;
-        _userId = state.User.GetUserIdOrNull();
-        if (_userId is null)
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+        _userId = state.User.GetUserId();
         return _userId;
     }
 
@@ -246,20 +243,9 @@ else
         try
         {
             var userId = await GetUserIdAsync();
-            if (userId is null) return;
             _syncedLists = await TodoService.GetTaskListsAsync(userId);
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             _error = $"Failed to load task lists: {ex.Message}";
         }
@@ -281,21 +267,10 @@ else
         try
         {
             var userId = await GetUserIdAsync();
-            if (userId is null) return;
             _notSyncedLists = await TodoService.GetNotSyncedTaskListsAsync(userId);
             _notSyncedListsLoaded = true;
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             _error = $"Failed to load not-synced lists: {ex.Message}";
         }
@@ -312,24 +287,13 @@ else
         try
         {
             var userId = await GetUserIdAsync();
-            if (userId is null) return;
             await TodoService.SetTaskListSyncedAsync(listId, false, userId);
             var list = _syncedLists.First(l => l.Id == listId);
             _syncedLists = _syncedLists.Where(l => l.Id != listId).ToList();
             _notSyncedLists = [.. _notSyncedLists, list with { IsSynced = false }];
             Notifications.Add($"List \"{list.DisplayName}\" removed from sync.", NotifySeverity.Success);
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             Notifications.Add($"Failed: {ex.Message}", NotifySeverity.Error);
         }
@@ -343,24 +307,13 @@ else
         try
         {
             var userId = await GetUserIdAsync();
-            if (userId is null) return;
             await TodoService.SetTaskListSyncedAsync(listId, true, userId);
             var list = _notSyncedLists.First(l => l.Id == listId);
             _notSyncedLists = _notSyncedLists.Where(l => l.Id != listId).ToList();
             _syncedLists = [.. _syncedLists, list with { IsSynced = true }];
             Notifications.Add($"List \"{list.DisplayName}\" added to sync.", NotifySeverity.Success);
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             Notifications.Add($"Failed: {ex.Message}", NotifySeverity.Error);
         }
@@ -399,7 +352,6 @@ else
         try
         {
             var userId = await GetUserIdAsync();
-            if (userId is null) return;
             await Task.WhenAll(ids.Select(id => TodoService.SetTaskListSyncedAsync(id, false, userId)));
             var moved = _syncedLists.Where(l => ids.Contains(l.Id)).ToList();
             _syncedLists = _syncedLists.Where(l => !ids.Contains(l.Id)).ToList();
@@ -407,17 +359,7 @@ else
             _selectedListIds.ExceptWith(ids);
             Notifications.Add($"{moved.Count} list(s) removed from sync.", NotifySeverity.Success);
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             Notifications.Add($"Failed: {ex.Message}", NotifySeverity.Error);
         }
@@ -432,7 +374,6 @@ else
         try
         {
             var userId = await GetUserIdAsync();
-            if (userId is null) return;
             await Task.WhenAll(ids.Select(id => TodoService.SetTaskListSyncedAsync(id, true, userId)));
             var moved = _notSyncedLists.Where(l => ids.Contains(l.Id)).ToList();
             _notSyncedLists = _notSyncedLists.Where(l => !ids.Contains(l.Id)).ToList();
@@ -440,17 +381,7 @@ else
             _selectedListIds.ExceptWith(ids);
             Notifications.Add($"{moved.Count} list(s) added to sync.", NotifySeverity.Success);
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             Notifications.Add($"Failed: {ex.Message}", NotifySeverity.Error);
         }

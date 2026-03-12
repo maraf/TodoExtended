@@ -1,6 +1,5 @@
 @page "/tasks/{ListId?}"
 @attribute [Authorize]
-@using Microsoft.Identity.Web
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
 @inject INotificationService Notifications
@@ -130,13 +129,11 @@ else
     private string? _error;
     private string? _userId;
 
-    private async Task<string?> GetUserIdAsync()
+    private async Task<string> GetUserIdAsync()
     {
         if (_userId is not null) return _userId;
         var state = await AuthState!;
-        _userId = state.User.GetUserIdOrNull();
-        if (_userId is null)
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
+        _userId = state.User.GetUserId();
         return _userId;
     }
 
@@ -164,7 +161,6 @@ else
         try
         {
             var userId = await GetUserIdAsync();
-            if (userId is null) return;
             var allLists = await TodoService.GetTaskListsAsync(userId);
             var matchedList = allLists.FirstOrDefault(l => l.Id == ListId);
             PersistedTaskList = matchedList is not null
@@ -176,17 +172,7 @@ else
                 .ToList();
             PersistedListId = ListId;
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             _error = $"Failed to load tasks: {ex.Message}";
         }
