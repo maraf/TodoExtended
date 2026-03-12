@@ -75,7 +75,7 @@ else
             {
                 @foreach (var task in visibleTasks)
                 {
-                    <div class="task-row @(task.IsCompleted ? "opacity-50" : "")">
+                    <div @key="task.Id" class="task-row @(task.IsCompleted ? "opacity-50" : "")">
                         <TaskStatusCheckbox TaskId="@task.Id"
                                             ListId="@ListId"
                                             IsCompleted="@task.IsCompleted"
