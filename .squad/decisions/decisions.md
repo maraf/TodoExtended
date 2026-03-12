@@ -1683,3 +1683,75 @@ All `ITodoService` methods now accept an explicit `string userId` parameter. `Ca
 - `TemplateService.ExecuteTemplateAsync`: passes its existing userId to ITodoService
 - All 21 existing tests updated and passing
 
+
+
+---
+
+# Decision: Explicit userId Parameters on ITodoService
+
+**Date:** 2026-03-12
+**Author:** Backend
+**Status:** Implemented
+
+## Context
+
+`ITodoService` previously had no `userId` parameter — `CachedTodoService` extracted it internally via `IHttpContextAccessor.GetCurrentUserId()`. This was fragile in Blazor Server (circuit disconnection causes `ObjectDisposedException` on `HttpContext` access) and inconsistent with `ITemplateService` which already used explicit `userId` parameters.
+
+## Decision
+
+All `ITodoService` methods now accept an explicit `string userId` parameter. `CachedTodoService` no longer depends on `IHttpContextAccessor`. Callers (Blazor pages, API endpoints, ChatService, TemplateService) extract userId at their boundary and pass it through.
+
+## Rationale
+
+- **Testability:** Services can be unit-tested without mocking `IHttpContextAccessor`
+- **Blazor Server safety:** No `HttpContext` access inside scoped services eliminates circuit disposal issues
+- **Consistency:** All business services follow the same explicit-parameter pattern
+- **Architect guidance:** "In services: accept `string userId` as an explicit parameter (don't inject IHttpContextAccessor into services)"
+
+## Impact
+
+- `ITodoService` interface: all 8 methods now require `string userId`
+- `CachedTodoService`: removed `IHttpContextAccessor` constructor parameter
+- `GraphTodoService`: userId parameter added but ignored (uses token-based auth)
+- All Blazor pages using ITodoService: extract userId from `CascadingParameter Task<AuthenticationState>`
+- API endpoints: extract userId from `HttpContext.User` claims
+- `ChatService`: still uses `IHttpContextAccessor` at HTTP boundary, passes userId to ITodoService calls
+- `TemplateService.ExecuteTemplateAsync`: passes its existing userId to ITodoService
+- All 21 existing tests updated and passing
+
+
+
+---
+
+# Decision: Explicit userId Parameters on ITodoService
+
+**Date:** 2026-03-12
+**Author:** Backend
+**Status:** Implemented
+
+## Context
+
+`ITodoService` previously had no `userId` parameter — `CachedTodoService` extracted it internally via `IHttpContextAccessor.GetCurrentUserId()`. This was fragile in Blazor Server (circuit disconnection causes `ObjectDisposedException` on `HttpContext` access) and inconsistent with `ITemplateService` which already used explicit `userId` parameters.
+
+## Decision
+
+All `ITodoService` methods now accept an explicit `string userId` parameter. `CachedTodoService` no longer depends on `IHttpContextAccessor`. Callers (Blazor pages, API endpoints, ChatService, TemplateService) extract userId at their boundary and pass it through.
+
+## Rationale
+
+- **Testability:** Services can be unit-tested without mocking `IHttpContextAccessor`
+- **Blazor Server safety:** No `HttpContext` access inside scoped services eliminates circuit disposal issues
+- **Consistency:** All business services follow the same explicit-parameter pattern
+- **Architect guidance:** "In services: accept `string userId` as an explicit parameter (don't inject IHttpContextAccessor into services)"
+
+## Impact
+
+- `ITodoService` interface: all 8 methods now require `string userId`
+- `CachedTodoService`: removed `IHttpContextAccessor` constructor parameter
+- `GraphTodoService`: userId parameter added but ignored (uses token-based auth)
+- All Blazor pages using ITodoService: extract userId from `CascadingParameter Task<AuthenticationState>`
+- API endpoints: extract userId from `HttpContext.User` claims
+- `ChatService`: still uses `IHttpContextAccessor` at HTTP boundary, passes userId to ITodoService calls
+- `TemplateService.ExecuteTemplateAsync`: passes its existing userId to ITodoService
+- All 21 existing tests updated and passing
+

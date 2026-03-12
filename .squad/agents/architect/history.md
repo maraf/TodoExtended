@@ -4,6 +4,19 @@
 
 ## Recent Work
 
+### 2026-03-12 — Explicit userId Parameter Refactoring (Service Layer)
+
+**Architect guidance on explicit userId pattern confirmed in production:**
+- After initial Per-User Data Scoping implementation, Backend refactored `CachedTodoService` to fully eliminate `IHttpContextAccessor` dependency
+- `ITodoService` interface now requires explicit `string userId` parameter on all 8 methods (consistent with `ITemplateService` and `IApiKeyService` pattern)
+- `CachedTodoService` constructor no longer needs `IHttpContextAccessor`; all extraction happens at HTTP boundaries (Blazor pages, API endpoints, ChatService HTTP boundary)
+- Result: Blazor Server circuit disposal issues eliminated; improved testability; consistent service-layer design across the codebase
+- Build clean, 21 tests passing
+
+**Key Learning:** Explicit parameter pattern is the correct approach for multi-user Blazor Server apps. Avoid injecting context-dependent interfaces into scoped services.
+
+**Orchestration Log:** `.squad/orchestration-log/20260312T105900Z-backend.md`
+
 ### 2026-03-12 — Per-User Data Scoping Audit
 
 - **Audited all 8 EF Core entities** for user-scoping. Found `ApiKey`, `UserToken` properly scoped; `TaskTemplate`, `CachedTaskList`, `CachedTask`, `SyncMetadata` are NOT user-scoped.
