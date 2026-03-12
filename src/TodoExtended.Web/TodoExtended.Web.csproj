@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="DemoData/demo-tasks.json" />
+    <Content Update="appsettings.Local.json" CopyToPublishDirectory="Never" />
   </ItemGroup>
 
   <ItemGroup>
