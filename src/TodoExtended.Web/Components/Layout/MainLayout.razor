@@ -35,6 +35,11 @@
                     <div class="flex-1 flex items-center px-4">
                         <SectionOutlet SectionName="page-header" />
                     </div>
+
+                    <!-- App version label -->
+                    <div class="hidden lg:flex items-center pr-5">
+                        <span class="text-xs text-white/40 font-mono select-none">v@_appVersion</span>
+                    </div>
                 </header>
 
                 <div class="flex flex-1 overflow-hidden">
@@ -135,6 +140,9 @@
 @code {
     [CascadingParameter]
     private Task<AuthenticationState>? AuthState { get; set; }
+
+    private static readonly string _appVersion =
+        typeof(MainLayout).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
 
     private bool _isDarkMode = false;
     private bool _sidebarOpen = false;
