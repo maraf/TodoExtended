@@ -5,13 +5,24 @@
 @inject NavigationManager NavigationManager
 @inject INotificationService Notifications
 
-<PageTitle>Tasks</PageTitle>
+@{
+    var (listEmoji, listName) = PersistedTaskList?.Emoji() ?? (null, "Tasks");
+}
 
-<PageHeader Title="Tasks" FromColor="from-violet-500" ToColor="to-brand-600" ShadowColor="shadow-brand-500/20">
+<PageTitle>@(PersistedTaskList is not null ? PersistedTaskList.DisplayName : "Tasks")</PageTitle>
+
+<PageHeader Title="@listName" FromColor="from-violet-500" ToColor="to-brand-600" ShadowColor="shadow-brand-500/20">
     <Icon>
-        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-        </svg>
+        @if (listEmoji is not null)
+        {
+            <span class="text-xl leading-none">@listEmoji</span>
+        }
+        else
+        {
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+        }
     </Icon>
 </PageHeader>
 
@@ -106,6 +117,9 @@ else
     [PersistentState]
     public string? PersistedListId { get; set; }
 
+    [PersistentState]
+    public PersistedTodoTaskList? PersistedTaskList { get; set; }
+
     private bool _loadingTasks;
     private bool _hideCompleted = true;
     private string? _error;
@@ -116,10 +130,11 @@ else
         {
             TaskItems = null;
             PersistedListId = null;
+            PersistedTaskList = null;
             return;
         }
 
-        if (TaskItems is not null && PersistedListId == ListId)
+        if (TaskItems is not null && PersistedListId == ListId && PersistedTaskList?.Id == ListId)
         {
             _loadingTasks = false;
             return;
@@ -132,6 +147,12 @@ else
 
         try
         {
+            var allLists = await TodoService.GetTaskListsAsync();
+            var matchedList = allLists.FirstOrDefault(l => l.Id == ListId);
+            PersistedTaskList = matchedList is not null
+                ? new PersistedTodoTaskList(matchedList.Id, matchedList.DisplayName)
+                : null;
+
             TaskItems = (await TodoService.GetTasksAsync(ListId))
                 .Select(t => new PersistedTodoTask(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance))
                 .ToList();
