@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#4338ca" />
     <base href="/" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -20,6 +20,39 @@
     <ReconnectModal />
     <script>
         window.setDarkMode = (isDark) => document.documentElement.classList.toggle('dark', isDark);
+
+        // Hide the bottom bar when the soft keyboard is open.
+        // Prefer the VirtualKeyboard API (Chrome 94+) for accurate detection;
+        // fall back to visualViewport resize heuristic for other browsers.
+        // interactive-widget=resizes-content in the viewport meta is still needed
+        // for the visualViewport fallback path.
+        (function () {
+            if (navigator.virtualKeyboard) {
+                // VirtualKeyboard API: keyboard overlays content, geometry reported via event.
+                navigator.virtualKeyboard.overlaysContent = true;
+                navigator.virtualKeyboard.addEventListener('geometrychange', function (e) {
+                    var keyboardOpen = e.target.boundingRect.height > 0;
+                    document.body.classList.toggle('keyboard-open', keyboardOpen);
+                });
+            } else if (window.visualViewport) {
+                var keyboardOpenThreshold = 150;
+                var baseline = window.visualViewport.height;
+                var lastWidth = window.visualViewport.width;
+                window.visualViewport.addEventListener('resize', function () {
+                    var current = window.visualViewport.height;
+                    var currentWidth = window.visualViewport.width;
+                    // Width change means orientation change — reset baseline and clear state.
+                    if (currentWidth !== lastWidth) {
+                        lastWidth = currentWidth;
+                        baseline = current;
+                        document.body.classList.remove('keyboard-open');
+                        return;
+                    }
+                    var keyboardOpen = baseline - current > keyboardOpenThreshold;
+                    document.body.classList.toggle('keyboard-open', keyboardOpen);
+                });
+            }
+        })();
     </script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
