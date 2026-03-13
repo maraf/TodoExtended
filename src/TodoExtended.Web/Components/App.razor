@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#4338ca" />
     <base href="/" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -20,6 +20,23 @@
     <ReconnectModal />
     <script>
         window.setDarkMode = (isDark) => document.documentElement.classList.toggle('dark', isDark);
+
+        // Hide the bottom bar when the soft keyboard is open.
+        // interactive-widget=resizes-content shrinks the visual viewport on keyboard open,
+        // so we track a baseline and toggle a CSS class when it drops significantly.
+        (function () {
+            if (!window.visualViewport) return;
+            var orientationChangeThreshold = 100;
+            var keyboardOpenThreshold = 150;
+            var baseline = window.visualViewport.height;
+            window.visualViewport.addEventListener('resize', function () {
+                var current = window.visualViewport.height;
+                // If height grows significantly it is an orientation change — update baseline.
+                if (current > baseline + orientationChangeThreshold) baseline = current;
+                var keyboardOpen = baseline - current > keyboardOpenThreshold;
+                document.body.classList.toggle('keyboard-open', keyboardOpen);
+            });
+        })();
     </script>
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>

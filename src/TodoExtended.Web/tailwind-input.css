@@ -146,7 +146,11 @@
   color: transparent;
 }
 
-/* ─── Window Controls Overlay (WCO) for PWA ───────────────── */
+/* ─── Hide bottom bar when soft keyboard is open ──────────── */
+body.keyboard-open .bottom-bar {
+  display: none;
+}
+
 @media (display-mode: window-controls-overlay) {
   /* Make header draggable and reserve space around window controls */
   .wco-header {
