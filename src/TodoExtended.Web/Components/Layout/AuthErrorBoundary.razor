@@ -5,6 +5,10 @@
 {
     @ChildContent
 }
+else
+{
+    <ErrorAlert Message="@CurrentException.Message" />
+}
 
 @code {
     protected override Task OnErrorAsync(Exception exception)
