@@ -6,8 +6,23 @@
     <div class="max-w-[85%] sm:max-w-[75%]">
         @if (Message.Text is not null)
         {
-            <div class="@BubbleClasses(isUser) rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words @(isUser ? "rounded-br-md" : "rounded-bl-md")">
-                @Message.Text
+            <div class="@BubbleClasses(isUser) rounded-2xl px-4 py-2.5 text-sm leading-relaxed @(isUser ? "rounded-br-md" : "rounded-bl-md")">
+                <span class="whitespace-pre-wrap break-words">@Message.Text</span>
+                @if (!isUser && Message.TaskListReferences is { Count: > 0 })
+                {
+                    <div class="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600 flex flex-wrap gap-x-3 gap-y-1">
+                        @foreach (var list in Message.TaskListReferences)
+                        {
+                            <a href="/tasks/@list.Id"
+                               class="inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline">
+                                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                                @list.DisplayName
+                            </a>
+                        }
+                    </div>
+                }
             </div>
         }
 
@@ -23,16 +38,6 @@
                                         OnConfirmation="OnActionConfirmation"
                                         Result="@GetResult(index)"
                                         IsRestored="@IsRestored" />
-                }
-            </div>
-        }
-
-        @if (!isUser && Message.TaskListReferences is { Count: > 0 })
-        {
-            <div class="mt-2 space-y-1.5">
-                @foreach (var list in Message.TaskListReferences)
-                {
-                    <TaskListCard ListId="@list.Id" DisplayName="@list.DisplayName" />
                 }
             </div>
         }
