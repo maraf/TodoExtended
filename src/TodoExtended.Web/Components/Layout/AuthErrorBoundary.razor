@@ -1,0 +1,26 @@
+@inherits ErrorBoundary
+@inject NavigationManager NavigationManager
+
+@if (CurrentException is null)
+{
+    @ChildContent
+}
+else
+{
+    <ErrorAlert Message="@CurrentException.Message" />
+}
+
+@code {
+    protected override Task OnErrorAsync(Exception exception)
+    {
+        if (!AuthExceptionHelper.IsAuthException(exception))
+            return base.OnErrorAsync(exception);
+
+        var destination = AuthExceptionHelper.IsIrrecoverableMsalError(exception)
+            ? "MicrosoftIdentity/Account/SignOut"
+            : "MicrosoftIdentity/Account/SignIn";
+
+        NavigationManager.NavigateTo(destination, forceLoad: true);
+        return Task.CompletedTask;
+    }
+}

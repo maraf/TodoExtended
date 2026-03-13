@@ -1,6 +1,15 @@
 using Microsoft.Identity.Client;
+using Microsoft.Identity.Web;
 
 namespace TodoExtended.Web.Services;
+
+/// <summary>
+/// Thrown when the user's identity claims are missing (e.g. the Blazor circuit outlived the auth session).
+/// </summary>
+public sealed class NotAuthenticatedException : InvalidOperationException
+{
+    public NotAuthenticatedException() : base("User not authenticated") { }
+}
 
 /// <summary>
 /// Identifies irrecoverable MSAL authentication failures (e.g. invalid_client, expired secrets)
@@ -31,4 +40,21 @@ public static class AuthExceptionHelper
 
         return false;
     }
+
+    /// <summary>
+    /// Returns <c>true</c> when the exception indicates the user identity claims are missing
+    /// (e.g. the Blazor circuit outlived the auth session).
+    /// </summary>
+    public static bool IsUnauthenticatedUser(Exception ex) =>
+        ex is NotAuthenticatedException;
+
+    /// <summary>
+    /// Returns <c>true</c> for any exception that requires an auth redirect
+    /// (irrecoverable MSAL error, consent challenge, or missing user identity).
+    /// Use as an exception filter so these exceptions bubble up to <see cref="AuthErrorBoundary"/>.
+    /// </summary>
+    public static bool IsAuthException(Exception ex) =>
+        IsIrrecoverableMsalError(ex) ||
+        IsUnauthenticatedUser(ex) ||
+        ex is MicrosoftIdentityWebChallengeUserException;
 }

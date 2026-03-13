@@ -1,5 +1,4 @@
 ﻿@page "/"
-@using Microsoft.Identity.Web
 @using Microsoft.Extensions.Options
 @using TodoExtended.Web.Data
 @using TodoExtended.Web.Services
@@ -232,31 +231,14 @@
             var state = await AuthState;
             if (state.User.Identity?.IsAuthenticated == true)
             {
-                _userId = state.User.GetUserIdOrNull();
-
-                if (string.IsNullOrEmpty(_userId))
-                {
-                    _templateError = "Unable to identify user.";
-                    _loading = false;
-                    return;
-                }
+                _userId = state.User.GetUserId();
 
                 try
                 {
                     var all = await TemplateService.GetAllAsync(_userId);
                     _templates = all.OrderBy(t => t.SortOrder).ThenBy(t => t.Title).ToList();
                 }
-                catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-                {
-                    NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-                    return;
-                }
-                catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-                {
-                    NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-                    return;
-                }
-                catch (Exception ex)
+                catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
                 {
                     _templateError = $"Failed to load templates: {ex.Message}";
                 }
@@ -275,17 +257,7 @@
             await TemplateService.ExecuteTemplateAsync(template.Id, _userId!);
             Notifications.Add($"Created task \"{template.Title}\" successfully!", NotifySeverity.Success);
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             Notifications.Add($"Failed to create task: {ex.Message}", NotifySeverity.Error);
         }

@@ -1,6 +1,5 @@
 @page "/api-keys"
 @attribute [Authorize]
-@using Microsoft.Identity.Web
 @using TodoExtended.Web.Services
 @inject IApiKeyService ApiKeyService
 @inject NavigationManager NavigationManager
@@ -160,27 +159,10 @@ else
         try
         {
             var authState = await AuthState!;
-            _userId = authState.User.GetUserIdOrNull();
-
-            if (string.IsNullOrEmpty(_userId))
-            {
-                _error = "Unable to identify user.";
-                return;
-            }
-
+            _userId = authState.User.GetUserId();
             await RefreshKeys();
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             _error = $"Failed to load API keys: {ex.Message}";
         }
@@ -227,17 +209,7 @@ else
             _formKeyName = "";
             Notifications.Add("API key created.", NotifySeverity.Success);
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             _formError = $"Failed to create API key: {ex.Message}";
         }
@@ -264,17 +236,7 @@ else
             await RefreshKeys();
             Notifications.Add("API key revoked.", NotifySeverity.Success);
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             Notifications.Add($"Failed to revoke API key: {ex.Message}", NotifySeverity.Error);
         }

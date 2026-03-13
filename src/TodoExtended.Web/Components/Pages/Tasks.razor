@@ -1,6 +1,5 @@
 @page "/tasks/{ListId?}"
 @attribute [Authorize]
-@using Microsoft.Identity.Web
 @inject ITodoService TodoService
 @inject NavigationManager NavigationManager
 @inject INotificationService Notifications
@@ -173,17 +172,7 @@ else
                 .ToList();
             PersistedListId = ListId;
         }
-        catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
-            return;
-        }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
-        {
-            NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
-            return;
-        }
-        catch (Exception ex)
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
             _error = $"Failed to load tasks: {ex.Message}";
         }

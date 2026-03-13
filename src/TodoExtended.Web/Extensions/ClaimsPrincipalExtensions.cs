@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using TodoExtended.Web.Services;
 
 namespace TodoExtended.Web.Extensions;
 
@@ -19,5 +20,5 @@ public static class ClaimsPrincipalExtensions
     /// </summary>
     public static string GetUserId(this ClaimsPrincipal principal) =>
         principal.GetUserIdOrNull()
-        ?? throw new InvalidOperationException("User not authenticated");
+        ?? throw new NotAuthenticatedException();
 }
