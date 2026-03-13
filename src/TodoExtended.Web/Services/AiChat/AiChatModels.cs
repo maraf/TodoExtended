@@ -33,17 +33,24 @@ public record ActionConfirmation(int ActionIndex, bool Approved);
 public record ActionResult(int ActionIndex, bool Success, string Message);
 
 /// <summary>
+/// A reference to a task list surfaced by the AI (e.g. via get_task_lists).
+/// </summary>
+public record TaskListReference(string Id, string DisplayName);
+
+/// <summary>
 /// A single message in the chat conversation history.
 /// </summary>
 public record ChatMessage(
     string Role,
     string? Text,
     IReadOnlyList<ProposedAction>? ProposedActions,
-    DateTimeOffset Timestamp);
+    DateTimeOffset Timestamp,
+    IReadOnlyList<TaskListReference>? TaskListReferences = null);
 
 /// <summary>
 /// Response from the AI containing text and any proposed actions.
 /// </summary>
 public record ChatResponse(
     string Text,
-    IReadOnlyList<ProposedAction> ProposedActions);
+    IReadOnlyList<ProposedAction> ProposedActions,
+    IReadOnlyList<TaskListReference>? TaskListReferences = null);
