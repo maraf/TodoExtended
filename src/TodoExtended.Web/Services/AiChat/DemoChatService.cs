@@ -12,6 +12,25 @@ public class DemoChatService : IChatService
     {
         var lower = userMessage.ToLowerInvariant();
 
+        if (lower.Contains("search") || lower.Contains("find") || lower.Contains("look for"))
+        {
+            if (lower.Contains("list"))
+            {
+                var response = new ChatResponse(
+                    Text: "I found 1 matching task list:\n\n" +
+                          "1. 🛒 Shopping",
+                    ProposedActions: []);
+                return Task.FromResult(response);
+            }
+
+            var searchResponse = new ChatResponse(
+                Text: "I found 2 tasks matching your search:\n\n" +
+                      "1. ⬜ Buy groceries (Shopping list)\n" +
+                      "2. ⬜ Buy new headphones (Shopping list)",
+                ProposedActions: []);
+            return Task.FromResult(searchResponse);
+        }
+
         if (lower.Contains("create") || lower.Contains("add") || lower.Contains("new task"))
         {
             var response = new ChatResponse(
@@ -146,6 +165,7 @@ public class DemoChatService : IChatService
         var defaultResponse = new ChatResponse(
             Text: "I'm your task management assistant! I can help you:\n\n" +
                   "• **View** your task lists and tasks\n" +
+                  "• **Search** tasks or lists by keyword\n" +
                   "• **Create** new tasks\n" +
                   "• **Complete** or uncomplete tasks\n" +
                   "• Show **today's** tasks\n" +

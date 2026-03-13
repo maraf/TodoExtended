@@ -37,6 +37,8 @@ public class ChatService(
         Available capabilities:
         - View task lists and their tasks
         - View today's tasks across all lists
+        - Search tasks by keyword across all synced lists
+        - Search task lists by name
         - Get full details of a specific task (including description)
         - Create new tasks in specific lists
         - Mark tasks as complete or incomplete
@@ -49,6 +51,8 @@ public class ChatService(
         Guidelines:
         - Use the read tools to fetch current data before answering questions about tasks or templates.
         - Use get_task_lists to discover lists, get_tasks or get_today_tasks to get task titles and IDs.
+        - Use search_tasks to find tasks matching a keyword across all synced lists.
+        - Use search_task_lists to find lists matching a name keyword.
         - Use get_task to load full details (including description) for a specific task only when needed.
         - Use get_templates to view available templates.
         - When creating tasks or templates, always confirm which list to add them to.
@@ -345,6 +349,8 @@ public class ChatService(
             AIFunctionFactory.Create(GetTaskListsAsync, "get_task_lists", "Get all task lists for the user."),
             AIFunctionFactory.Create(GetTasksAsync, "get_tasks", "Get tasks in a specific list (title, status, due date). Does not include task description."),
             AIFunctionFactory.Create(GetTodayTasksAsync, "get_today_tasks", "Get tasks due today across all lists (title, status, due date). Does not include task description."),
+            AIFunctionFactory.Create(SearchTasksAsync, "search_tasks", "Search tasks by keyword across all synced lists. Returns matching tasks with their list info."),
+            AIFunctionFactory.Create(SearchTaskListsAsync, "search_task_lists", "Search task lists by name keyword. Returns matching lists."),
             AIFunctionFactory.Create(GetTaskDetailAsync, "get_task", "Get full details of a single task including its description. Use this only when the description is specifically needed."),
             AIFunctionFactory.Create(GetTemplatesAsync, "get_templates", "Get all task templates."),
             AIFunctionFactory.Create(CreateTaskTool, "create_task", "Create a new task in a task list."),
@@ -398,6 +404,22 @@ public class ChatService(
         return JsonSerializer.Serialize(templates.Select(t => new { t.Id, t.Title, t.TaskListId, t.TaskListName, t.DueDateToday, t.ReminderTime, t.SortOrder }));
     }
 
+    private async Task<string> SearchTasksAsync(
+        [Description("Keyword to search for in task titles (case-insensitive substring match)")] string query)
+    {
+        var userId = GetCurrentUserId();
+        var tasks = await todoService.SearchTasksAsync(query, userId);
+        return JsonSerializer.Serialize(tasks.Select(t => new { t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance, t.ListId, t.ListName }));
+    }
+
+    private async Task<string> SearchTaskListsAsync(
+        [Description("Keyword to search for in task list names (case-insensitive substring match)")] string query)
+    {
+        var userId = GetCurrentUserId();
+        var lists = await todoService.SearchTaskListsAsync(query, userId);
+        return JsonSerializer.Serialize(lists.Select(l => new { l.Id, l.DisplayName }));
+    }
+
     // Write tool stubs (never actually called — only used for schema generation)
     private static string CreateTaskTool(
         [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
@@ -443,6 +465,8 @@ public class ChatService(
                 "get_task" => await GetTaskDetailAsync(GetArg(call, "listId"), GetArg(call, "taskId")),
                 "get_today_tasks" => await GetTodayTasksAsync(),
                 "get_templates" => await GetTemplatesAsync(),
+                "search_tasks" => await SearchTasksAsync(GetArg(call, "query")),
+                "search_task_lists" => await SearchTaskListsAsync(GetArg(call, "query")),
                 _ => $"Unknown tool: {call.Name}"
             };
         }
