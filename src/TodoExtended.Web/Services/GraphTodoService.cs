@@ -169,27 +169,34 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
 
     public async Task<IReadOnlyList<TodoTaskWithList>> SearchTasksAsync(string query, string userId)
     {
-        var lists = await GetTaskListsAsync(userId);
-        var results = new List<TodoTaskWithList>();
+        if (string.IsNullOrWhiteSpace(query) || query.Length > MaxSearchQueryLength)
+            return [];
 
-        foreach (var list in lists)
+        var lists = await GetTaskListsAsync(userId);
+        var listTasks = await Task.WhenAll(lists.Select(async list =>
         {
             var tasks = await GetTasksAsync(list.Id, userId);
-            results.AddRange(tasks
+            return (list, tasks);
+        }));
+
+        return listTasks
+            .SelectMany(lt => lt.tasks
                 .Where(t => t.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
                 .Select(t => new TodoTaskWithList(
                     t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
-                    list.Id, list.DisplayName)));
-        }
-
-        return results
+                    lt.list.Id, lt.list.DisplayName)))
             .OrderBy(t => t.IsCompleted)
             .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
+    private const int MaxSearchQueryLength = 500;
+
     public async Task<IReadOnlyList<TodoTaskList>> SearchTaskListsAsync(string query, string userId)
     {
+        if (string.IsNullOrWhiteSpace(query) || query.Length > MaxSearchQueryLength)
+            return [];
+
         var lists = await GetTaskListsAsync(userId);
         return lists
             .Where(l => l.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))

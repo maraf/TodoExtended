@@ -121,16 +121,16 @@ public class CachedTodoService(
         await EnsureCacheValidAsync(db, userId);
 
         var likePattern = $"%{EscapeLikePattern(query)}%";
-        var tasks = await db.CachedTasks
-            .Include(t => t.List)
+        var matchingTasks = await db.CachedTasks
+            .AsNoTracking()
             .Where(t => t.UserId == userId && !t.IsDeleted && t.List!.IsSynced
                 && EF.Functions.Like(t.Title, likePattern, "\\"))
-            .ToListAsync();
-
-        return tasks
             .Select(t => new TodoTaskWithList(
                 t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
                 t.ListId, t.List!.DisplayName))
+            .ToListAsync();
+
+        return matchingTasks
             .OrderBy(t => t.IsCompleted)
             .ThenBy(t => ImportanceSortOrder(t.Importance))
             .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
@@ -146,13 +146,14 @@ public class CachedTodoService(
         await EnsureListsCacheValidAsync(db, userId);
 
         var likePattern = $"%{EscapeLikePattern(query)}%";
-        var lists = await db.CachedTaskLists
+        var matchingLists = await db.CachedTaskLists
+            .AsNoTracking()
             .Where(l => l.UserId == userId && l.IsSynced
                 && EF.Functions.Like(l.DisplayName, likePattern, "\\"))
+            .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsSynced))
             .ToListAsync();
 
-        return lists
-            .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsSynced))
+        return matchingLists
             .OrderBy(l => l.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
