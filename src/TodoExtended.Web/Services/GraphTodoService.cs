@@ -167,6 +167,36 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
     public Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync(string userId) =>
         Task.FromResult<IReadOnlyList<TodoTaskList>>([]);
 
+    public async Task<IReadOnlyList<TodoTaskWithList>> SearchTasksAsync(string query, string userId)
+    {
+        var lists = await GetTaskListsAsync(userId);
+        var results = new List<TodoTaskWithList>();
+
+        foreach (var list in lists)
+        {
+            var tasks = await GetTasksAsync(list.Id, userId);
+            results.AddRange(tasks
+                .Where(t => t.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .Select(t => new TodoTaskWithList(
+                    t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
+                    list.Id, list.DisplayName)));
+        }
+
+        return results
+            .OrderBy(t => t.IsCompleted)
+            .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<TodoTaskList>> SearchTaskListsAsync(string query, string userId)
+    {
+        var lists = await GetTaskListsAsync(userId);
+        return lists
+            .Where(l => l.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(l => l.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     /// <summary>
     /// Converts Graph's dateTimeTimeZone to a DateOnly.
     /// Microsoft To Do stores due dates as midnight-local-time converted to UTC

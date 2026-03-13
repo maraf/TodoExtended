@@ -110,6 +110,43 @@ public class CachedTodoService(
             .ToList();
     }
 
+    public async Task<IReadOnlyList<TodoTaskWithList>> SearchTasksAsync(string query, string userId)
+    {
+        await using var db = await dbContextFactory.CreateDbContextAsync();
+        await EnsureCacheValidAsync(db, userId);
+
+        var tasks = await db.CachedTasks
+            .Include(t => t.List)
+            .Where(t => t.UserId == userId && !t.IsDeleted && t.List!.IsSynced)
+            .ToListAsync();
+
+        return tasks
+            .Where(t => t.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Select(t => new TodoTaskWithList(
+                t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
+                t.ListId, t.List!.DisplayName))
+            .OrderBy(t => t.IsCompleted)
+            .ThenBy(t => ImportanceSortOrder(t.Importance))
+            .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<TodoTaskList>> SearchTaskListsAsync(string query, string userId)
+    {
+        await using var db = await dbContextFactory.CreateDbContextAsync();
+        await EnsureListsCacheValidAsync(db, userId);
+
+        var lists = await db.CachedTaskLists
+            .Where(l => l.UserId == userId && l.IsSynced)
+            .ToListAsync();
+
+        return lists
+            .Where(l => l.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
+            .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsSynced))
+            .OrderBy(l => l.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, string userId, TimeOnly? reminderTime = null)
     {
         var created = await graphService.CreateTaskAsync(taskListId, title, dueDate, userId, reminderTime);
