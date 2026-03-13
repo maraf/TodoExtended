@@ -79,7 +79,7 @@
 
                 builder.OpenElement(seq++, "a");
                 builder.AddAttribute(seq++, "href", $"/tasks/{r.Id}");
-                builder.AddAttribute(seq++, "class", "font-medium underline decoration-dotted underline-offset-2 hover:decoration-solid");
+                builder.AddAttribute(seq++, "class", "font-medium underline decoration-dotted underline-offset-4 hover:decoration-solid");
                 builder.AddContent(seq++, r.DisplayName);
                 builder.CloseElement();
 
