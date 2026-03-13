@@ -16,7 +16,7 @@
     </Icon>
 </PageHeader>
 
-<div class="flex flex-col h-[calc(100dvh-10rem)] sm:h-[calc(100dvh-10.5rem)] lg:h-[calc(100dvh-7.5rem)]">
+<div class="flex flex-col h-[calc(100dvh-10rem)] sm:h-[calc(100dvh-10.5rem)] lg:h-[calc(100dvh-7rem)]">
     @* Messages area *@
     <div @ref="_messagesContainer" data-chat-scroll class="flex-1 overflow-y-auto space-y-4 pb-4 pr-2">
         @if (_messages.Count == 0)
@@ -77,7 +77,7 @@
     }
 
     @* Input area *@
-    <div class="pt-3 pb-2 border-t border-slate-200 dark:border-slate-700">
+    <div class="pt-3 border-t border-slate-200 dark:border-slate-700">
         <ChatInput @ref="_chatInput" OnSend="HandleSend" IsDisabled="_isLoading" />
     </div>
 </div>
