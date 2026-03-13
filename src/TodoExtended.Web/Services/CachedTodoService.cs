@@ -110,18 +110,24 @@ public class CachedTodoService(
             .ToList();
     }
 
+    private const int MaxSearchQueryLength = 500;
+
     public async Task<IReadOnlyList<TodoTaskWithList>> SearchTasksAsync(string query, string userId)
     {
+        if (string.IsNullOrWhiteSpace(query) || query.Length > MaxSearchQueryLength)
+            return [];
+
         await using var db = await dbContextFactory.CreateDbContextAsync();
         await EnsureCacheValidAsync(db, userId);
 
+        var likePattern = $"%{EscapeLikePattern(query)}%";
         var tasks = await db.CachedTasks
             .Include(t => t.List)
-            .Where(t => t.UserId == userId && !t.IsDeleted && t.List!.IsSynced)
+            .Where(t => t.UserId == userId && !t.IsDeleted && t.List!.IsSynced
+                && EF.Functions.Like(t.Title, likePattern, "\\"))
             .ToListAsync();
 
         return tasks
-            .Where(t => t.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Select(t => new TodoTaskWithList(
                 t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
                 t.ListId, t.List!.DisplayName))
@@ -133,19 +139,27 @@ public class CachedTodoService(
 
     public async Task<IReadOnlyList<TodoTaskList>> SearchTaskListsAsync(string query, string userId)
     {
+        if (string.IsNullOrWhiteSpace(query) || query.Length > MaxSearchQueryLength)
+            return [];
+
         await using var db = await dbContextFactory.CreateDbContextAsync();
         await EnsureListsCacheValidAsync(db, userId);
 
+        var likePattern = $"%{EscapeLikePattern(query)}%";
         var lists = await db.CachedTaskLists
-            .Where(l => l.UserId == userId && l.IsSynced)
+            .Where(l => l.UserId == userId && l.IsSynced
+                && EF.Functions.Like(l.DisplayName, likePattern, "\\"))
             .ToListAsync();
 
         return lists
-            .Where(l => l.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Select(l => new TodoTaskList(l.Id, l.DisplayName, l.IsSynced))
             .OrderBy(l => l.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
+
+    private static string EscapeLikePattern(string query) =>
+        query.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_")
+             .Replace("[", "\\[").Replace("]", "\\]");
 
     public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, string userId, TimeOnly? reminderTime = null)
     {
