@@ -133,7 +133,13 @@ public class DemoChatService : IChatService
                       "1. 🛒 Shopping — 5 tasks\n" +
                       "2. 👤 Personal — 3 tasks\n" +
                       "3. 💼 Work — 8 tasks",
-                ProposedActions: []);
+                ProposedActions: [],
+                TaskListReferences:
+                [
+                    new TaskListReference("demo-list-1", "🛒 Shopping"),
+                    new TaskListReference("demo-list-2", "👤 Personal"),
+                    new TaskListReference("demo-list-3", "💼 Work"),
+                ]);
             return Task.FromResult(response);
         }
 

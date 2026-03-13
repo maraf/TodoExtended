@@ -1,0 +1,19 @@
+@* TaskListCard.razor — Clickable card for a task list reference in AI chat *@
+
+<a href="/tasks/@ListId"
+   class="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-150 group no-underline">
+    <div class="flex-shrink-0 w-8 h-8 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
+        <svg class="w-4 h-4 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+    </div>
+    <span class="flex-1 min-w-0 text-sm font-medium text-slate-700 dark:text-slate-300 truncate">@DisplayName</span>
+    <svg class="w-4 h-4 text-slate-400 dark:text-slate-500 flex-shrink-0 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+    </svg>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public string ListId { get; set; } = default!;
+    [Parameter, EditorRequired] public string DisplayName { get; set; } = default!;
+}

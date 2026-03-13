@@ -27,6 +27,16 @@
             </div>
         }
 
+        @if (!isUser && Message.TaskListReferences is { Count: > 0 })
+        {
+            <div class="mt-2 space-y-1.5">
+                @foreach (var list in Message.TaskListReferences)
+                {
+                    <TaskListCard ListId="@list.Id" DisplayName="@list.DisplayName" />
+                }
+            </div>
+        }
+
         <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-1 @(isUser ? "text-right" : "text-left") px-1">
             @Message.Timestamp.ToLocalTime().ToString("h:mm tt")
         </p>

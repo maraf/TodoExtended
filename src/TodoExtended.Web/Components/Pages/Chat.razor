@@ -176,7 +176,8 @@
                 "assistant",
                 response.Text,
                 response.ProposedActions.Count > 0 ? response.ProposedActions : null,
-                DateTimeOffset.Now);
+                DateTimeOffset.Now,
+                response.TaskListReferences);
 
             _messages.Add(assistantMessage);
             _messageEntries.Add(new MessageEntry(assistantMessage));
