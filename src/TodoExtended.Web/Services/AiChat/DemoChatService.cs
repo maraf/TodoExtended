@@ -23,7 +23,7 @@ public class DemoChatService : IChatService
                         "Create task \"Buy groceries\"",
                         new Dictionary<string, string>
                         {
-                            ["listId"] = "demo-list-1",
+                            ["listId"] = "demo-list-personal",
                             ["title"] = "Buy groceries",
                             ["dueDate"] = DateOnly.FromDateTime(DateTime.Today).ToString("O")
                         })
@@ -42,7 +42,7 @@ public class DemoChatService : IChatService
                         "Complete task \"Buy groceries\"",
                         new Dictionary<string, string>
                         {
-                            ["listId"] = "demo-list-1",
+                            ["listId"] = "demo-list-personal",
                             ["taskId"] = "demo-task-1"
                         })
                 ]);
@@ -63,8 +63,8 @@ public class DemoChatService : IChatService
                             new Dictionary<string, string>
                             {
                                 ["title"] = "Morning Workout",
-                                ["listId"] = "demo-list-1",
-                                ["listName"] = "Personal",
+                                ["listId"] = "demo-list-personal",
+                                ["listName"] = "🏠 Personal",
                                 ["dueDateToday"] = "true",
                                 ["reminderTime"] = "07:00"
                             })
@@ -130,15 +130,15 @@ public class DemoChatService : IChatService
         {
             var response = new ChatResponse(
                 Text: "You have 3 task lists:\n\n" +
-                      "1. 🛒 Shopping — 5 tasks\n" +
-                      "2. 👤 Personal — 3 tasks\n" +
-                      "3. 💼 Work — 8 tasks",
+                      "1. 🏠 Personal — 5 tasks\n" +
+                      "2. 📋 Work — 8 tasks\n" +
+                      "3. 📚 Learning — 3 tasks",
                 ProposedActions: [],
                 TaskListReferences:
                 [
-                    new TaskListReference("demo-list-1", "🛒 Shopping"),
-                    new TaskListReference("demo-list-2", "👤 Personal"),
-                    new TaskListReference("demo-list-3", "💼 Work"),
+                    new TaskListReference("demo-list-personal", "🏠 Personal"),
+                    new TaskListReference("demo-list-work", "📋 Work"),
+                    new TaskListReference("demo-list-learning", "📚 Learning"),
                 ]);
             return Task.FromResult(response);
         }

@@ -82,7 +82,8 @@ public class ChatService(
 
         var proposedActions = new List<ProposedAction>();
         var responseText = new StringBuilder();
-        var referencedLists = new Dictionary<string, string>(); // Id → DisplayName
+        var referencedLists = new List<TaskListReference>(); // ordered, as returned by tool
+        var referencedListIds = new HashSet<string>();       // for de-duplication
 
         // Tool-calling loop: auto-invoke read tools, collect write tools as proposals
         const int maxIterations = 10;
@@ -162,7 +163,7 @@ public class ChatService(
                     hasReadCalls = true;
                     var result = await ExecuteReadTool(call, ct);
                     if (call.Name == "get_task_lists")
-                        ParseTaskListReferences(result, referencedLists);
+                        ParseTaskListReferences(result, referencedLists, referencedListIds);
                     messages.Add(new Microsoft.Extensions.AI.ChatMessage(
                         ChatRole.Tool,
                         [new FunctionResultContent(call.CallId, result)]));
@@ -206,9 +207,7 @@ public class ChatService(
             ? responseText.ToString()
             : "I've processed your request.";
 
-        var taskListRefs = referencedLists.Count > 0
-            ? referencedLists.Select(kvp => new TaskListReference(kvp.Key, kvp.Value)).ToList()
-            : null;
+        var taskListRefs = referencedLists.Count > 0 ? referencedLists : null;
 
         return new ChatResponse(finalText, proposedActions, taskListRefs);
     }
@@ -320,7 +319,7 @@ public class ChatService(
     /// <summary>
     /// Parses a get_task_lists JSON result and populates the tracker dictionary (Id → DisplayName).
     /// </summary>
-    private static void ParseTaskListReferences(string json, Dictionary<string, string> tracker)
+    private static void ParseTaskListReferences(string json, List<TaskListReference> tracker, HashSet<string> seenIds)
     {
         try
         {
@@ -331,8 +330,8 @@ public class ChatService(
                 {
                     var id = idEl.GetString();
                     var dn = dnEl.GetString();
-                    if (id is not null && dn is not null)
-                        tracker[id] = dn;
+                    if (id is not null && dn is not null && seenIds.Add(id))
+                        tracker.Add(new TaskListReference(id, dn));
                 }
             }
         }
