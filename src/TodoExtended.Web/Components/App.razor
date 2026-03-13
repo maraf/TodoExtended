@@ -35,13 +35,19 @@
                     document.body.classList.toggle('keyboard-open', keyboardOpen);
                 });
             } else if (window.visualViewport) {
-                var orientationChangeThreshold = 100;
                 var keyboardOpenThreshold = 150;
                 var baseline = window.visualViewport.height;
+                var lastWidth = window.visualViewport.width;
                 window.visualViewport.addEventListener('resize', function () {
                     var current = window.visualViewport.height;
-                    // If height grows significantly it is an orientation change — update baseline.
-                    if (current > baseline + orientationChangeThreshold) baseline = current;
+                    var currentWidth = window.visualViewport.width;
+                    // Width change means orientation change — reset baseline and clear state.
+                    if (currentWidth !== lastWidth) {
+                        lastWidth = currentWidth;
+                        baseline = current;
+                        document.body.classList.remove('keyboard-open');
+                        return;
+                    }
                     var keyboardOpen = baseline - current > keyboardOpenThreshold;
                     document.body.classList.toggle('keyboard-open', keyboardOpen);
                 });
