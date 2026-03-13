@@ -7,22 +7,7 @@
         @if (Message.Text is not null)
         {
             <div class="@BubbleClasses(isUser) rounded-2xl px-4 py-2.5 text-sm leading-relaxed @(isUser ? "rounded-br-md" : "rounded-bl-md")">
-                <span class="whitespace-pre-wrap break-words">@Message.Text</span>
-                @if (!isUser && Message.TaskListReferences is { Count: > 0 })
-                {
-                    <div class="mt-2 pt-2 border-t border-slate-200 dark:border-slate-600 flex flex-wrap gap-x-3 gap-y-1">
-                        @foreach (var list in Message.TaskListReferences)
-                        {
-                            <a href="/tasks/@list.Id"
-                               class="inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline">
-                                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                </svg>
-                                @list.DisplayName
-                            </a>
-                        }
-                    </div>
-                }
+                <span class="whitespace-pre-wrap break-words">@RenderTextWithLinks(Message.Text, isUser ? null : Message.TaskListReferences)</span>
             </div>
         }
 
@@ -60,4 +45,49 @@
     private static string BubbleClasses(bool isUser) => isUser
         ? "bg-brand-600 dark:bg-brand-700 text-white"
         : "bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200";
+
+    private static RenderFragment RenderTextWithLinks(string text, IReadOnlyList<TaskListReference>? refs)
+    {
+        if (refs is null or { Count: 0 })
+            return builder => builder.AddContent(0, text);
+
+        // Collect all match positions for every reference display name
+        var matches = new List<(int Start, int End, TaskListReference Ref)>();
+        foreach (var r in refs)
+        {
+            var idx = text.IndexOf(r.DisplayName, StringComparison.Ordinal);
+            while (idx >= 0)
+            {
+                matches.Add((idx, idx + r.DisplayName.Length, r));
+                idx = text.IndexOf(r.DisplayName, idx + r.DisplayName.Length, StringComparison.Ordinal);
+            }
+        }
+
+        if (matches.Count == 0)
+            return builder => builder.AddContent(0, text);
+
+        matches.Sort((a, b) => a.Start.CompareTo(b.Start));
+
+        return builder =>
+        {
+            var seq = 0;
+            var pos = 0;
+            foreach (var (start, end, r) in matches)
+            {
+                if (start > pos)
+                    builder.AddContent(seq++, text[pos..start]);
+
+                builder.OpenElement(seq++, "a");
+                builder.AddAttribute(seq++, "href", $"/tasks/{r.Id}");
+                builder.AddAttribute(seq++, "class", "font-medium underline decoration-dotted underline-offset-2 hover:decoration-solid");
+                builder.AddContent(seq++, r.DisplayName);
+                builder.CloseElement();
+
+                pos = end;
+            }
+
+            if (pos < text.Length)
+                builder.AddContent(seq++, text[pos..]);
+        };
+    }
 }
