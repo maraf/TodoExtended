@@ -20,55 +20,11 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Add emulator to PATH
-        run: echo "$ANDROID_HOME/emulator" >> $GITHUB_PATH
-
-      - name: Install Android system image
-        run: sdkmanager "system-images;android-34;google_apis;x86_64"
-
-      - name: Create AVD
-        run: echo "no" | avdmanager create avd -n e2e_avd -k "system-images;android-34;google_apis;x86_64" --force
-
-      - name: Start emulator
+      - name: Enable KVM group permissions
         run: |
-          emulator -avd e2e_avd -no-window -noaudio -no-boot-anim -camera-back none -camera-front none &
-          booted=false
-          for i in $(seq 1 60); do
-            if adb shell getprop sys.boot_completed 2>/dev/null | grep -q '^1$'; then
-              echo "Emulator booted."
-              booted=true
-              break
-            fi
-            sleep 5
-          done
-          if [ "$booted" != "true" ]; then
-            echo "Emulator failed to boot within timeout." >&2
-            exit 1
-          fi
-
-      - name: Enable Chrome remote debugging on emulator
-        run: |
-          # Write Chrome command-line flags to enable CDP remote debugging.
-          # The leading underscore is a placeholder for the program name — Chrome
-          # ignores the first token and reads the remainder as command-line flags.
-          adb shell "echo '_ --remote-debugging-port=9222' > /data/local/tmp/chrome-command-line"
-          adb shell chmod 644 /data/local/tmp/chrome-command-line
-          # Launch Chrome to a blank page so the debugging session is initialised
-          adb shell am start -a android.intent.action.VIEW -d "about:blank" com.android.chrome
-          # Forward Chrome's DevTools Protocol Unix socket to a host TCP port
-          adb forward tcp:9222 localabstract:chrome_devtools_remote
-          # Poll the CDP endpoint until it responds (up to 30 s)
-          for i in $(seq 1 15); do
-            if curl -sf http://localhost:9222/json/version > /dev/null 2>&1; then
-              echo "CDP endpoint ready."
-              break
-            fi
-            if [ "$i" -eq 15 ]; then
-              echo "CDP endpoint not reachable after timeout." >&2
-              exit 1
-            fi
-            sleep 2
-          done
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -104,12 +60,39 @@ jobs:
           ASPNETCORE_URLS: "http://localhost:5000"
           ConnectionStrings__DefaultConnection: "Data Source=/tmp/e2e-todoextended.db"
 
-      - name: Run E2E tests
-        run: dotnet test tests/TodoExtended.E2E/TodoExtended.E2E.csproj --configuration Debug --no-build
-        env:
-          E2E_BASE_URL: "http://10.0.2.2:5000"
-          E2E_USE_ANDROID_EMULATOR: "true"
-          E2E_ANDROID_CDP_ENDPOINT: "http://localhost:9222"
+      - name: Run E2E tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          avd-name: e2e_avd
+          script: |
+            # Write Chrome command-line flags to enable CDP remote debugging.
+            # The leading underscore is a placeholder for the program name — Chrome
+            # ignores the first token and reads the remainder as command-line flags.
+            adb shell "echo '_ --remote-debugging-port=9222' > /data/local/tmp/chrome-command-line"
+            adb shell chmod 644 /data/local/tmp/chrome-command-line
+            # Launch Chrome to a blank page so the debugging session is initialised
+            adb shell am start -a android.intent.action.VIEW -d "about:blank" com.android.chrome
+            # Forward Chrome's DevTools Protocol Unix socket to a host TCP port
+            adb forward tcp:9222 localabstract:chrome_devtools_remote
+            # Poll the CDP endpoint until it responds (up to 30 s)
+            for i in $(seq 1 15); do
+              if curl -sf http://localhost:9222/json/version > /dev/null 2>&1; then
+                echo "CDP endpoint ready."
+                break
+              fi
+              if [ "$i" -eq 15 ]; then
+                echo "CDP endpoint not reachable after timeout." >&2
+                exit 1
+              fi
+              sleep 2
+            done
+            export E2E_BASE_URL="http://10.0.2.2:5000"
+            export E2E_USE_ANDROID_EMULATOR="true"
+            export E2E_ANDROID_CDP_ENDPOINT="http://localhost:9222"
+            dotnet test tests/TodoExtended.E2E/TodoExtended.E2E.csproj --configuration Debug --no-build
 
       - name: Upload screenshots
         if: always()
