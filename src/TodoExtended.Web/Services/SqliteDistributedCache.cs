@@ -58,6 +58,14 @@ public class SqliteDistributedCache(IDbContextFactory<AppDbContext> dbContextFac
         using var dbContext = await dbContextFactory.CreateDbContextAsync(token);
         
         var now = DateTimeOffset.UtcNow;
+
+        // Resolve the effective absolute expiration: prefer the explicit absolute value; fall back to
+        // computing it from the relative form so that AbsoluteExpirationRelativeToNow is honoured.
+        var absoluteExpiration = options.AbsoluteExpiration
+            ?? (options.AbsoluteExpirationRelativeToNow.HasValue
+                ? now + options.AbsoluteExpirationRelativeToNow.Value
+                : (DateTimeOffset?)null);
+
         var entry = await dbContext.Set<DistributedCacheEntry>()
             .FirstOrDefaultAsync(e => e.Key == key, token);
 
@@ -67,7 +75,7 @@ public class SqliteDistributedCache(IDbContextFactory<AppDbContext> dbContextFac
             {
                 Key = key,
                 Value = value,
-                AbsoluteExpiration = options.AbsoluteExpiration,
+                AbsoluteExpiration = absoluteExpiration,
                 SlidingExpirationInSeconds = options.SlidingExpiration?.TotalSeconds,
                 LastAccessed = now
             };
@@ -76,7 +84,7 @@ public class SqliteDistributedCache(IDbContextFactory<AppDbContext> dbContextFac
         else
         {
             entry.Value = value;
-            entry.AbsoluteExpiration = options.AbsoluteExpiration;
+            entry.AbsoluteExpiration = absoluteExpiration;
             entry.SlidingExpirationInSeconds = options.SlidingExpiration?.TotalSeconds;
             entry.LastAccessed = now;
         }
