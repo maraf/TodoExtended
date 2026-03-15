@@ -351,7 +351,7 @@ public class ScreenshotCaptureTest : PageTest
 
                     // Seed localStorage before navigating so the page loads with the conversation
                     await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
-                    await Page.EvaluateAsync($"() => localStorage.setItem('todoextended-chat-history', {System.Text.Json.JsonSerializer.Serialize(chatHistory)})");
+                    await Page.EvaluateAsync("value => localStorage.setItem('todoextended-chat-history', value)", chatHistory);
 
                     // Reload so Blazor reads the seeded localStorage
                     await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
@@ -361,8 +361,8 @@ public class ScreenshotCaptureTest : PageTest
 
                     await SetThemeAsync(theme);
 
-                    // Scroll messages to bottom so the most recent messages are visible
-                    await Page.EvaluateAsync("() => { const el = document.querySelector('[data-chat-scroll]'); if (el) el.scrollTop = el.scrollHeight; }");
+                    // Scroll to bottom so the most recent messages are visible
+                    await Page.EvaluateAsync("() => { const el = document.querySelector('main'); if (el) el.scrollTop = el.scrollHeight; }");
                     await Page.WaitForTimeoutAsync(500);
 
                     var fileName = $"chat-messages--{vp.Name}-{theme}.png";

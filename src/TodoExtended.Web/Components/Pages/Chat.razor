@@ -240,7 +240,7 @@
         await Task.Yield();
         try
         {
-            await JS.InvokeVoidAsync("eval", "document.querySelector('main')?.scrollTo({ top: document.querySelector('main').scrollHeight, behavior: 'smooth' })");
+            await JS.InvokeVoidAsync("scrollToBottom");
         }
         catch { /* ignore during prerender */ }
     }
