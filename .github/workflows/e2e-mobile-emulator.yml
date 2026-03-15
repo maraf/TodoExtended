@@ -20,6 +20,9 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Add emulator to PATH
+        run: echo "$ANDROID_HOME/emulator" >> $GITHUB_PATH
+
       - name: Install Android system image
         run: sdkmanager "system-images;android-34;google_apis;x86_64"
 
