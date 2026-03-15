@@ -22,19 +22,11 @@
         window.setDarkMode = (isDark) => document.documentElement.classList.toggle('dark', isDark);
 
         // Hide the bottom bar when the soft keyboard is open.
-        // Prefer the VirtualKeyboard API (Chrome 94+) for accurate detection;
-        // fall back to visualViewport resize heuristic for other browsers.
-        // interactive-widget=resizes-content in the viewport meta is still needed
-        // for the visualViewport fallback path.
+        // Use visualViewport resize heuristic for all browsers.
+        // interactive-widget=resizes-content in the viewport meta ensures the
+        // visual viewport shrinks when the keyboard opens (Chrome 108+, Safari 17.4+).
         (function () {
-            if (navigator.virtualKeyboard) {
-                // VirtualKeyboard API: keyboard overlays content, geometry reported via event.
-                navigator.virtualKeyboard.overlaysContent = true;
-                navigator.virtualKeyboard.addEventListener('geometrychange', function (e) {
-                    var keyboardOpen = e.target.boundingRect.height > 0;
-                    document.body.classList.toggle('keyboard-open', keyboardOpen);
-                });
-            } else if (window.visualViewport) {
+            if (window.visualViewport) {
                 var keyboardOpenThreshold = 150;
                 var baseline = window.visualViewport.height;
                 var lastWidth = window.visualViewport.width;
