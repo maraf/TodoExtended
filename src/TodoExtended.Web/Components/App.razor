@@ -31,6 +31,7 @@
                 var keyboardOpenThreshold = 150;
                 var baseline = window.visualViewport.height;
                 var lastWidth = window.visualViewport.width;
+                var wasKeyboardOpen = false;
                 window.visualViewport.addEventListener('resize', function () {
                     var current = window.visualViewport.height;
                     var currentWidth = window.visualViewport.width;
@@ -39,10 +40,18 @@
                         lastWidth = currentWidth;
                         baseline = current;
                         document.body.classList.remove('keyboard-open');
+                        wasKeyboardOpen = false;
                         return;
                     }
                     var keyboardOpen = baseline - current > keyboardOpenThreshold;
                     document.body.classList.toggle('keyboard-open', keyboardOpen);
+                    if (wasKeyboardOpen && !keyboardOpen) {
+                        // Keyboard just closed — scroll main to bottom so the sticky
+                        // chat input re-aligns to its correct bottom-20 position.
+                        var el = document.querySelector('main');
+                        if (el) el.scrollTop = el.scrollHeight - el.clientHeight;
+                    }
+                    wasKeyboardOpen = keyboardOpen;
                 });
             }
         })();
