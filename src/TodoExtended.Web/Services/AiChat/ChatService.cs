@@ -71,12 +71,13 @@ public class ChatService(
     public async Task<ChatResponse> SendMessageAsync(
         string userMessage,
         IReadOnlyList<ChatMessage> history,
+        IReadOnlyList<string>? imageDataUrls = null,
         CancellationToken ct = default)
     {
         var opts = options.Value;
         var tools = BuildTools();
 
-        var messages = BuildConversation(userMessage, history, opts.MaxHistoryMessages);
+        var messages = BuildConversation(userMessage, history, opts.MaxHistoryMessages, imageDataUrls);
 
         var chatOptions = new ChatOptions
         {
@@ -251,7 +252,8 @@ public class ChatService(
     private List<Microsoft.Extensions.AI.ChatMessage> BuildConversation(
         string userMessage,
         IReadOnlyList<ChatMessage> history,
-        int maxHistory)
+        int maxHistory,
+        IReadOnlyList<string>? imageDataUrls = null)
     {
         var messages = new List<Microsoft.Extensions.AI.ChatMessage>
         {
@@ -277,8 +279,37 @@ public class ChatService(
             }
         }
 
-        messages.Add(new Microsoft.Extensions.AI.ChatMessage(ChatRole.User, userMessage));
+        // Build the current user message with optional image attachments
+        if (imageDataUrls is { Count: > 0 })
+        {
+            var contents = new List<AIContent>();
+            if (!string.IsNullOrWhiteSpace(userMessage))
+                contents.Add(new TextContent(userMessage));
+            foreach (var dataUrl in imageDataUrls)
+                contents.Add(new DataContent(dataUrl, ParseMimeType(dataUrl)));
+            messages.Add(new Microsoft.Extensions.AI.ChatMessage(ChatRole.User, contents));
+        }
+        else
+        {
+            messages.Add(new Microsoft.Extensions.AI.ChatMessage(ChatRole.User, userMessage));
+        }
+
         return messages;
+    }
+
+    /// <summary>
+    /// Extracts the MIME type from a data URI string (e.g. "data:image/jpeg;base64,...").
+    /// Falls back to "image/jpeg" if the format is not recognised.
+    /// </summary>
+    private static string ParseMimeType(string dataUrl)
+    {
+        if (dataUrl.StartsWith("data:", StringComparison.Ordinal))
+        {
+            var semi = dataUrl.IndexOf(';', 5);
+            if (semi > 5)
+                return dataUrl[5..semi];
+        }
+        return "image/jpeg";
     }
 
     /// <summary>

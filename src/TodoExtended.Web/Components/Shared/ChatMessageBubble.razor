@@ -4,6 +4,19 @@
 
 <div class="flex @(isUser ? "justify-end" : "justify-start") animate-fade-in">
     <div class="max-w-[85%] sm:max-w-[75%]">
+        @* Image attachments *@
+        @if (isUser && Message.ImageDataUrls is { Count: > 0 })
+        {
+            <div class="flex flex-wrap gap-1.5 justify-end mb-1.5">
+                @foreach (var url in Message.ImageDataUrls)
+                {
+                    <img src="@url"
+                         alt="Attached image"
+                         class="h-24 w-24 object-cover rounded-xl border border-white/20 shadow-sm" />
+                }
+            </div>
+        }
+
         @if (Message.Text is not null)
         {
             <div class="@BubbleClasses(isUser) rounded-2xl px-4 py-2.5 text-sm leading-relaxed @(isUser ? "rounded-br-md" : "rounded-bl-md")">

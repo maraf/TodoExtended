@@ -8,6 +8,7 @@ public class DemoChatService : IChatService
     public Task<ChatResponse> SendMessageAsync(
         string userMessage,
         IReadOnlyList<ChatMessage> history,
+        IReadOnlyList<string>? imageDataUrls = null,
         CancellationToken ct = default)
     {
         var lower = userMessage.ToLowerInvariant();

@@ -54,7 +54,7 @@ public class StubChatServiceTests
         cts.Cancel();
 
         // Act
-        var response = await stubService.SendMessageAsync(userMessage, history, cts.Token);
+        var response = await stubService.SendMessageAsync(userMessage, history, ct: cts.Token);
 
         // Assert
         Assert.NotNull(response);

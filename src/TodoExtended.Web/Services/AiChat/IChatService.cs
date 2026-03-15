@@ -12,6 +12,7 @@ public interface IChatService
     Task<ChatResponse> SendMessageAsync(
         string userMessage,
         IReadOnlyList<ChatMessage> history,
+        IReadOnlyList<string>? imageDataUrls = null,
         CancellationToken ct = default);
 
     /// <summary>
