@@ -133,7 +133,15 @@
     {
         try
         {
-            var entries = _messageEntries.Select(e => new PersistedEntry(e.Message, e.Results)).ToList();
+            // Strip image data URLs before saving to localStorage to avoid storage limits
+            var entries = _messageEntries.Select(e =>
+            {
+                var msg = e.Message;
+                var msgForSave = msg.ImageDataUrls is { Count: > 0 }
+                    ? msg with { ImageDataUrls = null }
+                    : msg;
+                return new PersistedEntry(msgForSave, e.Results);
+            }).ToList();
             var json = JsonSerializer.Serialize(entries, JsonOpts);
             await JS.InvokeVoidAsync("localStorage.setItem", LocalStorageKey, json);
         }
@@ -156,11 +164,12 @@
         StateHasChanged();
     }
 
-    private async Task HandleSend(string text)
+    private async Task HandleSend(ChatInputPayload payload)
     {
         _error = null;
 
-        var userMessage = new ChatMessage("user", text, null, DateTimeOffset.Now);
+        var userMessage = new ChatMessage("user", payload.Text, null, DateTimeOffset.Now,
+            ImageDataUrls: payload.ImageDataUrls.Count > 0 ? payload.ImageDataUrls : null);
         _messages.Add(userMessage);
         _messageEntries.Add(new MessageEntry(userMessage));
 
@@ -170,7 +179,8 @@
 
         try
         {
-            var response = await ChatService.SendMessageAsync(text, _messages);
+            var images = payload.ImageDataUrls.Count > 0 ? payload.ImageDataUrls : null;
+            var response = await ChatService.SendMessageAsync(payload.Text, _messages, images);
 
             var assistantMessage = new ChatMessage(
                 "assistant",

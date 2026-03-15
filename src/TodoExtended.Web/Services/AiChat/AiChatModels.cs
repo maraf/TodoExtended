@@ -45,7 +45,13 @@ public record ChatMessage(
     string? Text,
     IReadOnlyList<ProposedAction>? ProposedActions,
     DateTimeOffset Timestamp,
-    IReadOnlyList<TaskListReference>? TaskListReferences = null);
+    IReadOnlyList<TaskListReference>? TaskListReferences = null,
+    IReadOnlyList<string>? ImageDataUrls = null);
+
+/// <summary>
+/// Payload sent from the chat input, containing a text message and optional image attachments.
+/// </summary>
+public record ChatInputPayload(string Text, IReadOnlyList<string> ImageDataUrls);
 
 /// <summary>
 /// Response from the AI containing text and any proposed actions.

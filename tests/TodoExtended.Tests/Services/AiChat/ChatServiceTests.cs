@@ -77,7 +77,7 @@ public class ChatServiceTests
 
         // Act & Assert
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
-            await chatService.SendMessageAsync(userMessage, history, cts.Token));
+            await chatService.SendMessageAsync(userMessage, history, ct: cts.Token));
     }
 
     #endregion
@@ -368,7 +368,7 @@ public class ChatServiceTests
             _todoService = todoService;
         }
 
-        public Task<ChatResponse> SendMessageAsync(string userMessage, IReadOnlyList<ChatMessage> history, CancellationToken ct = default)
+        public Task<ChatResponse> SendMessageAsync(string userMessage, IReadOnlyList<ChatMessage> history, IReadOnlyList<string>? imageDataUrls = null, CancellationToken ct = default)
         {
             if (string.IsNullOrWhiteSpace(userMessage))
                 throw new ArgumentException("Message cannot be empty", nameof(userMessage));
@@ -451,7 +451,7 @@ public class ChatServiceTests
             _todoService = todoService;
         }
 
-        public async Task<ChatResponse> SendMessageAsync(string userMessage, IReadOnlyList<ChatMessage> history, CancellationToken ct = default)
+        public async Task<ChatResponse> SendMessageAsync(string userMessage, IReadOnlyList<ChatMessage> history, IReadOnlyList<string>? imageDataUrls = null, CancellationToken ct = default)
         {
             await Task.Delay(TimeSpan.FromSeconds(10), ct);
             return new ChatResponse("Slow response", []);
