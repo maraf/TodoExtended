@@ -117,4 +117,35 @@ public class ModalDialogTests : TestContext
         // We can check that the dialog is there but footer section is missing
         Assert.Contains("Test Modal", cut.Markup);
     }
+
+    [Fact]
+    public void Form_WhenSubmitted_InvokesOnSubmit()
+    {
+        // Arrange
+        var submitCalled = false;
+        var cut = RenderComponent<TodoExtended.Web.Components.Shared.ModalDialog>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.Title, "Test Modal")
+            .Add(p => p.OnSubmit, () => { submitCalled = true; })
+        );
+
+        // Act
+        cut.Find("form").Submit();
+
+        // Assert
+        Assert.True(submitCalled);
+    }
+
+    [Fact]
+    public void Render_WhenVisible_ContainsFormElement()
+    {
+        // Arrange & Act
+        var cut = RenderComponent<TodoExtended.Web.Components.Shared.ModalDialog>(parameters => parameters
+            .Add(p => p.Visible, true)
+            .Add(p => p.Title, "Test Modal")
+        );
+
+        // Assert
+        Assert.NotNull(cut.Find("form"));
+    }
 }

@@ -107,7 +107,7 @@ else
 }
 
 <!-- Add/Edit Modal -->
-<ModalDialog Visible="_dialogVisible" Title="@(_editingTemplateId is not null ? "Edit Template" : "New Template")" OnClose="CloseDialog">
+<ModalDialog Visible="_dialogVisible" Title="@(_editingTemplateId is not null ? "Edit Template" : "New Template")" OnClose="CloseDialog" OnSubmit="SaveTemplate">
     <Body>
         <div class="space-y-4">
             <FloatingField Label="Title" @bind-Value="_formTitle" />
@@ -146,8 +146,8 @@ else
         </div>
     </Body>
     <Footer>
-        <button @onclick="CloseDialog" class="btn-ghost">Cancel</button>
-        <button @onclick="SaveTemplate" disabled="@_saving" class="btn-primary">
+        <button type="button" @onclick="CloseDialog" class="btn-ghost">Cancel</button>
+        <button type="submit" disabled="@_saving" class="btn-primary">
             @if (_saving)
             {
                 <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">

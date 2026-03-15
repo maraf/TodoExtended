@@ -117,7 +117,7 @@ else
 }
 
 <!-- Create API Key Modal -->
-<ModalDialog Visible="_dialogVisible" Title="New API Key" OnClose="CloseDialog">
+<ModalDialog Visible="_dialogVisible" Title="New API Key" OnClose="CloseDialog" OnSubmit="CreateKey">
     <Body>
         <FloatingField Label="Key Name" @bind-Value="_formKeyName" />
         @if (_formError is not null)
@@ -126,8 +126,8 @@ else
         }
     </Body>
     <Footer>
-        <button @onclick="CloseDialog" class="btn-ghost">Cancel</button>
-        <button @onclick="CreateKey" disabled="@_creating" class="btn-primary">
+        <button type="button" @onclick="CloseDialog" class="btn-ghost">Cancel</button>
+        <button type="submit" disabled="@_creating" class="btn-primary">
             @if (_creating)
             {
                 <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
