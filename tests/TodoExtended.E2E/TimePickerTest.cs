@@ -1,5 +1,4 @@
 using Microsoft.Playwright;
-using Microsoft.Playwright.NUnit;
 using NUnit.Framework;
 
 namespace TodoExtended.E2E;
@@ -8,11 +7,9 @@ namespace TodoExtended.E2E;
 /// E2E tests verifying the TimePicker component in the Template edit dialog.
 /// Requires the app running with Demo__Enabled=true.
 /// </summary>
-[Parallelizable(ParallelScope.Self)]
 [TestFixture]
-public class TimePickerTest : PageTest
+public class TimePickerTest : E2ETestBase
 {
-    private string BaseUrl => Environment.GetEnvironmentVariable("E2E_BASE_URL") ?? "http://localhost:5000";
 
     [SetUp]
     public async Task SignInAsync()
