@@ -77,7 +77,7 @@
     }
 
     @* Input area — sticky so it stays visible while <main> scrolls *@
-    <div class="sticky bottom-20 lg:bottom-0 bg-slate-50 dark:bg-slate-900 pt-3 border-t border-slate-200 dark:border-slate-700">
+    <div class="chat-input-sticky sticky bottom-20 lg:bottom-0 bg-slate-50 dark:bg-slate-900 pt-3 border-t border-slate-200 dark:border-slate-700">
         <ChatInput @ref="_chatInput" OnSend="HandleSend" IsDisabled="_isLoading" />
     </div>
 </div>
