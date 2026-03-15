@@ -16,9 +16,9 @@
     </Icon>
 </PageHeader>
 
-<div class="flex flex-col" style="height: calc(100dvh - 10rem);">
-    @* Messages area *@
-    <div @ref="_messagesContainer" data-chat-scroll class="flex-1 overflow-y-auto space-y-4 pb-4 pr-1">
+<div class="flex flex-col min-h-[calc(100dvh-10rem)] sm:min-h-[calc(100dvh-10.5rem)] lg:min-h-[calc(100dvh-7rem)]">
+    @* Messages area — no inner scroll; scrollbar lives on <main> at the viewport edge *@
+    <div @ref="_messagesContainer" data-chat-scroll class="flex-1 space-y-4 pb-4">
         @if (_messages.Count == 0)
         {
             <div class="flex flex-col items-center justify-center h-full text-center px-4">
@@ -76,8 +76,8 @@
         </div>
     }
 
-    @* Input area *@
-    <div class="pt-3 border-t border-slate-200 dark:border-slate-700">
+    @* Input area — sticky so it stays visible while <main> scrolls *@
+    <div class="sticky bottom-20 lg:bottom-0 bg-slate-50 dark:bg-slate-900 pt-3 border-t border-slate-200 dark:border-slate-700">
         <ChatInput @ref="_chatInput" OnSend="HandleSend" IsDisabled="_isLoading" />
     </div>
 </div>
@@ -240,7 +240,7 @@
         await Task.Yield();
         try
         {
-            await JS.InvokeVoidAsync("eval", "document.querySelector('[data-chat-scroll]')?.scrollTo({ top: document.querySelector('[data-chat-scroll]').scrollHeight, behavior: 'smooth' })");
+            await JS.InvokeVoidAsync("scrollToBottom");
         }
         catch { /* ignore during prerender */ }
     }

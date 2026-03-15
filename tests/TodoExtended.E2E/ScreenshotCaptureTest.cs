@@ -73,6 +73,10 @@ public class ScreenshotCaptureTest : PageTest
 
         // Capture sidebar-open on mobile
         await CaptureSidebarOpenScreenshots();
+
+        // Capture chat screenshots
+        await CaptureChatEmptyScreenshots();
+        await CaptureChatWithMessagesScreenshots();
     }
 
     private async Task SignInViaDemoAsync()
@@ -277,6 +281,98 @@ public class ScreenshotCaptureTest : PageTest
             catch (Exception ex)
             {
                 TestContext.WriteLine($"[WARN] Failed: sidebar-open--{mobileVp.Name}-{theme}: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task CaptureChatEmptyScreenshots()
+    {
+        foreach (var theme in new[] { "dark", "light" })
+        {
+            foreach (var vp in Viewports)
+            {
+                try
+                {
+                    await Page.SetViewportSizeAsync(vp.Width, vp.Height);
+
+                    // Clear any existing chat history so the empty state is shown
+                    await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
+                    await Page.EvaluateAsync("() => localStorage.removeItem('todoextended-chat-history')");
+                    await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
+
+                    // Wait for empty state placeholder
+                    await Page.Locator("h2:has-text('Chat with your tasks')").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
+
+                    await SetThemeAsync(theme);
+                    await Page.WaitForTimeoutAsync(500);
+
+                    var fileName = $"chat-empty--{vp.Name}-{theme}.png";
+                    await Page.ScreenshotAsync(new() { Path = Path.Combine(ScreenshotsDir, fileName) });
+                    TestContext.WriteLine($"[OK] {fileName}");
+                }
+                catch (Exception ex)
+                {
+                    TestContext.WriteLine($"[WARN] Failed: chat-empty--{vp.Name}-{theme}: {ex.Message}");
+                }
+            }
+        }
+    }
+
+    private async Task CaptureChatWithMessagesScreenshots()
+    {
+        // A realistic multi-turn conversation long enough to trigger the scrollbar.
+        // PropertyNameCaseInsensitive=true means any casing is fine for deserialization.
+        const string chatHistory = """
+            [
+              {"message":{"role":"user","text":"Hey! What can you help me with?","proposedActions":null,"timestamp":"2026-01-10T09:00:00+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"assistant","text":"I can help you manage your tasks! Here\u2019s what I can do:\n\n\u2022 Create new tasks in any of your task lists\n\u2022 Mark tasks as complete or reopen them\n\u2022 Create, update, or delete task templates\n\u2022 Execute templates to quickly add recurring tasks\n\nJust tell me what you\u2019d like \u2014 for example, \u201cAdd a task to buy milk\u201d or \u201cComplete my gym workout.\u201d","proposedActions":null,"timestamp":"2026-01-10T09:00:04+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"user","text":"Add a task to buy milk in my Shopping list","proposedActions":null,"timestamp":"2026-01-10T09:01:00+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"assistant","text":"I\u2019ll create that task in your Shopping list:","proposedActions":[{"type":0,"description":"Create task in Shopping","parameters":{"title":"Buy milk","listId":"abc123","listName":"Shopping"}}],"timestamp":"2026-01-10T09:01:05+00:00","taskListReferences":[{"id":"abc123","displayName":"Shopping"}]},"results":[{"actionIndex":0,"success":true,"message":"Task created successfully"}]},
+              {"message":{"role":"user","text":"Great! Now mark my morning run as complete.","proposedActions":null,"timestamp":"2026-01-10T09:02:00+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"assistant","text":"Done! I\u2019ve marked your morning run as complete:","proposedActions":[{"type":1,"description":"Complete 'Morning Run'","parameters":{"title":"Morning Run","listId":"abc124","listName":"Exercise"}}],"timestamp":"2026-01-10T09:02:06+00:00","taskListReferences":[{"id":"abc124","displayName":"Exercise"}]},"results":[{"actionIndex":0,"success":true,"message":"Task completed"}]},
+              {"message":{"role":"user","text":"Can you reopen the budget review task?","proposedActions":null,"timestamp":"2026-01-10T09:02:30+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"assistant","text":"Sure, I\u2019ll reopen that for you:","proposedActions":[{"type":2,"description":"Reopen 'Budget Review'","parameters":{"title":"Budget Review","listId":"abc125","listName":"Work"}}],"timestamp":"2026-01-10T09:02:35+00:00","taskListReferences":[{"id":"abc125","displayName":"Work"}]},"results":[{"actionIndex":0,"success":true,"message":"Task reopened"}]},
+              {"message":{"role":"user","text":"What are my task lists?","proposedActions":null,"timestamp":"2026-01-10T09:03:00+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"assistant","text":"Here are your task lists:\n\n\u2022 Shopping \u2014 everyday errands\n\u2022 Exercise \u2014 fitness goals\n\u2022 Work \u2014 professional tasks\n\u2022 Personal \u2014 everything else\n\nTap any name to open the list directly.","proposedActions":null,"timestamp":"2026-01-10T09:03:04+00:00","taskListReferences":[{"id":"abc123","displayName":"Shopping"},{"id":"abc124","displayName":"Exercise"},{"id":"abc125","displayName":"Work"},{"id":"abc126","displayName":"Personal"}]},"results":null},
+              {"message":{"role":"user","text":"Create a morning routine template","proposedActions":null,"timestamp":"2026-01-10T09:04:00+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"assistant","text":"I\u2019ll set up a morning routine template:","proposedActions":[{"type":3,"description":"Create 'Morning Routine' template","parameters":{"title":"Morning Routine"}}],"timestamp":"2026-01-10T09:04:07+00:00","taskListReferences":null},"results":[{"actionIndex":0,"success":true,"message":"Template created"}]},
+              {"message":{"role":"user","text":"Perfect, thanks! You\u2019re really helpful.","proposedActions":null,"timestamp":"2026-01-10T09:05:00+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"assistant","text":"Happy to help! I\u2019m here whenever you need to manage your tasks. Just send me a message anytime.","proposedActions":null,"timestamp":"2026-01-10T09:05:03+00:00","taskListReferences":null},"results":null}
+            ]
+            """;
+
+        foreach (var theme in new[] { "dark", "light" })
+        {
+            foreach (var vp in Viewports)
+            {
+                try
+                {
+                    await Page.SetViewportSizeAsync(vp.Width, vp.Height);
+
+                    // Seed localStorage before navigating so the page loads with the conversation
+                    await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
+                    await Page.EvaluateAsync("value => localStorage.setItem('todoextended-chat-history', value)", chatHistory);
+
+                    // Reload so Blazor reads the seeded localStorage
+                    await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
+
+                    // Wait for at least one message bubble to appear
+                    await Page.Locator(".bg-brand-600, .bg-slate-100").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
+
+                    await SetThemeAsync(theme);
+
+                    // Scroll to bottom so the most recent messages are visible
+                    await Page.EvaluateAsync("() => { const el = document.querySelector('main'); if (el) el.scrollTop = el.scrollHeight; }");
+                    await Page.WaitForTimeoutAsync(500);
+
+                    var fileName = $"chat-messages--{vp.Name}-{theme}.png";
+                    await Page.ScreenshotAsync(new() { Path = Path.Combine(ScreenshotsDir, fileName) });
+                    TestContext.WriteLine($"[OK] {fileName}");
+                }
+                catch (Exception ex)
+                {
+                    TestContext.WriteLine($"[WARN] Failed: chat-messages--{vp.Name}-{theme}: {ex.Message}");
+                }
             }
         }
     }

@@ -20,6 +20,7 @@
     <ReconnectModal />
     <script>
         window.setDarkMode = (isDark) => document.documentElement.classList.toggle('dark', isDark);
+        window.scrollToBottom = () => { const el = document.querySelector('main'); if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); };
 
         // Hide the bottom bar when the soft keyboard is open.
         // Use visualViewport resize heuristic for all browsers.
