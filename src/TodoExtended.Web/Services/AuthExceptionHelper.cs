@@ -49,12 +49,41 @@ public static class AuthExceptionHelper
         ex is NotAuthenticatedException;
 
     /// <summary>
+    /// Returns <c>true</c> when the exception (or any exception in its chain) is a
+    /// <see cref="MsalUiRequiredException"/>, indicating that cached tokens have expired and
+    /// the user must sign in again to obtain fresh tokens.
+    /// This covers the API-key flow where <see cref="Services.ApiKeyGraphClientFactory"/> wraps
+    /// the original <see cref="MsalUiRequiredException"/> inside an
+    /// <see cref="InvalidOperationException"/>.
+    /// </summary>
+    public static bool IsConsentRequired(Exception ex)
+    {
+        for (var current = ex; current != null; current = current.InnerException)
+        {
+            if (current is MsalUiRequiredException)
+                return true;
+        }
+
+        if (ex is AggregateException aggEx)
+        {
+            foreach (var inner in aggEx.InnerExceptions)
+            {
+                if (IsConsentRequired(inner))
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Returns <c>true</c> for any exception that requires an auth redirect
     /// (irrecoverable MSAL error, consent challenge, or missing user identity).
     /// Use as an exception filter so these exceptions bubble up to <see cref="AuthErrorBoundary"/>.
     /// </summary>
     public static bool IsAuthException(Exception ex) =>
         IsIrrecoverableMsalError(ex) ||
+        IsConsentRequired(ex) ||
         IsUnauthenticatedUser(ex) ||
         ex is MicrosoftIdentityWebChallengeUserException;
 }

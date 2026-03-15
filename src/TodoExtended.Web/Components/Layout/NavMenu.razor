@@ -64,7 +64,7 @@
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignOut", forceLoad: true);
         }
-        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException)
+        catch (Exception ex) when (ex is MicrosoftIdentityWebChallengeUserException || AuthExceptionHelper.IsConsentRequired(ex))
         {
             NavigationManager.NavigateTo("MicrosoftIdentity/Account/SignIn", forceLoad: true);
         }

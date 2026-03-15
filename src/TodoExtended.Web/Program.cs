@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -29,6 +30,21 @@ builder.Configuration.AddJsonFile("appsettings.local.json", optional: true, relo
 
 builder.Services.Configure<DemoOptions>(builder.Configuration.GetSection("Demo"));
 var isDemoMode = builder.Configuration.GetValue<bool>("Demo:Enabled");
+
+// Resolve the artifacts directory from the connection string so Data Protection keys,
+// the SQLite DB, and future persistent artefacts all share the same root folder.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+var dbPath = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(connectionString).DataSource;
+var artifactsDir = Path.GetDirectoryName(Path.GetFullPath(dbPath))!;
+Directory.CreateDirectory(artifactsDir);
+
+// Persist Data Protection keys to disk so that auth cookies and the MSAL token cache
+// (which is encrypted with these keys by AddDistributedTokenCaches) survive app restarts
+// and deployments.  Without this every restart forces every user to sign in again.
+var keysDir = Path.Combine(artifactsDir, "dataprotection-keys");
+Directory.CreateDirectory(keysDir);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(keysDir));
 
 // Register IDistributedCache backed by SQLite (must be registered before authentication)
 builder.Services.AddSingleton<Microsoft.Extensions.Caching.Distributed.IDistributedCache, SqliteDistributedCache>();
@@ -120,10 +136,6 @@ if (!isDemoMode)
     controllers.AddMicrosoftIdentityUI();
 
 // EF Core + SQLite
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
-var dbPath = connectionString.Replace("Data Source=", "");
-Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(dbPath))!);
-
 builder.Services.AddSingleton<EnableForeignKeysInterceptor>();
 
 // Scoped DbContext for regular use
