@@ -1,0 +1,93 @@
+name: E2E Mobile Emulator
+
+on:
+  workflow_dispatch:
+
+jobs:
+  e2e-mobile:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android system image
+        run: sdkmanager "system-images;android-34;google_apis;x86_64"
+
+      - name: Create AVD
+        run: echo "no" | avdmanager create avd -n e2e_avd -k "system-images;android-34;google_apis;x86_64" --force
+
+      - name: Start emulator
+        run: |
+          emulator -avd e2e_avd -no-window -noaudio -no-boot-anim -camera-back none -camera-front none &
+          booted=false
+          for i in $(seq 1 60); do
+            if adb shell getprop sys.boot_completed 2>/dev/null | grep -q '^1$'; then
+              echo "Emulator booted."
+              booted=true
+              break
+            fi
+            sleep 5
+          done
+          if [ "$booted" != "true" ]; then
+            echo "Emulator failed to boot within timeout." >&2
+            exit 1
+          fi
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish web app
+        run: dotnet publish src/TodoExtended.Web/TodoExtended.Web.csproj --configuration Release -o /tmp/todoextended-publish
+
+      - name: Build E2E tests
+        run: dotnet build tests/TodoExtended.E2E/TodoExtended.E2E.csproj --configuration Debug
+
+      - name: Install Playwright browsers
+        run: pwsh tests/TodoExtended.E2E/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Start app in demo mode
+        run: |
+          cd /tmp/todoextended-publish && dotnet TodoExtended.Web.dll &
+          started=false
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5000/; then
+              started=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$started" != "true" ]; then
+            echo "App failed to start within timeout." >&2
+            exit 1
+          fi
+        env:
+          Demo__Enabled: "true"
+          ASPNETCORE_URLS: "http://localhost:5000"
+          ConnectionStrings__DefaultConnection: "Data Source=/tmp/e2e-todoextended.db"
+
+      - name: Run E2E tests
+        run: dotnet test tests/TodoExtended.E2E/TodoExtended.E2E.csproj --configuration Debug --no-build
+        env:
+          E2E_BASE_URL: "http://localhost:5000"
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-mobile-screenshots
+          path: |
+            tests/TodoExtended.E2E/screenshots/
+            docs/screenshots/
+          if-no-files-found: warn
