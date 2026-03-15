@@ -1,5 +1,4 @@
 using Microsoft.Playwright;
-using Microsoft.Playwright.NUnit;
 using NUnit.Framework;
 
 namespace TodoExtended.E2E;
@@ -9,11 +8,9 @@ namespace TodoExtended.E2E;
 /// the viewport on both mobile (390×844) and desktop (1280×800).
 /// Requires the app running with Demo__Enabled=true.
 /// </summary>
-[Parallelizable(ParallelScope.Self)]
 [TestFixture]
-public class NotificationTest : PageTest
+public class NotificationTest : E2ETestBase
 {
-    private string BaseUrl => Environment.GetEnvironmentVariable("E2E_BASE_URL") ?? "http://localhost:5000";
 
     private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
     private static string ScreenshotsDir => Path.Combine(RepoRoot, "docs", "screenshots");

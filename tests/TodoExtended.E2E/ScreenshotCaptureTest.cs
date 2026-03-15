@@ -1,5 +1,4 @@
 using Microsoft.Playwright;
-using Microsoft.Playwright.NUnit;
 using NUnit.Framework;
 
 namespace TodoExtended.E2E;
@@ -10,11 +9,9 @@ namespace TodoExtended.E2E;
 /// Output lands in docs/screenshots/ at the repo root.
 /// Requires the app running with Demo__Enabled=true.
 /// </summary>
-[Parallelizable(ParallelScope.Self)]
 [TestFixture]
-public class ScreenshotCaptureTest : PageTest
+public class ScreenshotCaptureTest : E2ETestBase
 {
-    private string BaseUrl => Environment.GetEnvironmentVariable("E2E_BASE_URL") ?? "http://localhost:5000";
 
     // Repo root: test project is at tests/TodoExtended.E2E/ → go up 3 from bin/Debug/net10.0/
     private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));

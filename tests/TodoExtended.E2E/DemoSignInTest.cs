@@ -1,5 +1,4 @@
 using Microsoft.Playwright;
-using Microsoft.Playwright.NUnit;
 using NUnit.Framework;
 
 namespace TodoExtended.E2E;
@@ -9,11 +8,9 @@ namespace TodoExtended.E2E;
 /// Requires the app to be running with Demo:Enabled=true.
 /// Set the E2E_BASE_URL environment variable to the app base URL (default: http://localhost:5000).
 /// </summary>
-[Parallelizable(ParallelScope.Self)]
 [TestFixture]
-public class DemoSignInTest : PageTest
+public class DemoSignInTest : E2ETestBase
 {
-    private string BaseUrl => Environment.GetEnvironmentVariable("E2E_BASE_URL") ?? "http://localhost:5000";
 
     [Test]
     public async Task SignInAsDemo_ShowsAuthenticatedHomePage_AndTakesScreenshot()
