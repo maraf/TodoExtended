@@ -77,6 +77,7 @@ public class ScreenshotCaptureTest : PageTest
         // Capture chat screenshots
         await CaptureChatEmptyScreenshots();
         await CaptureChatWithMessagesScreenshots();
+        await CaptureChatKeyboardOpenScreenshots();
     }
 
     private async Task SignInViaDemoAsync()
@@ -373,6 +374,59 @@ public class ScreenshotCaptureTest : PageTest
                 {
                     TestContext.WriteLine($"[WARN] Failed: chat-messages--{vp.Name}-{theme}: {ex.Message}");
                 }
+            }
+        }
+    }
+
+    private async Task CaptureChatKeyboardOpenScreenshots()
+    {
+        // Simulate a mobile phone where the soft keyboard occupies ~300 px of the 844 px screen,
+        // leaving 540 px of visible viewport for the app (interactive-widget=resizes-content).
+        // We add the 'keyboard-open' body class via JS to activate the CSS rules that hide the
+        // bottom bar and remove the reserved padding-bottom, then capture the result.
+        const string chatHistory = """
+            [
+              {"message":{"role":"user","text":"What can you help me with?","proposedActions":null,"timestamp":"2026-01-10T09:00:00+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"assistant","text":"I can help you manage your tasks! I can create tasks, complete them, reopen them, and work with your task templates. Just tell me what you need.","proposedActions":null,"timestamp":"2026-01-10T09:00:04+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"user","text":"Add a task to buy milk in my Shopping list","proposedActions":null,"timestamp":"2026-01-10T09:01:00+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"assistant","text":"I\u2019ll create that task in your Shopping list:","proposedActions":[{"type":0,"description":"Create task in Shopping","parameters":{"title":"Buy milk","listId":"abc123","listName":"Shopping"}}],"timestamp":"2026-01-10T09:01:05+00:00","taskListReferences":[{"id":"abc123","displayName":"Shopping"}]},"results":[{"actionIndex":0,"success":true,"message":"Task created successfully"}]}
+            ]
+            """;
+
+        var mobileVp = new ViewportSpec("mobile", 390, 540); // ~844 − 304 px keyboard
+
+        foreach (var theme in new[] { "dark", "light" })
+        {
+            try
+            {
+                await Page.SetViewportSizeAsync(mobileVp.Width, mobileVp.Height);
+
+                // Seed localStorage before navigating so the page loads with the conversation
+                await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
+                await Page.EvaluateAsync("value => localStorage.setItem('todoextended-chat-history', value)", chatHistory);
+
+                // Reload so Blazor reads the seeded localStorage
+                await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
+
+                // Wait for at least one message bubble to appear
+                await Page.Locator(".bg-brand-600, .bg-slate-100").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
+
+                await SetThemeAsync(theme);
+
+                // Simulate keyboard open: add body class that hides the bottom bar and resets padding
+                await Page.EvaluateAsync("() => document.body.classList.add('keyboard-open')");
+
+                // Scroll to bottom so the input bar is visible
+                await Page.EvaluateAsync("() => { const el = document.querySelector('main'); if (el) el.scrollTop = el.scrollHeight; }");
+                await Page.WaitForTimeoutAsync(500);
+
+                var fileName = $"chat-keyboard-open--{mobileVp.Name}-{theme}.png";
+                await Page.ScreenshotAsync(new() { Path = Path.Combine(ScreenshotsDir, fileName) });
+                TestContext.WriteLine($"[OK] {fileName}");
+            }
+            catch (Exception ex)
+            {
+                TestContext.WriteLine($"[WARN] Failed: chat-keyboard-open--{mobileVp.Name}-{theme}: {ex.Message}");
             }
         }
     }

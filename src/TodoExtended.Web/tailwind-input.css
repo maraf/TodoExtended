@@ -156,6 +156,11 @@ body.keyboard-open .chat-input-sticky {
   bottom: 0;
 }
 
+/* ─── Remove bottom padding reserved for the bottom bar when keyboard is open ─ */
+body.keyboard-open main > div {
+  padding-bottom: 0;
+}
+
 @media (display-mode: window-controls-overlay) {
   /* Make header draggable and reserve space around window controls */
   .wco-header {
