@@ -60,6 +60,37 @@ jobs:
           ASPNETCORE_URLS: "http://localhost:5000"
           ConnectionStrings__DefaultConnection: "Data Source=/tmp/e2e-todoextended.db"
 
+      - name: Create Android emulator script
+        run: |
+          cat > /tmp/e2e-android-script.sh << 'SCRIPT'
+          # Write Chrome command-line flags to enable CDP remote debugging.
+          # The leading underscore is a placeholder for the program name — Chrome
+          # ignores the first token and reads the remainder as command-line flags.
+          adb shell "echo '_ --remote-debugging-port=9222' > /data/local/tmp/chrome-command-line"
+          adb shell chmod 644 /data/local/tmp/chrome-command-line
+          # Launch Chrome to a blank page so the debugging session is initialised
+          adb shell am start -a android.intent.action.VIEW -d "about:blank" com.android.chrome
+          # Forward Chrome's DevTools Protocol Unix socket to a host TCP port
+          adb forward tcp:9222 localabstract:chrome_devtools_remote
+          # Poll the CDP endpoint until it responds (up to 30 s)
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:9222/json/version > /dev/null 2>&1; then
+              echo "CDP endpoint ready."
+              break
+            fi
+            if [ "$i" -eq 15 ]; then
+              echo "CDP endpoint not reachable after timeout." >&2
+              exit 1
+            fi
+            sleep 2
+          done
+          export E2E_BASE_URL="http://10.0.2.2:5000"
+          export E2E_USE_ANDROID_EMULATOR="true"
+          export E2E_ANDROID_CDP_ENDPOINT="http://localhost:9222"
+          dotnet test tests/TodoExtended.E2E/TodoExtended.E2E.csproj --configuration Debug --no-build
+          SCRIPT
+          chmod +x /tmp/e2e-android-script.sh
+
       - name: Run E2E tests on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -67,32 +98,7 @@ jobs:
           target: google_apis
           arch: x86_64
           avd-name: e2e_avd
-          script: |
-            # Write Chrome command-line flags to enable CDP remote debugging.
-            # The leading underscore is a placeholder for the program name — Chrome
-            # ignores the first token and reads the remainder as command-line flags.
-            adb shell "echo '_ --remote-debugging-port=9222' > /data/local/tmp/chrome-command-line"
-            adb shell chmod 644 /data/local/tmp/chrome-command-line
-            # Launch Chrome to a blank page so the debugging session is initialised
-            adb shell am start -a android.intent.action.VIEW -d "about:blank" com.android.chrome
-            # Forward Chrome's DevTools Protocol Unix socket to a host TCP port
-            adb forward tcp:9222 localabstract:chrome_devtools_remote
-            # Poll the CDP endpoint until it responds (up to 30 s)
-            for i in $(seq 1 15); do
-              if curl -sf http://localhost:9222/json/version > /dev/null 2>&1; then
-                echo "CDP endpoint ready."
-                break
-              fi
-              if [ "$i" -eq 15 ]; then
-                echo "CDP endpoint not reachable after timeout." >&2
-                exit 1
-              fi
-              sleep 2
-            done
-            export E2E_BASE_URL="http://10.0.2.2:5000"
-            export E2E_USE_ANDROID_EMULATOR="true"
-            export E2E_ANDROID_CDP_ENDPOINT="http://localhost:9222"
-            dotnet test tests/TodoExtended.E2E/TodoExtended.E2E.csproj --configuration Debug --no-build
+          script: bash /tmp/e2e-android-script.sh
 
       - name: Upload screenshots
         if: always()
