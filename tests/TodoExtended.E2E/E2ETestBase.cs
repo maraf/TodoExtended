@@ -75,11 +75,13 @@ public abstract class E2ETestBase
                 _contextOwned = false;
                 // Reuse the existing open tab rather than creating a new one.
                 // Android Chrome does not support Target.createTarget (used internally
-                // by NewPageAsync), so we reuse the about:blank page that Chrome opened
-                // when it was launched by the script.
-                Page = _context.Pages.Count > 0
-                    ? _context.Pages[0]
-                    : await _context.NewPageAsync();
+                // by NewPageAsync), so we must reuse the about:blank page that Chrome
+                // opened when it was launched by the script.
+                if (_context.Pages.Count == 0)
+                    throw new InvalidOperationException(
+                        "Android Chrome has no open pages to reuse; " +
+                        "ensure Chrome is launched to 'about:blank' before the tests run.");
+                Page = _context.Pages[0];
             }
             catch
             {
@@ -111,8 +113,11 @@ public abstract class E2ETestBase
             }
             else
             {
-                // We don't own the default CDP context, so just close the page we opened.
-                if (Page != null) await Page.CloseAsync();
+                // We don't own the default CDP context (Android mode). Don't close the
+                // page — that would leave Chrome with no open tab, causing the next test
+                // to fail with Pages.Count == 0. Instead navigate back to about:blank so
+                // the tab is clean for the next test.
+                if (Page != null) await Page.GotoAsync("about:blank");
             }
             // Closing a CDP-connected browser only disconnects; it does not kill Chrome on the device.
             if (_browser != null) await _browser.CloseAsync();
