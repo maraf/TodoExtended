@@ -75,6 +75,7 @@ public class ScreenshotCaptureTest : E2ETestBase
         await CaptureChatEmptyScreenshots();
         await CaptureChatWithMessagesScreenshots();
         await CaptureChatKeyboardOpenScreenshots();
+        await CaptureChatSetReminderScreenshots();
     }
 
     private async Task SignInViaDemoAsync()
@@ -424,6 +425,50 @@ public class ScreenshotCaptureTest : E2ETestBase
             catch (Exception ex)
             {
                 TestContext.WriteLine($"[WARN] Failed: chat-keyboard-open--{mobileVp.Name}-{theme}: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task CaptureChatSetReminderScreenshots()
+    {
+        // Verifies that the ProposedActionCard renders the Set Reminder action correctly:
+        // listName and reminderDate are provided inline in the seeded history (as ChatService would
+        // produce after enrichment), so this screenshot validates UI rendering of those fields.
+        const string chatHistory = """
+            [
+              {"message":{"role":"user","text":"Set a reminder on \"Build a barricade\" for tomorrow at 16:00","proposedActions":null,"timestamp":"2026-03-16T17:00:00+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"assistant","text":"I am about to set a reminder for the task \"Build a barricade\" tomorrow at 16:00. Should I proceed?","proposedActions":[{"type":3,"description":"Set reminder on task \"Build a barricade\" at 16:00","parameters":{"taskTitle":"Build a barricade","listId":"demo-list-personal","listName":"\ud83c\udfe0 Personal","reminderDate":"2026-03-17","reminderTime":"16:00","taskId":"demo-task-barricade"}}],"timestamp":"2026-03-16T17:00:03+00:00","taskListReferences":null},"results":[{"actionIndex":0,"success":true,"message":"SetReminder completed successfully."}]}
+            ]
+            """;
+
+        foreach (var theme in new[] { "dark", "light" })
+        {
+            foreach (var vp in new[] { new ViewportSpec("mobile", 390, 844), new ViewportSpec("desktop", 1280, 800) })
+            {
+                try
+                {
+                    await Page.SetViewportSizeAsync(vp.Width, vp.Height);
+
+                    await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
+                    await Page.EvaluateAsync("value => localStorage.setItem('todoextended-chat-history', value)", chatHistory);
+
+                    await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
+
+                    await Page.Locator(".bg-brand-600, .bg-slate-100").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
+
+                    await SetThemeAsync(theme);
+
+                    await Page.EvaluateAsync("() => { const el = document.querySelector('main'); if (el) el.scrollTop = el.scrollHeight; }");
+                    await Page.WaitForTimeoutAsync(500);
+
+                    var fileName = $"chat-set-reminder--{vp.Name}-{theme}.png";
+                    await Page.ScreenshotAsync(new() { Path = Path.Combine(ScreenshotsDir, fileName) });
+                    TestContext.WriteLine($"[OK] {fileName}");
+                }
+                catch (Exception ex)
+                {
+                    TestContext.WriteLine($"[WARN] Failed: chat-set-reminder--{vp.Name}-{theme}: {ex.Message}");
+                }
             }
         }
     }

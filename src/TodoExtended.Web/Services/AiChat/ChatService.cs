@@ -4,6 +4,7 @@ using System.Net;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using TodoExtended.Web.Extensions;
@@ -22,6 +23,7 @@ public class ChatService(
     ITemplateService templateService,
     IHttpContextAccessor httpContextAccessor,
     IUserTimeZoneService userTimeZoneService,
+    IDbContextFactory<AppDbContext> dbContextFactory,
     IOptions<AiChatOptions> options,
     ILogger<ChatService> logger) : IChatService
 {
@@ -158,7 +160,10 @@ public class ChatService(
                 if (WriteTools.Contains(call.Name))
                 {
                     // Write tool → proposed action (don't execute)
-                    proposedActions.Add(MapToProposedAction(call));
+                    var proposed = MapToProposedAction(call);
+                    if (call.Name == "set_task_reminder")
+                        await EnrichSetReminderActionAsync(proposed, ct);
+                    proposedActions.Add(proposed);
                     // Return a result indicating the action is pending approval
                     messages.Add(new Microsoft.Extensions.AI.ChatMessage(
                         ChatRole.Tool,
@@ -661,6 +666,36 @@ public class ChatService(
         }
 
         return "";
+    }
+
+    /// <summary>
+    /// Enriches a SetReminder proposed action with the task list display name from cache
+    /// and a resolved reminder date (defaults to today when not provided by the AI).
+    /// </summary>
+    private async Task EnrichSetReminderActionAsync(ProposedAction action, CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+
+        // Resolve list name from cache if not provided by the AI
+        if (string.IsNullOrEmpty(action.Parameters.GetValueOrDefault("listName"))
+            && action.Parameters.TryGetValue("listId", out var listId)
+            && !string.IsNullOrEmpty(listId))
+        {
+            await using var db = await dbContextFactory.CreateDbContextAsync(ct);
+            var displayName = await db.CachedTaskLists
+                .Where(l => l.Id == listId && l.UserId == userId)
+                .Select(l => l.DisplayName)
+                .FirstOrDefaultAsync(ct);
+            if (displayName is not null)
+                action.Parameters["listName"] = displayName;
+        }
+
+        // Default reminderDate to today (in the user's time zone) if not provided
+        if (!action.Parameters.TryGetValue("reminderDate", out var rd) || string.IsNullOrEmpty(rd))
+        {
+            var today = await userTimeZoneService.GetTodayAsync();
+            action.Parameters["reminderDate"] = today.ToString("yyyy-MM-dd");
+        }
     }
 
     /// <summary>

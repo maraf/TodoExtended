@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
+using TodoExtended.Web.Data;
 using TodoExtended.Web.Services;
 using TodoExtended.Web.Services.AiChat;
 
@@ -569,12 +571,15 @@ public class ChatServiceTests
 
         var options = Options.Create(new AiChatOptions { MaxHistoryMessages = 20 });
 
+        var dbContextFactory = Substitute.For<IDbContextFactory<AppDbContext>>();
+
         var chatService = new ChatService(
             chatClient,
             todoService,
             templateService,
             httpContextAccessor,
             userTimeZoneService,
+            dbContextFactory,
             options,
             NullLogger<ChatService>.Instance);
 
