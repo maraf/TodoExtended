@@ -161,6 +161,28 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
         logger.LogDebug("UpdateTaskStatusAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
     }
 
+    public async Task SetTaskReminderAsync(string taskListId, string taskId, DateOnly reminderDate, TimeOnly reminderTime, string userId)
+    {
+        logger.LogDebug("SetTaskReminderAsync: taskListId={TaskListId}, taskId={TaskId}, reminderDate={ReminderDate}, reminderTime={ReminderTime}", taskListId, taskId, reminderDate, reminderTime);
+
+        var userZone = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
+        var reminderDateTime = reminderDate.ToDateTime(new TimeOnly(reminderTime.Hour, reminderTime.Minute));
+
+        var patch = new Microsoft.Graph.Models.TodoTask
+        {
+            IsReminderOn = true,
+            ReminderDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = reminderDateTime.ToString("yyyy-MM-ddTHH:mm:ss"),
+                TimeZone = userZone.Id,
+            },
+        };
+
+        await graphClient.PatchTaskAsync(taskListId, taskId, patch);
+
+        logger.LogDebug("SetTaskReminderAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
+    }
+
     public Task SetTaskListSyncedAsync(string taskListId, bool isSynced, string userId) =>
         throw new NotSupportedException("Syncing task lists is only supported with local cache.");
 

@@ -204,6 +204,9 @@ public class CachedTodoService(
         }
     }
 
+    public Task SetTaskReminderAsync(string taskListId, string taskId, DateOnly reminderDate, TimeOnly reminderTime, string userId) =>
+        graphService.SetTaskReminderAsync(taskListId, taskId, reminderDate, reminderTime, userId);
+
     private async Task EnsureCacheValidAsync(AppDbContext db, string userId)
     {
         if (!await IsCacheStaleAsync(db, userId))

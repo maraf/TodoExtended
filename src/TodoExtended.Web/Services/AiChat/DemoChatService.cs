@@ -68,6 +68,26 @@ public class DemoChatService : IChatService
             return Task.FromResult(response);
         }
 
+        if (lower.Contains("reminder") || lower.Contains("remind"))
+        {
+            var response = new ChatResponse(
+                Text: "I'll set a reminder on that task for you. Please confirm below.",
+                ProposedActions:
+                [
+                    new ProposedAction(
+                        TaskActionType.SetReminder,
+                        "Set reminder on task \"Buy groceries\" at 09:00",
+                        new Dictionary<string, string>
+                        {
+                            ["listId"] = "demo-list-personal",
+                            ["taskId"] = "demo-task-1",
+                            ["reminderTime"] = "09:00",
+                            ["reminderDate"] = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")
+                        })
+                ]);
+            return Task.FromResult(response);
+        }
+
         if (lower.Contains("template") || lower.Contains("templates"))
         {
             if (lower.Contains("create") || lower.Contains("new"))
@@ -168,6 +188,7 @@ public class DemoChatService : IChatService
                   "• **Search** tasks or lists by keyword\n" +
                   "• **Create** new tasks\n" +
                   "• **Complete** or uncomplete tasks\n" +
+                  "• **Set reminders** on tasks\n" +
                   "• Show **today's** tasks\n" +
                   "• **View** templates\n" +
                   "• **Create**, **update**, **delete**, or **execute** templates\n\n" +

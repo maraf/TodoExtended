@@ -24,7 +24,7 @@ public class ChatService(
     IOptions<AiChatOptions> options,
     ILogger<ChatService> logger) : IChatService
 {
-    private static readonly HashSet<string> WriteTools = ["create_task", "complete_task", "uncomplete_task", "create_template", "update_template", "delete_template", "execute_template"];
+    private static readonly HashSet<string> WriteTools = ["create_task", "complete_task", "uncomplete_task", "set_task_reminder", "create_template", "update_template", "delete_template", "execute_template"];
 
     private string GetCurrentUserId() =>
         httpContextAccessor.HttpContext?.User.GetUserIdOrNull()
@@ -42,6 +42,7 @@ public class ChatService(
         - Get full details of a specific task (including description)
         - Create new tasks in specific lists
         - Mark tasks as complete or incomplete
+        - Set reminders on existing tasks
         - View task templates
         - Create new templates (requires task list info and title)
         - Update existing templates
@@ -55,6 +56,7 @@ public class ChatService(
         - Use search_task_lists to find lists matching a name keyword.
         - Use get_task to load full details (including description) for a specific task only when needed.
         - Use get_templates to view available templates.
+        - When setting a reminder, use get_tasks or search_tasks first to obtain the task ID. Ask the user for the reminder date and time if not specified; default the date to today if omitted.
         - When creating tasks or templates, always confirm which list to add them to.
         - Be concise and helpful.
         - Format task and template information clearly.
@@ -356,6 +358,7 @@ public class ChatService(
             AIFunctionFactory.Create(CreateTaskTool, "create_task", "Create a new task in a task list."),
             AIFunctionFactory.Create(CompleteTaskTool, "complete_task", "Mark a task as completed."),
             AIFunctionFactory.Create(UncompleteTaskTool, "uncomplete_task", "Mark a task as not completed."),
+            AIFunctionFactory.Create(SetTaskReminderTool, "set_task_reminder", "Set a reminder on an existing task."),
             AIFunctionFactory.Create(CreateTemplateTool, "create_template", "Create a new task template."),
             AIFunctionFactory.Create(UpdateTemplateTool, "update_template", "Update an existing task template."),
             AIFunctionFactory.Create(DeleteTemplateTool, "delete_template", "Delete a task template."),
@@ -436,6 +439,13 @@ public class ChatService(
         [Description("The Id field of the task (opaque API identifier from get_tasks/get_today_tasks, not the task title)")] string taskId,
         [Description("The display title of the task from get_tasks or get_today_tasks")] string? taskTitle = null,
         [Description("The display name of the task list from get_task_lists")] string? listName = null) => "proposed";
+    private static string SetTaskReminderTool(
+        [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
+        [Description("The Id field of the task (opaque API identifier from get_tasks/get_today_tasks, not the task title)")] string taskId,
+        [Description("Reminder time in HH:mm format (e.g. 09:00)")] string reminderTime,
+        [Description("Reminder date in yyyy-MM-dd format; defaults to today if omitted")] string? reminderDate = null,
+        [Description("The display title of the task from get_tasks or get_today_tasks")] string? taskTitle = null,
+        [Description("The display name of the task list from get_task_lists")] string? listName = null) => "proposed";
     private static string CreateTemplateTool(
         string title,
         [Description("The Id field of the task list (opaque API identifier from get_task_lists)")] string listId,
@@ -487,6 +497,10 @@ public class ChatService(
                 $"Complete task {GetArg(call, "taskId")}"),
             "uncomplete_task" => (TaskActionType.UncompleteTask,
                 $"Uncomplete task {GetArg(call, "taskId")}"),
+            "set_task_reminder" => (TaskActionType.SetReminder,
+                GetArg(call, "taskTitle") is { Length: > 0 } tt
+                    ? $"Set reminder on task \"{tt}\" at {GetArg(call, "reminderTime")}"
+                    : $"Set reminder on task {GetArg(call, "taskId")} at {GetArg(call, "reminderTime")}"),
             "create_template" => (TaskActionType.CreateTemplate,
                 $"Create template \"{GetArg(call, "title")}\""),
             "update_template" => (TaskActionType.UpdateTemplate,
@@ -519,7 +533,7 @@ public class ChatService(
         if (!isTemplateAction && action.Parameters.ContainsKey("listId"))
             ValidateIdParameter(action, "listId");
         
-        if (action.Type is TaskActionType.CompleteTask or TaskActionType.UncompleteTask)
+        if (action.Type is TaskActionType.CompleteTask or TaskActionType.UncompleteTask or TaskActionType.SetReminder)
             ValidateIdParameter(action, "taskId");
 
         logger.LogDebug("ExecuteAction: {Type}, parameters: {Parameters}",
@@ -554,6 +568,21 @@ public class ChatService(
                     action.Parameters["listId"],
                     action.Parameters["taskId"],
                     completed: false,
+                    userId);
+                break;
+
+            case TaskActionType.SetReminder:
+                if (!TimeOnly.TryParse(action.Parameters.GetValueOrDefault("reminderTime"), out var setReminderTime))
+                    throw new InvalidOperationException("Missing or invalid reminderTime parameter (expected HH:mm).");
+                var setReminderDate = action.Parameters.TryGetValue("reminderDate", out var reminderDateStr)
+                    && DateOnly.TryParse(reminderDateStr, out var parsedReminderDate)
+                    ? parsedReminderDate
+                    : DateOnly.FromDateTime(DateTime.Today);
+                await todoService.SetTaskReminderAsync(
+                    action.Parameters["listId"],
+                    action.Parameters["taskId"],
+                    setReminderDate,
+                    setReminderTime,
                     userId);
                 break;
 
