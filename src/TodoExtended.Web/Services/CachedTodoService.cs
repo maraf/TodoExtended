@@ -204,8 +204,20 @@ public class CachedTodoService(
         }
     }
 
-    public Task SetTaskReminderAsync(string taskListId, string taskId, DateOnly reminderDate, TimeOnly reminderTime, string userId) =>
-        graphService.SetTaskReminderAsync(taskListId, taskId, reminderDate, reminderTime, userId);
+    public async Task SetTaskReminderAsync(string taskListId, string taskId, DateOnly reminderDate, TimeOnly reminderTime, string userId)
+    {
+        await graphService.SetTaskReminderAsync(taskListId, taskId, reminderDate, reminderTime, userId);
+
+        // Reminder state is not stored in the local cache, so mark the list as stale
+        // so the next read will re-sync from Graph and reflect the updated reminder.
+        await using var db = await dbContextFactory.CreateDbContextAsync();
+        var cachedList = await db.CachedTaskLists.FirstOrDefaultAsync(l => l.Id == taskListId && l.UserId == userId);
+        if (cachedList != null)
+        {
+            cachedList.LastSyncUtc = DateTime.MinValue;
+            await db.SaveChangesAsync();
+        }
+    }
 
     private async Task EnsureCacheValidAsync(AppDbContext db, string userId)
     {
