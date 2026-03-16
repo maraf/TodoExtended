@@ -423,11 +423,41 @@ public class ChatServiceTests
     }
 
     [Fact]
-    public async Task ExecuteActionsAsync_SetReminder_WithNoReminderDate_DefaultsToUserTimezoneToday()
+    public async Task ExecuteActionsAsync_SetReminder_WithInvalidReminderDate_ReturnsFailureResult()
     {
         // Arrange
-        var userTimeZone = TimeZoneInfo.FindSystemTimeZoneById("UTC");
-        var (chatService, todoService, _) = CreateRealChatService(userTimeZone);
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.SetReminder, "Set reminder", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["taskId"] = "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+                ["reminderTime"] = "09:00",
+                ["reminderDate"] = "not-a-date"
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        Assert.False(results[0].Success);
+        Assert.Contains("reminderDate", results[0].Message);
+        await todoService.DidNotReceive().SetTaskReminderAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<TimeOnly>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task ExecuteActionsAsync_SetReminder_WithNoReminderDate_DefaultsToUserTimezoneToday()
+    {
+        // Arrange — pin "today" to a fixed date to avoid flakiness around midnight
+        var pinnedToday = new DateOnly(2026, 6, 15);
+        var (chatService, todoService, _) = CreateRealChatService(TimeZoneInfo.Utc, pinnedToday);
 
         var actions = new List<ProposedAction>
         {
@@ -442,8 +472,6 @@ public class ChatServiceTests
 
         var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
 
-        var expectedToday = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, userTimeZone));
-
         // Act
         var results = await chatService.ExecuteActionsAsync(actions, confirmations);
 
@@ -453,7 +481,7 @@ public class ChatServiceTests
         await todoService.Received(1).SetTaskReminderAsync(
             Arg.Any<string>(),
             Arg.Any<string>(),
-            expectedToday,
+            pinnedToday,
             new TimeOnly(9, 0),
             Arg.Any<string>());
     }
@@ -489,7 +517,7 @@ public class ChatServiceTests
     /// Creates a real <see cref="ChatService"/> with mocked dependencies for testing.
     /// </summary>
     private static (ChatService chatService, ITodoService todoService, IUserTimeZoneService userTimeZoneService)
-        CreateRealChatService(TimeZoneInfo? userTimeZone = null)
+        CreateRealChatService(TimeZoneInfo? userTimeZone = null, DateOnly? pinnedToday = null)
     {
         var todoService = Substitute.For<ITodoService>();
         var templateService = Substitute.For<ITemplateService>();
@@ -497,7 +525,7 @@ public class ChatServiceTests
 
         userTimeZone ??= TimeZoneInfo.Utc;
         // Use a concrete implementation so the GetTodayAsync() default interface method works correctly.
-        var userTimeZoneService = new FixedTimeZoneService(userTimeZone);
+        var userTimeZoneService = new FixedTimeZoneService(userTimeZone, pinnedToday);
 
         var httpContext = new DefaultHttpContext();
         var claims = new[] { new Claim(ClaimTypes.NameIdentifier, "test-user") };
@@ -521,11 +549,14 @@ public class ChatServiceTests
     }
 
     /// <summary>
-    /// Minimal <see cref="IUserTimeZoneService"/> implementation that always returns a fixed timezone.
+    /// Minimal <see cref="IUserTimeZoneService"/> implementation that returns a fixed timezone and fixed "today" date.
     /// </summary>
-    private class FixedTimeZoneService(TimeZoneInfo timeZone) : IUserTimeZoneService
+    private class FixedTimeZoneService(TimeZoneInfo timeZone, DateOnly? pinnedToday = null) : IUserTimeZoneService
     {
         public Task<TimeZoneInfo> GetCurrentUserTimeZoneAsync() => Task.FromResult(timeZone);
+
+        public Task<DateOnly> GetTodayAsync() =>
+            Task.FromResult(pinnedToday ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timeZone)));
     }
 
     #endregion

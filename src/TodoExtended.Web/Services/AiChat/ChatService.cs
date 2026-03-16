@@ -575,10 +575,16 @@ public class ChatService(
             case TaskActionType.SetReminder:
                 if (!TimeOnly.TryParseExact(action.Parameters.GetValueOrDefault("reminderTime"), "HH:mm", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var setReminderTime))
                     throw new InvalidOperationException("Missing or invalid reminderTime parameter (expected HH:mm).");
-                var setReminderDate = action.Parameters.TryGetValue("reminderDate", out var reminderDateStr)
-                    && DateOnly.TryParseExact(reminderDateStr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedReminderDate)
-                    ? parsedReminderDate
-                    : await userTimeZoneService.GetTodayAsync();
+                DateOnly setReminderDate;
+                if (action.Parameters.TryGetValue("reminderDate", out var reminderDateStr) && !string.IsNullOrEmpty(reminderDateStr))
+                {
+                    if (!DateOnly.TryParseExact(reminderDateStr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out setReminderDate))
+                        throw new InvalidOperationException("Invalid reminderDate parameter (expected yyyy-MM-dd).");
+                }
+                else
+                {
+                    setReminderDate = await userTimeZoneService.GetTodayAsync();
+                }
                 await todoService.SetTaskReminderAsync(
                     action.Parameters["listId"],
                     action.Parameters["taskId"],

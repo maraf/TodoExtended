@@ -81,8 +81,7 @@ public class DemoChatService : IChatService
                         {
                             ["listId"] = "demo-list-personal",
                             ["taskId"] = "demo-task-1",
-                            ["reminderTime"] = "09:00",
-                            ["reminderDate"] = DateOnly.FromDateTime(DateTime.Today).ToString("yyyy-MM-dd")
+                            ["reminderTime"] = "09:00"
                         })
                 ]);
             return Task.FromResult(response);

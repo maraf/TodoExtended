@@ -173,7 +173,7 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             IsReminderOn = true,
             ReminderDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
             {
-                DateTime = reminderDateTime.ToString("yyyy-MM-ddTHH:mm:ss"),
+                DateTime = reminderDateTime.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
                 TimeZone = userZone.Id,
             },
         };
