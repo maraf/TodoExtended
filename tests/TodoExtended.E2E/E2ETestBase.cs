@@ -16,6 +16,10 @@ namespace TodoExtended.E2E;
 [Parallelizable(ParallelScope.Self)]
 public abstract class E2ETestBase
 {
+    // Android Chrome only accepts one CDP connection at a time. Serialise all
+    // Android-mode test setups/teardowns to prevent concurrent CDP conflicts.
+    private static readonly SemaphoreSlim _androidCdpLock = new(1, 1);
+
     private IPlaywright? _playwright;
     private IBrowser? _browser;
     private IBrowserContext? _context;
@@ -49,25 +53,37 @@ public abstract class E2ETestBase
 
         if (UseAndroidEmulator)
         {
-            // Connect to Chrome already running on the Android emulator via CDP.
-            // The caller is responsible for starting Chrome with remote debugging
-            // enabled and forwarding the CDP port (adb forward tcp:9222
-            // localabstract:chrome_devtools_remote) before the tests run.
-            _browser = await _playwright.Chromium.ConnectOverCDPAsync(AndroidCdpEndpoint);
-            // Android Chrome does not support Target.createBrowserContext, so we
-            // reuse the default context that already exists on the connected browser.
-            _context = _browser.Contexts[0];
-            _contextOwned = false;
-        }
-        else
-        {
-            _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+            // Serialise Android CDP access: Chrome on Android only supports one CDP
+            // connection at a time; concurrent connections cause internal Playwright
+            // errors. The lock is released in BaseTearDownAsync.
+            await _androidCdpLock.WaitAsync();
+            try
             {
-                Headless = true,
-            });
-            _context = await _browser.NewContextAsync(ContextOptions());
-            _contextOwned = true;
+                // Connect to Chrome already running on the Android emulator via CDP.
+                // The caller is responsible for starting Chrome with remote debugging
+                // enabled and forwarding the CDP port (adb forward tcp:9222
+                // localabstract:chrome_devtools_remote) before the tests run.
+                _browser = await _playwright.Chromium.ConnectOverCDPAsync(AndroidCdpEndpoint);
+                // Android Chrome does not support Target.createBrowserContext, so we
+                // reuse the default context that already exists on the connected browser.
+                _context = _browser.Contexts[0];
+                _contextOwned = false;
+                Page = await _context.NewPageAsync();
+            }
+            catch
+            {
+                _androidCdpLock.Release();
+                throw;
+            }
+            return;
         }
+
+        _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+        {
+            Headless = true,
+        });
+        _context = await _browser.NewContextAsync(ContextOptions());
+        _contextOwned = true;
         Page = await _context.NewPageAsync();
     }
 
@@ -87,6 +103,9 @@ public abstract class E2ETestBase
         // Closing a CDP-connected browser only disconnects; it does not kill Chrome on the device.
         if (_browser != null) await _browser.CloseAsync();
         _playwright?.Dispose();
+
+        if (UseAndroidEmulator)
+            _androidCdpLock.Release();
     }
 
     /// <summary>Override to supply custom <see cref="BrowserNewContextOptions"/>.</summary>

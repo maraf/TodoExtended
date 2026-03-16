@@ -18,11 +18,11 @@ public class DemoSignInTest : E2ETestBase
         // Navigate to the home page (unauthenticated)
         await Page.GotoAsync(BaseUrl);
 
-        // Wait for the "Try Demo" button to be visible
-        var demoButton = Page.GetByRole(AriaRole.Link, new() { Name = "Try Demo" });
+        // Wait for the "Live Demo" button to be visible
+        var demoButton = Page.GetByRole(AriaRole.Link, new() { Name = "Live Demo" });
         await Expect(demoButton).ToBeVisibleAsync();
 
-        // Click "Try Demo" — data-enhance-nav="false" on the button forces a real browser
+        // Click "Live Demo" — data-enhance-nav="false" on the button forces a real browser
         // navigation (not Blazor's fetch-based enhanced nav), ensuring the Set-Cookie header
         // from /auth/demo-signin is stored before / is loaded.
         await demoButton.ClickAsync();
