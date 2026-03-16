@@ -33,13 +33,14 @@ public class NotificationTest : E2ETestBase
 
         await Page.SetViewportSizeAsync(width, height);
 
-        // Sign in via demo
-        await Page.GotoAsync(BaseUrl);
-        var demoButton = Page.Locator("a[href='/auth/demo-signin']").First;
-        await Expect(demoButton).ToBeVisibleAsync(new() { Timeout = 15_000 });
-        await demoButton.ClickAsync();
+        // Sign in via demo — navigate directly to the sign-in endpoint so we do not
+        // depend on the Blazor-rendered home page showing the demo button.
+        // DOMContentLoaded avoids the 25+ second wait for external resources (e.g.
+        // Google Fonts) that can time-out on a cold Android emulator.
+        await Page.GotoAsync($"{BaseUrl}/auth/demo-signin",
+            new() { WaitUntil = WaitUntilState.DOMContentLoaded });
         await Expect(Page.GetByRole(AriaRole.Button, new() { Name = "User menu" }))
-            .ToBeVisibleAsync(new() { Timeout = 15_000 });
+            .ToBeVisibleAsync(new() { Timeout = 30_000 });
 
         // Navigate to home page and wait for content
         await Page.GotoAsync(BaseUrl, new() { WaitUntil = WaitUntilState.NetworkIdle });

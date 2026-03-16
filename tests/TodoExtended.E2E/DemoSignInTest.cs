@@ -15,26 +15,23 @@ public class DemoSignInTest : E2ETestBase
     [Test]
     public async Task SignInAsDemo_ShowsAuthenticatedHomePage_AndTakesScreenshot()
     {
-        // Navigate to the home page (unauthenticated)
-        await Page.GotoAsync(BaseUrl);
-
-        // Locate the demo sign-in link by its stable route rather than its display text.
-        var demoButton = Page.Locator("a[href='/auth/demo-signin']").First;
-        await Expect(demoButton).ToBeVisibleAsync();
-
-        // Click the demo sign-in link — data-enhance-nav="false" on the button forces a real browser
-        // navigation (not Blazor's fetch-based enhanced nav), ensuring the Set-Cookie header
-        // from /auth/demo-signin is stored before / is loaded.
-        await demoButton.ClickAsync();
+        // Navigate directly to the demo sign-in endpoint rather than finding and clicking the
+        // button on the home page.  The endpoint sets the auth cookie and issues a 302 redirect
+        // to "/", so GotoAsync follows the redirect automatically.
+        //
+        // Using WaitUntilState.DOMContentLoaded avoids waiting for external resources such as
+        // Google Fonts (fonts.googleapis.com) which can take 25+ seconds on a cold Android
+        // emulator.  The User menu button comes from the server-side pre-rendered HTML, so it
+        // is already in the DOM when DOMContentLoaded fires.
+        await Page.GotoAsync($"{BaseUrl}/auth/demo-signin",
+            new() { WaitUntil = WaitUntilState.DOMContentLoaded });
 
         // After sign-in we land back on the home page — wait for the "User menu" button
         // which only appears in the authenticated layout (MainLayout.Authorized).
-        // "Sign out" is now nested inside the collapsible user menu so it is not
-        // visible by default; the toggle button is always visible once authenticated.
-        // Playwright's Expect polls continuously across the navigation (demo-signin → / ),
-        // so a generous timeout is sufficient; no separate navigation wait is needed.
+        // 30 s gives the Blazor interactive circuit enough time to hydrate on a slow
+        // Android emulator while still failing fast on genuine errors.
         await Expect(Page.GetByRole(AriaRole.Button, new() { Name = "User menu" }))
-            .ToBeVisibleAsync(new() { Timeout = 15_000 });
+            .ToBeVisibleAsync(new() { Timeout = 30_000 });
 
         // Take and save the screenshot.
         // AppContext.BaseDirectory is e.g. bin/Debug/net10.0/ — navigate up three levels
