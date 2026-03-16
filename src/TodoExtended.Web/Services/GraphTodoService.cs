@@ -161,6 +161,45 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
         logger.LogDebug("UpdateTaskStatusAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
     }
 
+    public async Task SetTaskReminderAsync(string taskListId, string taskId, DateOnly reminderDate, TimeOnly reminderTime, string userId)
+    {
+        logger.LogDebug("SetTaskReminderAsync: taskListId={TaskListId}, taskId={TaskId}, reminderDate={ReminderDate}, reminderTime={ReminderTime}", taskListId, taskId, reminderDate, reminderTime);
+
+        var userZone = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
+        var reminderDateTime = reminderDate.ToDateTime(reminderTime);
+
+        var patch = new Microsoft.Graph.Models.TodoTask
+        {
+            IsReminderOn = true,
+            ReminderDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = reminderDateTime.ToString("yyyy-MM-ddTHH:mm:ss", System.Globalization.CultureInfo.InvariantCulture),
+                TimeZone = userZone.Id,
+            },
+        };
+
+        try
+        {
+            await graphClient.PatchTaskAsync(taskListId, taskId, patch);
+        }
+        catch (Microsoft.Graph.Models.ODataErrors.ODataError ex)
+        {
+            logger.LogError(ex,
+                "SetTaskReminderAsync: ODataError Code={Code}, Message={Message}, StatusCode={StatusCode}",
+                ex.Error?.Code, ex.Error?.Message, ex.ResponseStatusCode);
+
+            if (ex.Error?.Details is { Count: > 0 } details)
+            {
+                foreach (var detail in details)
+                    logger.LogError("  ODataError Detail: Code={Code}, Message={Message}", detail.Code, detail.Message);
+            }
+
+            throw;
+        }
+
+        logger.LogDebug("SetTaskReminderAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
+    }
+
     public Task SetTaskListSyncedAsync(string taskListId, bool isSynced, string userId) =>
         throw new NotSupportedException("Syncing task lists is only supported with local cache.");
 

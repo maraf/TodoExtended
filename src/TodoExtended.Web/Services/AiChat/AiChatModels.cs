@@ -8,6 +8,7 @@ public enum TaskActionType
     CreateTask,
     CompleteTask,
     UncompleteTask,
+    SetReminder,
     CreateTemplate,
     UpdateTemplate,
     DeleteTemplate,
