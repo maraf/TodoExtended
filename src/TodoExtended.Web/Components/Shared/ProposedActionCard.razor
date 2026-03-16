@@ -15,10 +15,11 @@
         if (!string.IsNullOrEmpty(reminderTimeStr))
         {
             var reminderDateStr = Action.Parameters.GetValueOrDefault("reminderDate");
-            // EnrichSetReminderActionAsync always populates reminderDate; fall back to raw value on parse errors
-            var dateLabel = !string.IsNullOrEmpty(reminderDateStr) && DateOnly.TryParse(reminderDateStr, out var rd)
-                ? rd.ToString("MMMM d")
-                : reminderDateStr ?? "Today";
+            // Use InvariantCulture TryParseExact so parsing is locale-independent
+            var dateLabel = !string.IsNullOrWhiteSpace(reminderDateStr)
+                && DateOnly.TryParseExact(reminderDateStr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var rd)
+                ? rd.ToString("MMMM d") // intentionally uses current culture so the date displays in the user's locale
+                : "Today";
             reminderDisplay = $"{dateLabel} at {reminderTimeStr}";
         }
     }

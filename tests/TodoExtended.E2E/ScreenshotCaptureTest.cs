@@ -431,7 +431,9 @@ public class ScreenshotCaptureTest : E2ETestBase
 
     private async Task CaptureChatSetReminderScreenshots()
     {
-        // Demonstrate the enriched Set Reminder card: resolved list name + reminder date/time.
+        // Verifies that the ProposedActionCard renders the Set Reminder action correctly:
+        // listName and reminderDate are provided inline in the seeded history (as ChatService would
+        // produce after enrichment), so this screenshot validates UI rendering of those fields.
         const string chatHistory = """
             [
               {"message":{"role":"user","text":"Set a reminder on \"Build a barricade\" for tomorrow at 16:00","proposedActions":null,"timestamp":"2026-03-16T17:00:00+00:00","taskListReferences":null},"results":null},
