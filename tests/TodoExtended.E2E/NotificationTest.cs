@@ -35,7 +35,7 @@ public class NotificationTest : E2ETestBase
 
         // Sign in via demo
         await Page.GotoAsync(BaseUrl);
-        var demoButton = Page.GetByRole(AriaRole.Link, new() { Name = "Try Demo" });
+        var demoButton = Page.Locator("a[href='/auth/demo-signin']").First;
         await Expect(demoButton).ToBeVisibleAsync(new() { Timeout = 15_000 });
         await demoButton.ClickAsync();
         await Expect(Page.GetByRole(AriaRole.Button, new() { Name = "User menu" }))

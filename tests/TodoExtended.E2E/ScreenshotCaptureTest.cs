@@ -81,7 +81,7 @@ public class ScreenshotCaptureTest : E2ETestBase
     {
         await Page.GotoAsync(BaseUrl);
 
-        var demoButton = Page.GetByRole(AriaRole.Link, new() { Name = "Try Demo" });
+        var demoButton = Page.Locator("a[href='/auth/demo-signin']").First;
         await Expect(demoButton).ToBeVisibleAsync(new() { Timeout = 15_000 });
         await demoButton.ClickAsync();
 
