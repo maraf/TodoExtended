@@ -24,6 +24,7 @@ public abstract class E2ETestBase
     private IBrowser? _browser;
     private IBrowserContext? _context;
     private bool _contextOwned;
+    private bool _androidCdpLockHeld;
 
     protected IPage Page { get; private set; } = null!;
 
@@ -57,6 +58,7 @@ public abstract class E2ETestBase
             // connection at a time; concurrent connections cause internal Playwright
             // errors. The lock is released in BaseTearDownAsync.
             await _androidCdpLock.WaitAsync();
+            _androidCdpLockHeld = true;
             try
             {
                 // Connect to Chrome already running on the Android emulator via CDP.
@@ -72,6 +74,7 @@ public abstract class E2ETestBase
             }
             catch
             {
+                _androidCdpLockHeld = false;
                 _androidCdpLock.Release();
                 throw;
             }
@@ -90,22 +93,30 @@ public abstract class E2ETestBase
     [TearDown]
     public async Task BaseTearDownAsync()
     {
-        if (_contextOwned)
+        try
         {
-            // Closing the context also closes all pages within it.
-            if (_context != null) await _context.CloseAsync();
+            if (_contextOwned)
+            {
+                // Closing the context also closes all pages within it.
+                if (_context != null) await _context.CloseAsync();
+            }
+            else
+            {
+                // We don't own the default CDP context, so just close the page we opened.
+                if (Page != null) await Page.CloseAsync();
+            }
+            // Closing a CDP-connected browser only disconnects; it does not kill Chrome on the device.
+            if (_browser != null) await _browser.CloseAsync();
+            _playwright?.Dispose();
         }
-        else
+        finally
         {
-            // We don't own the default CDP context, so just close the page we opened.
-            if (Page != null) await Page.CloseAsync();
+            if (_androidCdpLockHeld)
+            {
+                _androidCdpLockHeld = false;
+                _androidCdpLock.Release();
+            }
         }
-        // Closing a CDP-connected browser only disconnects; it does not kill Chrome on the device.
-        if (_browser != null) await _browser.CloseAsync();
-        _playwright?.Dispose();
-
-        if (UseAndroidEmulator)
-            _androidCdpLock.Release();
     }
 
     /// <summary>Override to supply custom <see cref="BrowserNewContextOptions"/>.</summary>
