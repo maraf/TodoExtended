@@ -21,6 +21,7 @@ public class ChatService(
     ITodoService todoService,
     ITemplateService templateService,
     IHttpContextAccessor httpContextAccessor,
+    IUserTimeZoneService userTimeZoneService,
     IOptions<AiChatOptions> options,
     ILogger<ChatService> logger) : IChatService
 {
@@ -572,12 +573,12 @@ public class ChatService(
                 break;
 
             case TaskActionType.SetReminder:
-                if (!TimeOnly.TryParse(action.Parameters.GetValueOrDefault("reminderTime"), out var setReminderTime))
+                if (!TimeOnly.TryParseExact(action.Parameters.GetValueOrDefault("reminderTime"), "HH:mm", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var setReminderTime))
                     throw new InvalidOperationException("Missing or invalid reminderTime parameter (expected HH:mm).");
                 var setReminderDate = action.Parameters.TryGetValue("reminderDate", out var reminderDateStr)
-                    && DateOnly.TryParse(reminderDateStr, out var parsedReminderDate)
+                    && DateOnly.TryParseExact(reminderDateStr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedReminderDate)
                     ? parsedReminderDate
-                    : DateOnly.FromDateTime(DateTime.Today);
+                    : await userTimeZoneService.GetTodayAsync();
                 await todoService.SetTaskReminderAsync(
                     action.Parameters["listId"],
                     action.Parameters["taskId"],

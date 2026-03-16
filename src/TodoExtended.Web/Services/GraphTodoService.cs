@@ -178,7 +178,24 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             },
         };
 
-        await graphClient.PatchTaskAsync(taskListId, taskId, patch);
+        try
+        {
+            await graphClient.PatchTaskAsync(taskListId, taskId, patch);
+        }
+        catch (Microsoft.Graph.Models.ODataErrors.ODataError ex)
+        {
+            logger.LogError(ex,
+                "SetTaskReminderAsync: ODataError Code={Code}, Message={Message}, StatusCode={StatusCode}",
+                ex.Error?.Code, ex.Error?.Message, ex.ResponseStatusCode);
+
+            if (ex.Error?.Details is { Count: > 0 } details)
+            {
+                foreach (var detail in details)
+                    logger.LogError("  ODataError Detail: Code={Code}, Message={Message}", detail.Code, detail.Message);
+            }
+
+            throw;
+        }
 
         logger.LogDebug("SetTaskReminderAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
     }

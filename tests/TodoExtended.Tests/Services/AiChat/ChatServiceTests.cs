@@ -1,3 +1,7 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using NSubstitute;
 using TodoExtended.Web.Services;
 using TodoExtended.Web.Services.AiChat;
@@ -349,6 +353,179 @@ public class ChatServiceTests
 
         // Assert
         Assert.Null(result);
+    }
+
+    #endregion
+
+    #region SetReminder Tests
+
+    [Fact]
+    public async Task ExecuteActionsAsync_SetReminder_WithValidTimeAndDate_CallsSetTaskReminderAsync()
+    {
+        // Arrange
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var reminderDate = new DateOnly(2026, 4, 1);
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.SetReminder, "Set reminder on task \"Buy milk\" at 09:00", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["taskId"] = "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+                ["reminderTime"] = "09:00",
+                ["reminderDate"] = reminderDate.ToString("yyyy-MM-dd")
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        Assert.True(results[0].Success);
+        await todoService.Received(1).SetTaskReminderAsync(
+            "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+            "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+            reminderDate,
+            new TimeOnly(9, 0),
+            Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task ExecuteActionsAsync_SetReminder_WithInvalidReminderTime_ReturnsFailureResult()
+    {
+        // Arrange
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.SetReminder, "Set reminder", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["taskId"] = "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+                ["reminderTime"] = "not-a-time"
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        Assert.False(results[0].Success);
+        Assert.Contains("reminderTime", results[0].Message);
+        await todoService.DidNotReceive().SetTaskReminderAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<TimeOnly>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task ExecuteActionsAsync_SetReminder_WithNoReminderDate_DefaultsToUserTimezoneToday()
+    {
+        // Arrange
+        var userTimeZone = TimeZoneInfo.FindSystemTimeZoneById("UTC");
+        var (chatService, todoService, _) = CreateRealChatService(userTimeZone);
+
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.SetReminder, "Set reminder at 09:00", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["taskId"] = "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+                ["reminderTime"] = "09:00"
+                // no reminderDate — should default to user-timezone today
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        var expectedToday = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, userTimeZone));
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        Assert.True(results[0].Success);
+        await todoService.Received(1).SetTaskReminderAsync(
+            Arg.Any<string>(),
+            Arg.Any<string>(),
+            expectedToday,
+            new TimeOnly(9, 0),
+            Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task ExecuteActionsAsync_SetReminder_WithRejectedConfirmation_DoesNotCallService()
+    {
+        // Arrange
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.SetReminder, "Set reminder at 09:00", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["taskId"] = "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+                ["reminderTime"] = "09:00"
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, false) }.AsReadOnly();
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Empty(results);
+        await todoService.DidNotReceive().SetTaskReminderAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<TimeOnly>(), Arg.Any<string>());
+    }
+
+    /// <summary>
+    /// Creates a real <see cref="ChatService"/> with mocked dependencies for testing.
+    /// </summary>
+    private static (ChatService chatService, ITodoService todoService, IUserTimeZoneService userTimeZoneService)
+        CreateRealChatService(TimeZoneInfo? userTimeZone = null)
+    {
+        var todoService = Substitute.For<ITodoService>();
+        var templateService = Substitute.For<ITemplateService>();
+        var chatClient = Substitute.For<Microsoft.Extensions.AI.IChatClient>();
+
+        userTimeZone ??= TimeZoneInfo.Utc;
+        // Use a concrete implementation so the GetTodayAsync() default interface method works correctly.
+        var userTimeZoneService = new FixedTimeZoneService(userTimeZone);
+
+        var httpContext = new DefaultHttpContext();
+        var claims = new[] { new Claim(ClaimTypes.NameIdentifier, "test-user") };
+        httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(claims));
+
+        var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+        httpContextAccessor.HttpContext.Returns(httpContext);
+
+        var options = Options.Create(new AiChatOptions { MaxHistoryMessages = 20 });
+
+        var chatService = new ChatService(
+            chatClient,
+            todoService,
+            templateService,
+            httpContextAccessor,
+            userTimeZoneService,
+            options,
+            NullLogger<ChatService>.Instance);
+
+        return (chatService, todoService, userTimeZoneService);
+    }
+
+    /// <summary>
+    /// Minimal <see cref="IUserTimeZoneService"/> implementation that always returns a fixed timezone.
+    /// </summary>
+    private class FixedTimeZoneService(TimeZoneInfo timeZone) : IUserTimeZoneService
+    {
+        public Task<TimeZoneInfo> GetCurrentUserTimeZoneAsync() => Task.FromResult(timeZone);
     }
 
     #endregion
