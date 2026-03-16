@@ -7,8 +7,9 @@ namespace TodoExtended.E2E;
 /// Base class for all E2E tests.
 /// When <c>E2E_USE_ANDROID_EMULATOR=true</c>, connects to Chrome running on the
 /// Android emulator via the CDP endpoint specified by <c>E2E_ANDROID_CDP_ENDPOINT</c>
-/// (default: <c>http://localhost:9222</c>) and defaults the base URL to
-/// <c>http://10.0.2.2:5000</c> (the Android emulator's alias for the host loopback).
+/// (default: <c>http://localhost:9222</c>) and reuses the existing page opened by
+/// the launch script.  The workflow sets up <c>adb reverse tcp:5000 tcp:5000</c> so
+/// that Chrome on the emulator can reach the host app at <c>localhost:5000</c>.
 /// Otherwise, launches a headless Playwright Chromium browser and defaults the base
 /// URL to <c>http://localhost:5000</c>.
 /// Override <see cref="ContextOptions"/> to customise the browser context.
@@ -30,12 +31,14 @@ public abstract class E2ETestBase
 
     /// <summary>
     /// App base URL used by all tests.
-    /// Resolved from <c>E2E_BASE_URL</c> env var, or automatically set to the
-    /// Android emulator host address when <c>E2E_USE_ANDROID_EMULATOR=true</c>.
+    /// Resolved from <c>E2E_BASE_URL</c> env var, or defaults to
+    /// <c>http://localhost:5000</c>.  In Android emulator mode, the CI workflow
+    /// uses <c>adb reverse tcp:5000 tcp:5000</c> so that Chrome on the emulator
+    /// can reach the host app at <c>localhost:5000</c>.
     /// </summary>
     protected string BaseUrl =>
         Environment.GetEnvironmentVariable("E2E_BASE_URL")
-        ?? (UseAndroidEmulator ? "http://10.0.2.2:5000" : "http://localhost:5000");
+        ?? "http://localhost:5000";
 
     /// <summary>True when <c>E2E_USE_ANDROID_EMULATOR=true</c> is set.</summary>
     protected static bool UseAndroidEmulator =>
@@ -70,7 +73,15 @@ public abstract class E2ETestBase
                 // reuse the default context that already exists on the connected browser.
                 _context = _browser.Contexts[0];
                 _contextOwned = false;
-                Page = await _context.NewPageAsync();
+                // Reuse the existing open tab rather than creating a new one.
+                // Android Chrome does not support Target.createTarget (used internally
+                // by NewPageAsync), so we must reuse the about:blank page that Chrome
+                // opened when it was launched by the script.
+                if (_context.Pages.Count == 0)
+                    throw new InvalidOperationException(
+                        "Android Chrome has no open pages to reuse; " +
+                        "ensure Chrome is launched to 'about:blank' before the tests run.");
+                Page = _context.Pages[0];
             }
             catch
             {
@@ -102,8 +113,11 @@ public abstract class E2ETestBase
             }
             else
             {
-                // We don't own the default CDP context, so just close the page we opened.
-                if (Page != null) await Page.CloseAsync();
+                // We don't own the default CDP context (Android mode). Don't close the
+                // page — that would leave Chrome with no open tab, causing the next test
+                // to fail with Pages.Count == 0. Instead navigate back to about:blank so
+                // the tab is clean for the next test.
+                if (Page != null) await Page.GotoAsync("about:blank");
             }
             // Closing a CDP-connected browser only disconnects; it does not kill Chrome on the device.
             if (_browser != null) await _browser.CloseAsync();

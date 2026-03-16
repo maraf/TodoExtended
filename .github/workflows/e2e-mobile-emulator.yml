@@ -81,6 +81,11 @@ jobs:
           sleep 10
           # Forward Chrome's DevTools Protocol Unix socket to a host TCP port
           adb forward tcp:9222 localabstract:chrome_devtools_remote
+          # Reverse-tunnel the host web-server into the emulator so that Chrome on
+          # the emulator can reach it at localhost:5000. This is more reliable than
+          # the 10.0.2.2 gateway, which requires the emulator's outbound network to
+          # be fully initialised.
+          adb reverse tcp:5000 tcp:5000
           # Poll the CDP endpoint until it responds (up to 120 s)
           for i in $(seq 1 60); do
             if curl -sf http://localhost:9222/json/version > /dev/null 2>&1; then
@@ -93,7 +98,7 @@ jobs:
             fi
             sleep 2
           done
-          export E2E_BASE_URL="http://10.0.2.2:5000"
+          export E2E_BASE_URL="http://localhost:5000"
           export E2E_USE_ANDROID_EMULATOR="true"
           export E2E_ANDROID_CDP_ENDPOINT="http://localhost:9222"
           dotnet test tests/TodoExtended.E2E/TodoExtended.E2E.csproj --configuration Debug --no-build
