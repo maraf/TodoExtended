@@ -166,7 +166,7 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
         logger.LogDebug("SetTaskReminderAsync: taskListId={TaskListId}, taskId={TaskId}, reminderDate={ReminderDate}, reminderTime={ReminderTime}", taskListId, taskId, reminderDate, reminderTime);
 
         var userZone = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
-        var reminderDateTime = reminderDate.ToDateTime(new TimeOnly(reminderTime.Hour, reminderTime.Minute));
+        var reminderDateTime = reminderDate.ToDateTime(reminderTime);
 
         var patch = new Microsoft.Graph.Models.TodoTask
         {
