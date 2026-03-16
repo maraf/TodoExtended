@@ -487,6 +487,39 @@ public class ChatServiceTests
     }
 
     [Fact]
+    public async Task ExecuteActionsAsync_SetReminder_WithSingleDigitHour_CallsSetTaskReminderAsync()
+    {
+        // Arrange — "9:00" (no leading zero) should be accepted and parsed as 09:00
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var reminderDate = new DateOnly(2026, 4, 1);
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.SetReminder, "Set reminder on task \"Buy milk\" at 9:00", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["taskId"] = "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+                ["reminderTime"] = "9:00",
+                ["reminderDate"] = reminderDate.ToString("yyyy-MM-dd")
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        await todoService.Received(1).SetTaskReminderAsync(
+            "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+            "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+            reminderDate,
+            new TimeOnly(9, 0),
+            Arg.Any<string>());
+    }
+
+    [Fact]
     public async Task ExecuteActionsAsync_SetReminder_WithRejectedConfirmation_DoesNotCallService()
     {
         // Arrange

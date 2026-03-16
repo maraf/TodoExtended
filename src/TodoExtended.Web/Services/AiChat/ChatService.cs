@@ -573,7 +573,7 @@ public class ChatService(
                 break;
 
             case TaskActionType.SetReminder:
-                if (!TimeOnly.TryParseExact(action.Parameters.GetValueOrDefault("reminderTime"), "HH:mm", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var setReminderTime))
+                if (!TimeOnly.TryParseExact(action.Parameters.GetValueOrDefault("reminderTime"), ["HH:mm", "H:mm"], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var setReminderTime))
                     throw new InvalidOperationException("Missing or invalid reminderTime parameter (expected HH:mm).");
                 DateOnly setReminderDate;
                 if (action.Parameters.TryGetValue("reminderDate", out var reminderDateStr) && !string.IsNullOrEmpty(reminderDateStr))
