@@ -19,6 +19,7 @@ public abstract class E2ETestBase
     private IPlaywright? _playwright;
     private IBrowser? _browser;
     private IBrowserContext? _context;
+    private bool _contextOwned;
 
     protected IPage Page { get; private set; } = null!;
 
@@ -53,6 +54,10 @@ public abstract class E2ETestBase
             // enabled and forwarding the CDP port (adb forward tcp:9222
             // localabstract:chrome_devtools_remote) before the tests run.
             _browser = await _playwright.Chromium.ConnectOverCDPAsync(AndroidCdpEndpoint);
+            // Android Chrome does not support Target.createBrowserContext, so we
+            // reuse the default context that already exists on the connected browser.
+            _context = _browser.Contexts[0];
+            _contextOwned = false;
         }
         else
         {
@@ -60,16 +65,25 @@ public abstract class E2ETestBase
             {
                 Headless = true,
             });
+            _context = await _browser.NewContextAsync(ContextOptions());
+            _contextOwned = true;
         }
-
-        _context = await _browser.NewContextAsync(ContextOptions());
         Page = await _context.NewPageAsync();
     }
 
     [TearDown]
     public async Task BaseTearDownAsync()
     {
-        if (_context != null) await _context.CloseAsync();
+        if (_contextOwned)
+        {
+            // Closing the context also closes all pages within it.
+            if (_context != null) await _context.CloseAsync();
+        }
+        else
+        {
+            // We don't own the default CDP context, so just close the page we opened.
+            if (Page != null) await Page.CloseAsync();
+        }
         // Closing a CDP-connected browser only disconnects; it does not kill Chrome on the device.
         if (_browser != null) await _browser.CloseAsync();
         _playwright?.Dispose();
