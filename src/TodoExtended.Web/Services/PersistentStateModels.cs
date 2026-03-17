@@ -62,3 +62,44 @@ public record PersistedTaskTemplate(
     bool DueDateToday,
     TimeOnly? ReminderTime,
     int SortOrder);
+
+public static class DateRescheduleOptions
+{
+    /// <summary>
+    /// Builds the list of quick-reschedule date options relative to <paramref name="today"/>.
+    /// </summary>
+    /// <param name="today">The current date in the user's timezone.</param>
+    /// <param name="includeToday">When true, prepends a "Today" option.</param>
+    public static List<(string Label, DateOnly Date)> Build(DateOnly today, bool includeToday)
+    {
+        var options = new List<(string Label, DateOnly Date)>();
+
+        if (includeToday)
+            options.Add(("Today", today));
+
+        var tomorrow = today.AddDays(1);
+        options.Add(("Tomorrow", tomorrow));
+
+        // ISO week: Monday = start. Compute Sunday of the current week.
+        var dotNetDow = (int)today.DayOfWeek; // Sun=0, Mon=1, ..., Sat=6
+        var daysFromMonday = dotNetDow == 0 ? 6 : dotNetDow - 1;
+        var thisWeekSunday = today.AddDays(6 - daysFromMonday);
+
+        // Add remaining days of this week after tomorrow.
+        var day = tomorrow.AddDays(1);
+        while (day <= thisWeekSunday)
+        {
+            var dayName = day.DayOfWeek.ToString()[..3];
+            options.Add(($"{dayName} {day.Day}", day));
+            day = day.AddDays(1);
+        }
+
+        // Next week Monday = thisWeekMonday + 7 = today - daysFromMonday + 7.
+        // Only show if it differs from tomorrow (avoids duplicate when today is Sunday).
+        var nextMonday = today.AddDays(7 - daysFromMonday);
+        if (nextMonday != tomorrow)
+            options.Add(("Next week", nextMonday));
+
+        return options;
+    }
+}

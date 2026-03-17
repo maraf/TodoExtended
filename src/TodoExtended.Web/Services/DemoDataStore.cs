@@ -59,6 +59,18 @@ public class DemoDataStore
         return true;
     }
 
+    public bool UpdateTaskDueDate(string listId, string taskId, DateOnly dueDate)
+    {
+        var list = _taskLists.FirstOrDefault(l => l.Id == listId);
+        if (list is null) return false;
+
+        var task = list.Tasks.FirstOrDefault(t => t.Id == taskId);
+        if (task is null) return false;
+
+        task.DueDate = dueDate;
+        return true;
+    }
+
     private void SetDueDate(string listId, string taskId, DateOnly date)
     {
         var list = _taskLists.FirstOrDefault(l => l.Id == listId);

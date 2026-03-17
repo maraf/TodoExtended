@@ -67,6 +67,7 @@ public interface ITodoService
     Task<IReadOnlyList<TodoTaskList>> SearchTaskListsAsync(string query, string userId);
     Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, string userId, TimeOnly? reminderTime = null);
     Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed, string userId);
+    Task SetTaskDueDateAsync(string taskListId, string taskId, DateOnly dueDate, string userId);
     Task SetTaskReminderAsync(string taskListId, string taskId, DateOnly reminderDate, TimeOnly reminderTime, string userId);
     Task SetTaskListSyncedAsync(string taskListId, bool isSynced, string userId);
     Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync(string userId);

@@ -161,6 +161,52 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
         logger.LogDebug("UpdateTaskStatusAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
     }
 
+    public async Task SetTaskDueDateAsync(string taskListId, string taskId, DateOnly dueDate, string userId)
+    {
+        logger.LogDebug("SetTaskDueDateAsync: taskListId={TaskListId}, taskId={TaskId}, dueDate={DueDate}", taskListId, taskId, dueDate);
+
+        var userZone = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
+
+        var patch = new Microsoft.Graph.Models.TodoTask
+        {
+            DueDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = dueDate.ToDateTime(TimeOnly.MinValue).ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
+                TimeZone = userZone.Id,
+            },
+        };
+
+        // If the task has an active reminder, reschedule it to the same time on the new due date.
+        var current = await graphClient.GetTaskAsync(taskListId, taskId);
+        if (current?.IsReminderOn == true && current.ReminderDateTime?.DateTime is not null)
+        {
+            var currentReminderDt = DateTime.Parse(current.ReminderDateTime.DateTime, CultureInfo.InvariantCulture, DateTimeStyles.None);
+            var reminderTime = TimeOnly.FromDateTime(currentReminderDt);
+            var newReminderDt = dueDate.ToDateTime(reminderTime);
+            patch.IsReminderOn = true;
+            patch.ReminderDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = newReminderDt.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
+                TimeZone = userZone.Id,
+            };
+            logger.LogDebug("SetTaskDueDateAsync: Rescheduling reminder from {Old} to {New}", currentReminderDt, newReminderDt);
+        }
+
+        try
+        {
+            await graphClient.PatchTaskAsync(taskListId, taskId, patch);
+        }
+        catch (Microsoft.Graph.Models.ODataErrors.ODataError ex)
+        {
+            logger.LogError(ex,
+                "SetTaskDueDateAsync: ODataError Code={Code}, Message={Message}, StatusCode={StatusCode}",
+                ex.Error?.Code, ex.Error?.Message, ex.ResponseStatusCode);
+            throw;
+        }
+
+        logger.LogDebug("SetTaskDueDateAsync: PatchAsync succeeded for taskId={TaskId}", taskId);
+    }
+
     public async Task SetTaskReminderAsync(string taskListId, string taskId, DateOnly reminderDate, TimeOnly reminderTime, string userId)
     {
         logger.LogDebug("SetTaskReminderAsync: taskListId={TaskListId}, taskId={TaskId}, reminderDate={ReminderDate}, reminderTime={ReminderTime}", taskListId, taskId, reminderDate, reminderTime);

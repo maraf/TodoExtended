@@ -48,6 +48,12 @@ public class DemoGraphTodoClient(DemoDataStore store) : IGraphTodoClient
             var completed = patch.Status == Microsoft.Graph.Models.TaskStatus.Completed;
             store.UpdateTaskStatus(taskListId, taskId, completed);
         }
+        if (patch.DueDateTime is not null)
+        {
+            var dueDate = ParseDueDate(patch.DueDateTime);
+            if (dueDate.HasValue)
+                store.UpdateTaskDueDate(taskListId, taskId, dueDate.Value);
+        }
         return Task.CompletedTask;
     }
 
