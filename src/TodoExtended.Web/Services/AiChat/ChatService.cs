@@ -378,11 +378,14 @@ public class ChatService(
     private async Task<string> GetCurrentDateTimeAsync()
     {
         var tz = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
-        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        var utcNow = DateTime.UtcNow;
+        var offset = tz.GetUtcOffset(utcNow);
+        var now = new DateTimeOffset(TimeZoneInfo.ConvertTimeFromUtc(utcNow, tz), offset);
         return JsonSerializer.Serialize(new
         {
-            DateTime = now.ToString("dddd, MMMM d, yyyy h:mm tt"),
-            TimeZone = tz.DisplayName,
+            DateTimeOffset = now.ToString("O"),
+            TimeZoneId = tz.Id,
+            UtcOffsetMinutes = (int)offset.TotalMinutes,
         });
     }
 
@@ -489,6 +492,7 @@ public class ChatService(
         {
             return call.Name switch
             {
+                "get_current_datetime" => await GetCurrentDateTimeAsync(),
                 "get_task_lists" => await GetTaskListsAsync(),
                 "get_tasks" => await GetTasksAsync(GetArg(call, "listId")),
                 "get_task" => await GetTaskDetailAsync(GetArg(call, "listId"), GetArg(call, "taskId")),
