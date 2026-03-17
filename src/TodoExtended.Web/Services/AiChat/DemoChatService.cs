@@ -43,6 +43,7 @@ public class DemoChatService : IChatService
                         new Dictionary<string, string>
                         {
                             ["listId"] = "demo-list-personal",
+                            ["listName"] = "🏠 Personal",
                             ["title"] = "Buy groceries",
                             ["dueDate"] = DateOnly.FromDateTime(DateTime.Today).ToString("O")
                         })
@@ -62,6 +63,7 @@ public class DemoChatService : IChatService
                         new Dictionary<string, string>
                         {
                             ["listId"] = "demo-list-personal",
+                            ["listName"] = "🏠 Personal",
                             ["taskId"] = "demo-task-1"
                         })
                 ]);
@@ -80,6 +82,7 @@ public class DemoChatService : IChatService
                         new Dictionary<string, string>
                         {
                             ["listId"] = "demo-list-personal",
+                            ["listName"] = "🏠 Personal",
                             ["taskId"] = "demo-task-1",
                             ["reminderTime"] = "09:00"
                         })

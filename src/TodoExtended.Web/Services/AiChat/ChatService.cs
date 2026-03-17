@@ -162,6 +162,7 @@ public class ChatService(
                 {
                     // Write tool → proposed action (don't execute)
                     var proposed = MapToProposedAction(call);
+                    await EnrichListNameAsync(proposed, ct);
                     if (call.Name == "set_task_reminder")
                         await EnrichSetReminderActionAsync(proposed, ct);
                     proposedActions.Add(proposed);
@@ -686,18 +687,16 @@ public class ChatService(
     }
 
     /// <summary>
-    /// Enriches a SetReminder proposed action with the task list display name from cache
-    /// and a resolved reminder date (defaults to today when not provided by the AI).
+    /// Resolves the task list display name from cache for any proposed action that carries
+    /// a <c>listId</c> but is missing <c>listName</c>.
     /// </summary>
-    private async Task EnrichSetReminderActionAsync(ProposedAction action, CancellationToken ct)
+    private async Task EnrichListNameAsync(ProposedAction action, CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
-
-        // Resolve list name from cache if not provided by the AI
         if (string.IsNullOrEmpty(action.Parameters.GetValueOrDefault("listName"))
             && action.Parameters.TryGetValue("listId", out var listId)
             && !string.IsNullOrEmpty(listId))
         {
+            var userId = GetCurrentUserId();
             await using var db = await dbContextFactory.CreateDbContextAsync(ct);
             var displayName = await db.CachedTaskLists
                 .Where(l => l.Id == listId && l.UserId == userId)
@@ -706,7 +705,14 @@ public class ChatService(
             if (displayName is not null)
                 action.Parameters["listName"] = displayName;
         }
+    }
 
+    /// <summary>
+    /// Enriches a SetReminder proposed action with a resolved reminder date
+    /// (defaults to today when not provided by the AI).
+    /// </summary>
+    private async Task EnrichSetReminderActionAsync(ProposedAction action, CancellationToken ct)
+    {
         // Default reminderDate to today (in the user's time zone) if not provided
         if (!action.Parameters.TryGetValue("reminderDate", out var rd) || string.IsNullOrEmpty(rd))
         {

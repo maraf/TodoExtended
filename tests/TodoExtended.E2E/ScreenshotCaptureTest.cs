@@ -76,6 +76,7 @@ public class ScreenshotCaptureTest : E2ETestBase
         await CaptureChatWithMessagesScreenshots();
         await CaptureChatKeyboardOpenScreenshots();
         await CaptureChatSetReminderScreenshots();
+        await CaptureChatActionCardsScreenshots();
     }
 
     private async Task SignInViaDemoAsync()
@@ -466,6 +467,50 @@ public class ScreenshotCaptureTest : E2ETestBase
                 catch (Exception ex)
                 {
                     TestContext.WriteLine($"[WARN] Failed: chat-set-reminder--{vp.Name}-{theme}: {ex.Message}");
+                }
+            }
+        }
+    }
+
+    private async Task CaptureChatActionCardsScreenshots()
+    {
+        // Verifies that Create, Complete, and Reopen action cards all display the resolved
+        // task list name (e.g. "📋 Work") instead of the "Task list" fallback.
+        // The seeded history simulates what ChatService produces after EnrichListNameAsync runs.
+        const string chatHistory = """
+            [
+              {"message":{"role":"user","text":"Please create a task 'Prepare report', complete 'Send email' and reopen 'Review PR'","proposedActions":null,"timestamp":"2026-03-17T10:00:00+00:00","taskListReferences":null},"results":null},
+              {"message":{"role":"assistant","text":"Sure! Here are the three actions for your confirmation:","proposedActions":[{"type":0,"description":"Create task \"Prepare report\"","parameters":{"title":"Prepare report","listId":"demo-list-work","listName":"📋 Work"}},{"type":1,"description":"Complete task \"Send email\"","parameters":{"title":"Send email","listId":"demo-list-work","listName":"📋 Work","taskId":"demo-task-w1"}},{"type":2,"description":"Reopen task \"Review PR\"","parameters":{"title":"Review PR","listId":"demo-list-personal","listName":"🏠 Personal","taskId":"demo-task-p1"}}],"timestamp":"2026-03-17T10:00:05+00:00","taskListReferences":null},"results":null}
+            ]
+            """;
+
+        foreach (var theme in new[] { "dark", "light" })
+        {
+            foreach (var vp in Viewports)
+            {
+                try
+                {
+                    await Page.SetViewportSizeAsync(vp.Width, vp.Height);
+
+                    await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
+                    await Page.EvaluateAsync("value => localStorage.setItem('todoextended-chat-history', value)", chatHistory);
+
+                    await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
+
+                    await Page.Locator("[data-testid='proposed-action-card']").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
+
+                    await SetThemeAsync(theme);
+
+                    await Page.EvaluateAsync("() => { const el = document.querySelector('main'); if (el) el.scrollTop = el.scrollHeight; }");
+                    await Page.WaitForTimeoutAsync(500);
+
+                    var fileName = $"chat-action-cards--{vp.Name}-{theme}.png";
+                    await Page.ScreenshotAsync(new() { Path = Path.Combine(ScreenshotsDir, fileName) });
+                    TestContext.WriteLine($"[OK] {fileName}");
+                }
+                catch (Exception ex)
+                {
+                    TestContext.WriteLine($"[WARN] Failed: chat-action-cards--{vp.Name}-{theme}: {ex.Message}");
                 }
             }
         }
