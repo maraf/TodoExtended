@@ -81,7 +81,7 @@ public class ChatService(
         var opts = options.Value;
         var tools = BuildTools();
 
-        var messages = BuildConversation(userMessage, history, opts.MaxHistoryMessages);
+        var messages = await BuildConversationAsync(userMessage, history, opts.MaxHistoryMessages, ct);
 
         var chatOptions = new ChatOptions
         {
@@ -256,14 +256,17 @@ public class ChatService(
         return results;
     }
 
-    private List<Microsoft.Extensions.AI.ChatMessage> BuildConversation(
+    private async Task<List<Microsoft.Extensions.AI.ChatMessage>> BuildConversationAsync(
         string userMessage,
         IReadOnlyList<ChatMessage> history,
-        int maxHistory)
+        int maxHistory,
+        CancellationToken ct)
     {
+        var today = await userTimeZoneService.GetTodayAsync();
+        var systemPrompt = SystemPrompt + $"\n\nToday's date is {today:dddd, MMMM d, yyyy}.";
         var messages = new List<Microsoft.Extensions.AI.ChatMessage>
         {
-            new(ChatRole.System, SystemPrompt)
+            new(ChatRole.System, systemPrompt)
         };
 
         // Add capped history, only user/assistant text turns (no tool-call/tool-result noise)
