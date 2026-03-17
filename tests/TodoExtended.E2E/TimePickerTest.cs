@@ -14,10 +14,9 @@ public class TimePickerTest : E2ETestBase
     [SetUp]
     public async Task SignInAsync()
     {
-        await Page.GotoAsync(BaseUrl);
-        var demoButton = Page.Locator("a[href='/auth/demo-signin']").First;
-        await Expect(demoButton).ToBeVisibleAsync(new() { Timeout = 15_000 });
-        await demoButton.ClickAsync();
+        // Navigate directly to the demo sign-in endpoint so the cookie is set
+        // even when the browser already has an authenticated session from a previous test.
+        await Page.GotoAsync($"{BaseUrl}/auth/demo-signin", new() { WaitUntil = WaitUntilState.DOMContentLoaded });
         await Expect(Page.GetByRole(AriaRole.Button, new() { Name = "User menu" }))
             .ToBeVisibleAsync(new() { Timeout = 30_000 });
     }
