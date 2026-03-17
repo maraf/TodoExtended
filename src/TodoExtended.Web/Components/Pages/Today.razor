@@ -70,6 +70,7 @@ else
         {
             @foreach (var task in visibleTasks)
             {
+                var capturedTask = task;
                 <div @key="task.Id" class="task-row @(task.IsCompleted ? "opacity-50" : "") flex-wrap">
                     <TaskStatusCheckbox TaskId="@task.Id"
                                         ListId="@task.ListId"
@@ -89,28 +90,10 @@ else
                             </svg>
                         }
                     </div>
-                    @if (_rescheduleMode && !task.IsCompleted)
-                    {
-                        <div class="w-full flex flex-wrap gap-1 pt-1 pb-0.5 pl-9">
-                            @foreach (var opt in _dateOptions)
-                            {
-                                var capturedTask = task;
-                                var capturedOpt = opt;
-                                <button @onclick="() => MoveTaskAsync(capturedTask, capturedOpt.Date)"
-                                        disabled="@(_movingTaskId == task.Id)"
-                                        class="text-xs px-2 py-0.5 rounded-full border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:border-brand-400 hover:text-brand-700 dark:hover:bg-brand-900/30 dark:hover:border-brand-500 dark:hover:text-brand-300 transition-colors disabled:opacity-50">
-                                    @if (_movingTaskId == task.Id)
-                                    {
-                                        <span>...</span>
-                                    }
-                                    else
-                                    {
-                                        @capturedOpt.Label
-                                    }
-                                </button>
-                            }
-                        </div>
-                    }
+                    <RescheduleDatePicker Visible="@(_rescheduleMode && !task.IsCompleted)"
+                                         IsMoving="@(_movingTaskId == task.Id)"
+                                         DateOptions="@_dateOptions"
+                                         OnDateSelected="date => MoveTaskAsync(capturedTask, date)" />
                 </div>
             }
         }
