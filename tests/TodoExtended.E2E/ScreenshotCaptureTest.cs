@@ -80,12 +80,11 @@ public class ScreenshotCaptureTest : E2ETestBase
 
     private async Task SignInViaDemoAsync()
     {
-        // Navigate directly to the demo sign-in endpoint.  The endpoint sets the auth cookie
-        // and redirects to "/"; GotoAsync follows the redirect automatically.
-        // DOMContentLoaded avoids the 25+ second wait for external resources (e.g. Google
-        // Fonts) that can time-out on a cold Android emulator.
-        await Page.GotoAsync($"{BaseUrl}/auth/demo-signin",
-            new() { WaitUntil = WaitUntilState.DOMContentLoaded });
+        await Page.GotoAsync(BaseUrl);
+
+        var demoButton = Page.Locator("a[href='/auth/demo-signin']").First;
+        await Expect(demoButton).ToBeVisibleAsync(new() { Timeout = 15_000 });
+        await demoButton.ClickAsync();
 
         // Wait for authenticated state — "User menu" button is always visible in the sidebar
         await Expect(Page.GetByRole(AriaRole.Button, new() { Name = "User menu" }))

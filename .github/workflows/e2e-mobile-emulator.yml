@@ -86,6 +86,24 @@ jobs:
           # the 10.0.2.2 gateway, which requires the emulator's outbound network to
           # be fully initialised.
           adb reverse tcp:5000 tcp:5000
+          # Wait for the emulator to have outbound internet access.
+          # fonts.googleapis.com is a render-blocking stylesheet loaded by the app;
+          # if the emulator network is not yet ready when the page loads, the load
+          # event never fires and GotoAsync times out.
+          # The emulator uses -dns-server 8.8.8.8 (set in emulator-options) for DNS,
+          # but the NAT route to external IPs may take a few extra seconds to come up.
+          echo "Waiting for emulator internet connectivity..."
+          for i in $(seq 1 60); do
+            if adb shell ping -c 1 -W 3 8.8.8.8 2>/dev/null | grep -q "bytes from"; then
+              echo "Emulator internet connectivity confirmed."
+              break
+            fi
+            if [ "$i" -eq 60 ]; then
+              echo "Emulator internet connectivity not confirmed after 120 s." >&2
+              exit 1
+            fi
+            sleep 2
+          done
           # Poll the CDP endpoint until it responds (up to 120 s)
           for i in $(seq 1 60); do
             if curl -sf http://localhost:9222/json/version > /dev/null 2>&1; then
@@ -113,6 +131,7 @@ jobs:
           arch: x86_64
           avd-name: e2e_avd
           script: bash /tmp/e2e-android-script.sh
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -dns-server 8.8.8.8
 
       - name: Upload screenshots
         if: always()
