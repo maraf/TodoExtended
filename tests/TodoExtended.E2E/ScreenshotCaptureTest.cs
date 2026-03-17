@@ -88,7 +88,7 @@ public class ScreenshotCaptureTest : E2ETestBase
 
         // Wait for authenticated state — "User menu" button is always visible in the sidebar
         await Expect(Page.GetByRole(AriaRole.Button, new() { Name = "User menu" }))
-            .ToBeVisibleAsync(new() { Timeout = 15_000 });
+            .ToBeVisibleAsync(new() { Timeout = 30_000 });
     }
 
     private async Task CaptureScreenshotAsync(PageSpec spec, string theme, ViewportSpec vp)

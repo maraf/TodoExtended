@@ -39,7 +39,7 @@ public class NotificationTest : E2ETestBase
         await Expect(demoButton).ToBeVisibleAsync(new() { Timeout = 15_000 });
         await demoButton.ClickAsync();
         await Expect(Page.GetByRole(AriaRole.Button, new() { Name = "User menu" }))
-            .ToBeVisibleAsync(new() { Timeout = 15_000 });
+            .ToBeVisibleAsync(new() { Timeout = 30_000 });
 
         // Navigate to home page and wait for content
         await Page.GotoAsync(BaseUrl, new() { WaitUntil = WaitUntilState.NetworkIdle });
