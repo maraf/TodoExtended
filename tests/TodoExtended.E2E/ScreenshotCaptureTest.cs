@@ -499,9 +499,11 @@ public class ScreenshotCaptureTest : E2ETestBase
 
                     await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
 
-                    await Page.Locator(".bg-emerald-600, .border-emerald-200").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
+                    await Page.Locator("[data-testid='proposed-action-card']").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
 
                     await SetThemeAsync(theme);
+
+                    await Page.EvaluateAsync("() => { const el = document.querySelector('main'); if (el) el.scrollTop = el.scrollHeight; }");
                     await Page.WaitForTimeoutAsync(500);
 
                     var fileName = $"chat-action-cards--{vp.Name}-{theme}.png";

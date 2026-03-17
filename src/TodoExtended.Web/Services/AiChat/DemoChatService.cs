@@ -82,6 +82,7 @@ public class DemoChatService : IChatService
                         new Dictionary<string, string>
                         {
                             ["listId"] = "demo-list-personal",
+                            ["listName"] = "🏠 Personal",
                             ["taskId"] = "demo-task-1",
                             ["reminderTime"] = "09:00"
                         })
