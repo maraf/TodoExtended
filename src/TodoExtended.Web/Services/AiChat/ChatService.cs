@@ -51,6 +51,7 @@ public class ChatService(
         - Update existing templates
         - Delete templates
         - Execute templates (creates a task from a template)
+        - Get the current date and time in the user's timezone
 
         Guidelines:
         - Use the read tools to fetch current data before answering questions about tasks or templates.
@@ -81,7 +82,7 @@ public class ChatService(
         var opts = options.Value;
         var tools = BuildTools();
 
-        var messages = await BuildConversationAsync(userMessage, history, opts.MaxHistoryMessages, ct);
+        var messages = BuildConversation(userMessage, history, opts.MaxHistoryMessages);
 
         var chatOptions = new ChatOptions
         {
@@ -256,17 +257,14 @@ public class ChatService(
         return results;
     }
 
-    private async Task<List<Microsoft.Extensions.AI.ChatMessage>> BuildConversationAsync(
+    private List<Microsoft.Extensions.AI.ChatMessage> BuildConversation(
         string userMessage,
         IReadOnlyList<ChatMessage> history,
-        int maxHistory,
-        CancellationToken ct)
+        int maxHistory)
     {
-        var today = await userTimeZoneService.GetTodayAsync();
-        var systemPrompt = SystemPrompt + $"\n\nToday's date is {today:dddd, MMMM d, yyyy}.";
         var messages = new List<Microsoft.Extensions.AI.ChatMessage>
         {
-            new(ChatRole.System, systemPrompt)
+            new(ChatRole.System, SystemPrompt)
         };
 
         // Add capped history, only user/assistant text turns (no tool-call/tool-result noise)
@@ -357,6 +355,7 @@ public class ChatService(
     {
         return
         [
+            AIFunctionFactory.Create(GetCurrentDateTimeAsync, "get_current_datetime", "Get the current date and time in the user's local timezone."),
             AIFunctionFactory.Create(GetTaskListsAsync, "get_task_lists", "Get all task lists for the user."),
             AIFunctionFactory.Create(GetTasksAsync, "get_tasks", "Get tasks in a specific list (title, status, due date). Does not include task description."),
             AIFunctionFactory.Create(GetTodayTasksAsync, "get_today_tasks", "Get tasks due today across all lists (title, status, due date). Does not include task description."),
@@ -376,6 +375,17 @@ public class ChatService(
     }
 
     // Read tool delegates (actual execution for auto-invoke)
+    private async Task<string> GetCurrentDateTimeAsync()
+    {
+        var tz = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
+        var now = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
+        return JsonSerializer.Serialize(new
+        {
+            DateTime = now.ToString("dddd, MMMM d, yyyy h:mm tt"),
+            TimeZone = tz.DisplayName,
+        });
+    }
+
     private async Task<string> GetTaskListsAsync()
     {
         var userId = GetCurrentUserId();
