@@ -106,6 +106,7 @@ else
                         }
                         <RescheduleDatePicker Visible="@(_rescheduleMode && !task.IsCompleted)"
                                              IsMoving="@(_movingTaskId == task.Id)"
+                                             IsDisabled="@(_movingTaskId is not null)"
                                              DateOptions="@_dateOptions"
                                              OnDateSelected="date => MoveTaskAsync(capturedTask, date)" />
                     </div>

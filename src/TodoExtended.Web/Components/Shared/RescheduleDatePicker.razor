@@ -5,7 +5,7 @@
         {
             var capturedOpt = opt;
             <button @onclick="() => OnDateSelected.InvokeAsync(capturedOpt.Date)"
-                    disabled="@IsMoving"
+                    disabled="@IsDisabled"
                     class="text-xs px-2 py-0.5 rounded-full border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-brand-50 hover:border-brand-400 hover:text-brand-700 dark:hover:bg-brand-900/30 dark:hover:border-brand-500 dark:hover:text-brand-300 transition-colors disabled:opacity-50">
                 @if (IsMoving)
                 {
@@ -24,8 +24,11 @@
     /// <summary>Whether to render the picker (typically <c>rescheduleMode &amp;&amp; !task.IsCompleted</c>).</summary>
     [Parameter, EditorRequired] public bool Visible { get; set; }
 
-    /// <summary>Whether the move is in progress for this task (disables all buttons and shows "...").</summary>
+    /// <summary>Whether THIS specific task's move is in progress (shows "..." on its buttons).</summary>
     [Parameter, EditorRequired] public bool IsMoving { get; set; }
+
+    /// <summary>Whether any move is in progress (disables all buttons, including on other tasks).</summary>
+    [Parameter, EditorRequired] public bool IsDisabled { get; set; }
 
     /// <summary>Available target dates.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<(string Label, DateOnly Date)> DateOptions { get; set; } = [];
