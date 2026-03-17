@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -359,6 +360,113 @@ public class ChatServiceTests
 
     #endregion
 
+    #region get_current_datetime Tool Tests
+
+    [Fact]
+    public async Task SendMessageAsync_WhenAiCallsGetCurrentDatetime_ReturnsValidJsonWithOffset()
+    {
+        // Arrange — use a fixed timezone with a known non-UTC offset to verify DST-aware output
+        var easternTz = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time")
+                        ?? TimeZoneInfo.FindSystemTimeZoneById("America/New_York");
+        var (chatService, _, _, chatClient) = CreateRealChatServiceWithClient(easternTz);
+
+        const string callId = "call-dt-1";
+
+        // First AI response: the model calls get_current_datetime
+        var toolCallResponse = new Microsoft.Extensions.AI.ChatResponse(
+        [
+            new Microsoft.Extensions.AI.ChatMessage(
+                Microsoft.Extensions.AI.ChatRole.Assistant,
+                [new Microsoft.Extensions.AI.FunctionCallContent(callId, "get_current_datetime")])
+        ]);
+
+        // Capture the tool-result message fed back to the model
+        List<Microsoft.Extensions.AI.ChatMessage>? capturedMessages = null;
+        var textResponse = new Microsoft.Extensions.AI.ChatResponse(
+        [
+            new Microsoft.Extensions.AI.ChatMessage(
+                Microsoft.Extensions.AI.ChatRole.Assistant,
+                [new Microsoft.Extensions.AI.TextContent("The current time has been obtained.")])
+        ]);
+
+        chatClient
+            .GetResponseAsync(
+                Arg.Do<IList<Microsoft.Extensions.AI.ChatMessage>>(msgs => capturedMessages = [.. msgs]),
+                Arg.Any<Microsoft.Extensions.AI.ChatOptions>(),
+                Arg.Any<CancellationToken>())
+            .Returns(toolCallResponse, textResponse);
+
+        // Act
+        var response = await chatService.SendMessageAsync("What time is it?", []);
+
+        // Assert: the service should have made a second call with the tool result included
+        Assert.NotNull(capturedMessages);
+
+        // Find the tool-result message for get_current_datetime
+        var toolResultMessage = capturedMessages
+            .Where(m => m.Role == Microsoft.Extensions.AI.ChatRole.Tool)
+            .SelectMany(m => m.Contents.OfType<Microsoft.Extensions.AI.FunctionResultContent>())
+            .FirstOrDefault(r => r.CallId == callId);
+
+        Assert.NotNull(toolResultMessage);
+        Assert.False(string.IsNullOrEmpty(toolResultMessage.Result?.ToString()), "Tool result should not be empty");
+
+        // Verify JSON shape: must have DateTimeOffset (ISO-8601 with offset), TimeZoneId, UtcOffsetMinutes
+        var json = toolResultMessage.Result!.ToString()!;
+        using var doc = JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        Assert.True(root.TryGetProperty("DateTimeOffset", out var dtoProp), "Missing DateTimeOffset property");
+        Assert.True(root.TryGetProperty("TimeZoneId", out var tzIdProp), "Missing TimeZoneId property");
+        Assert.True(root.TryGetProperty("UtcOffsetMinutes", out var offsetProp), "Missing UtcOffsetMinutes property");
+
+        // ISO-8601 round-trip check
+        Assert.True(
+            DateTimeOffset.TryParseExact(dtoProp.GetString(), "O", null, System.Globalization.DateTimeStyles.RoundtripKind, out _),
+            $"DateTimeOffset '{dtoProp.GetString()}' is not a valid ISO-8601 round-trip string");
+
+        Assert.Equal(easternTz.Id, tzIdProp.GetString());
+
+        // Offset should be the actual current Eastern offset (-5h = -300 or -4h = -240 during DST)
+        var expectedOffset = (int)easternTz.GetUtcOffset(DateTime.UtcNow).TotalMinutes;
+        Assert.Equal(expectedOffset, offsetProp.GetInt32());
+    }
+
+    [Fact]
+    public async Task SendMessageAsync_GetCurrentDatetimeNotInWriteTools_IsAutoInvoked()
+    {
+        // Arrange — verify the tool is treated as a read tool (auto-invoked, not a proposed action)
+        var (chatService, _, _, chatClient) = CreateRealChatServiceWithClient();
+
+        const string callId = "call-dt-2";
+        var toolCallResponse = new Microsoft.Extensions.AI.ChatResponse(
+        [
+            new Microsoft.Extensions.AI.ChatMessage(
+                Microsoft.Extensions.AI.ChatRole.Assistant,
+                [new Microsoft.Extensions.AI.FunctionCallContent(callId, "get_current_datetime")])
+        ]);
+
+        var textResponse = new Microsoft.Extensions.AI.ChatResponse(
+        [
+            new Microsoft.Extensions.AI.ChatMessage(
+                Microsoft.Extensions.AI.ChatRole.Assistant,
+                [new Microsoft.Extensions.AI.TextContent("Here is the time.")])
+        ]);
+
+        chatClient
+            .GetResponseAsync(Arg.Any<IList<Microsoft.Extensions.AI.ChatMessage>>(), Arg.Any<Microsoft.Extensions.AI.ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(toolCallResponse, textResponse);
+
+        // Act
+        var response = await chatService.SendMessageAsync("What time is it?", []);
+
+        // Assert: no proposed actions — the tool should have been auto-invoked as a read tool
+        Assert.Empty(response.ProposedActions);
+        Assert.Equal("Here is the time.", response.Text);
+    }
+
+    #endregion
+
     #region SetReminder Tests
 
     [Fact]
@@ -554,6 +662,13 @@ public class ChatServiceTests
     private static (ChatService chatService, ITodoService todoService, IUserTimeZoneService userTimeZoneService)
         CreateRealChatService(TimeZoneInfo? userTimeZone = null, DateOnly? pinnedToday = null)
     {
+        var (chatService, todoService, userTimeZoneService, _) = CreateRealChatServiceWithClient(userTimeZone, pinnedToday);
+        return (chatService, todoService, userTimeZoneService);
+    }
+
+    private static (ChatService chatService, ITodoService todoService, IUserTimeZoneService userTimeZoneService, Microsoft.Extensions.AI.IChatClient chatClient)
+        CreateRealChatServiceWithClient(TimeZoneInfo? userTimeZone = null, DateOnly? pinnedToday = null)
+    {
         var todoService = Substitute.For<ITodoService>();
         var templateService = Substitute.For<ITemplateService>();
         var chatClient = Substitute.For<Microsoft.Extensions.AI.IChatClient>();
@@ -583,7 +698,7 @@ public class ChatServiceTests
             options,
             NullLogger<ChatService>.Instance);
 
-        return (chatService, todoService, userTimeZoneService);
+        return (chatService, todoService, userTimeZoneService, chatClient);
     }
 
     /// <summary>

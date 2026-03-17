@@ -51,6 +51,7 @@ public class ChatService(
         - Update existing templates
         - Delete templates
         - Execute templates (creates a task from a template)
+        - Get the current date and time in the user's timezone
 
         Guidelines:
         - Use the read tools to fetch current data before answering questions about tasks or templates.
@@ -354,6 +355,7 @@ public class ChatService(
     {
         return
         [
+            AIFunctionFactory.Create(GetCurrentDateTimeAsync, "get_current_datetime", "Get the current date and time in the user's local timezone."),
             AIFunctionFactory.Create(GetTaskListsAsync, "get_task_lists", "Get all task lists for the user."),
             AIFunctionFactory.Create(GetTasksAsync, "get_tasks", "Get tasks in a specific list (title, status, due date). Does not include task description."),
             AIFunctionFactory.Create(GetTodayTasksAsync, "get_today_tasks", "Get tasks due today across all lists (title, status, due date). Does not include task description."),
@@ -373,6 +375,20 @@ public class ChatService(
     }
 
     // Read tool delegates (actual execution for auto-invoke)
+    private async Task<string> GetCurrentDateTimeAsync()
+    {
+        var tz = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
+        var utcNow = DateTime.UtcNow;
+        var offset = tz.GetUtcOffset(utcNow);
+        var now = new DateTimeOffset(TimeZoneInfo.ConvertTimeFromUtc(utcNow, tz), offset);
+        return JsonSerializer.Serialize(new
+        {
+            DateTimeOffset = now.ToString("O"),
+            TimeZoneId = tz.Id,
+            UtcOffsetMinutes = (int)offset.TotalMinutes,
+        });
+    }
+
     private async Task<string> GetTaskListsAsync()
     {
         var userId = GetCurrentUserId();
@@ -476,6 +492,7 @@ public class ChatService(
         {
             return call.Name switch
             {
+                "get_current_datetime" => await GetCurrentDateTimeAsync(),
                 "get_task_lists" => await GetTaskListsAsync(),
                 "get_tasks" => await GetTasksAsync(GetArg(call, "listId")),
                 "get_task" => await GetTaskDetailAsync(GetArg(call, "listId"), GetArg(call, "taskId")),
