@@ -18,7 +18,7 @@
     @if (_open)
     {
         <div class="fixed inset-0 z-40" @onclick="CloseDropdown"></div>
-        <div class="absolute z-50 top-full left-0 mt-1.5 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-fade-in" style="min-width: 244px">
+        <div class="absolute z-50 top-full left-0 mt-1.5 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-y-auto animate-fade-in" style="min-width: 244px; max-height: min(320px, 60vh)">
             <div class="p-3">
                 @if (_pendingHour is null)
                 {

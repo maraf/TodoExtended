@@ -15,6 +15,10 @@ public class DemoSignInTest : E2ETestBase
     [Test]
     public async Task SignInAsDemo_ShowsAuthenticatedHomePage_AndTakesScreenshot()
     {
+        // Sign out first so that a previous test's authenticated session doesn't hide
+        // the demo sign-in button on the landing page.
+        await Page.GotoAsync($"{BaseUrl}/auth/demo-signout", new() { WaitUntil = WaitUntilState.DOMContentLoaded });
+
         // Navigate to the home page (unauthenticated) and sign in via the demo button.
         await Page.GotoAsync(BaseUrl);
 
