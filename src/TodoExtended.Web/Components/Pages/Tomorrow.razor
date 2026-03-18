@@ -1,0 +1,29 @@
+@page "/tomorrow"
+@attribute [Authorize]
+@inject ITodoService TodoService
+
+<DayTasksView Title="Tomorrow"
+              FromColor="from-sky-400"
+              ToColor="to-blue-500"
+              ShadowColor="shadow-sky-500/20"
+              SkeletonGradientClasses="from-sky-400 via-blue-500 to-indigo-500"
+              ProgressBarGradientClasses="from-sky-400 to-blue-500"
+              EmptyStateHeading="Nothing scheduled! 📅"
+              EmptyStateDescription="No tasks due tomorrow. Plan ahead or relax."
+              GetDayTasksAsync="TodoService.GetTomorrowTasksAsync"
+              IncludeTodayInReschedule="true"
+              DayOffset="1">
+    <HeaderIcon>
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+    </HeaderIcon>
+    <EmptyStateIcon>
+        <div class="w-16 h-16 rounded-full bg-sky-100 dark:bg-sky-900/30 flex items-center justify-center mb-5">
+            <svg class="w-8 h-8 text-sky-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+        </div>
+    </EmptyStateIcon>
+</DayTasksView>
+

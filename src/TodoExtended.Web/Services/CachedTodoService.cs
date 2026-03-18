@@ -90,16 +90,26 @@ public class CachedTodoService(
 
     public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync(string userId)
     {
+        var today = await userTimeZoneService.GetTodayAsync();
+        return await GetTasksForDateAsync(userId, today);
+    }
+
+    public async Task<IReadOnlyList<TodoTaskWithList>> GetTomorrowTasksAsync(string userId)
+    {
+        var today = await userTimeZoneService.GetTodayAsync();
+        return await GetTasksForDateAsync(userId, today.AddDays(1));
+    }
+
+    private async Task<IReadOnlyList<TodoTaskWithList>> GetTasksForDateAsync(string userId, DateOnly date)
+    {
         await using var db = await dbContextFactory.CreateDbContextAsync();
         await EnsureCacheValidAsync(db, userId);
-        
-        var today = await userTimeZoneService.GetTodayAsync();
-        
+
         var tasks = await db.CachedTasks
             .Include(t => t.List)
-            .Where(t => t.UserId == userId && !t.IsDeleted && t.DueDate == today && t.List!.IsSynced)
+            .Where(t => t.UserId == userId && !t.IsDeleted && t.DueDate == date && t.List!.IsSynced)
             .ToListAsync();
-        
+
         return tasks
             .Select(t => new TodoTaskWithList(
                 t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
