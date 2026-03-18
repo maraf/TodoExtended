@@ -16,7 +16,7 @@ Lightning-fast task creation from your templates right from the home screen.
 ### ⌚ Garmin Watch Companion
 Check your tasks and complete them right from your Garmin smartwatch.
 
-## 📷 Take a look
+## Take a look
 
 ![Home on desktop with dark theme](https://github.com/maraf/TodoExtended/blob/main/docs/screenshots/home--desktop-dark.png)
 
