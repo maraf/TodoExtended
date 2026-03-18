@@ -4,6 +4,8 @@
 
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/sshd:1": {},
+    "ghcr.io/devcontainers/features/copilot-cli:1": {},
     "ghcr.io/devcontainers/features/node:1": {
       "version": "lts"
     }
@@ -16,9 +18,8 @@
     "storage": "32gb"
   },
 
-  // Install the GitHub Copilot CLI extension for 'gh copilot' command,
-  // restore NuGet packages, and install npm dependencies for Tailwind.
-  "postCreateCommand": "gh extension install github/gh-copilot && dotnet restore TodoExtended.sln && cd src/TodoExtended.Web && npm ci",
+  // Restore NuGet packages and install npm dependencies for Tailwind.
+  "postCreateCommand": "dotnet restore TodoExtended.sln && cd src/TodoExtended.Web && npm ci",
 
   // Wire the auto-injected GITHUB_TOKEN to the AiChat API key so GitHub
   // Models work out of the box without any manual configuration.
