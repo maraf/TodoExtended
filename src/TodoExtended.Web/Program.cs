@@ -402,6 +402,15 @@ api.MapGet("/today", async (HttpContext context, ITodoService todoService) =>
         t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance, t.ListId, t.ListName)));
 });
 
+// Tomorrow's tasks endpoint
+api.MapGet("/tomorrow", async (HttpContext context, ITodoService todoService) =>
+{
+    var userId = context.User.GetUserId();
+    var tasks = await todoService.GetTomorrowTasksAsync(userId);
+    return Results.Ok(tasks.Select(t => new ApiTodoTaskWithList(
+        t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance, t.ListId, t.ListName)));
+});
+
 // Mark task as completed
 api.MapPost("/tasks/{taskListId}/{taskId}/complete", async (string taskListId, string taskId, HttpContext context, ITodoService todoService) =>
 {

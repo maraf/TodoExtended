@@ -61,16 +61,30 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
         var tomorrowStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayLocal.AddDays(1).ToDateTime(TimeOnly.MinValue), userZone);
         var filter = $"dueDateTime/dateTime ge '{todayStartUtc:yyyy-MM-ddTHH:mm:ss}' and dueDateTime/dateTime lt '{tomorrowStartUtc:yyyy-MM-ddTHH:mm:ss}'";
         logger.LogDebug("GetTodayTasksAsync: Graph filter='{Filter}'", filter);
-        var result = new List<TodoTaskWithList>();
+        return await GetTasksForDayFilterAsync(lists, filter, "GetTodayTasksAsync");
+    }
 
+    public async Task<IReadOnlyList<TodoTaskWithList>> GetTomorrowTasksAsync(string userId)
+    {
+        var lists = await GetTaskListsAsync(userId);
+        var userZone = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
+        var todayLocal = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, userZone));
+        var tomorrowStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayLocal.AddDays(1).ToDateTime(TimeOnly.MinValue), userZone);
+        var dayAfterTomorrowStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayLocal.AddDays(2).ToDateTime(TimeOnly.MinValue), userZone);
+        var filter = $"dueDateTime/dateTime ge '{tomorrowStartUtc:yyyy-MM-ddTHH:mm:ss}' and dueDateTime/dateTime lt '{dayAfterTomorrowStartUtc:yyyy-MM-ddTHH:mm:ss}'";
+        logger.LogDebug("GetTomorrowTasksAsync: Graph filter='{Filter}'", filter);
+        return await GetTasksForDayFilterAsync(lists, filter, "GetTomorrowTasksAsync");
+    }
+
+    private async Task<List<TodoTaskWithList>> GetTasksForDayFilterAsync(IReadOnlyList<TodoTaskList> lists, string filter, string callerName)
+    {
+        var result = new List<TodoTaskWithList>();
         foreach (var list in lists)
         {
             var response = await graphClient.GetTasksAsync(list.Id, filter);
-
             foreach (var t in response)
             {
-                logger.LogDebug("GetTodayTasksAsync: Task '{Title}' raw dueDateTime='{DateTime}' timeZone='{TimeZone}'", t.Title, t.DueDateTime?.DateTime, t.DueDateTime?.TimeZone);
-
+                logger.LogDebug("{Caller}: Task '{Title}' raw dueDateTime='{DateTime}' timeZone='{TimeZone}'", callerName, t.Title, t.DueDateTime?.DateTime, t.DueDateTime?.TimeZone);
                 result.Add(new TodoTaskWithList(
                     t.Id!,
                     t.Title ?? "Untitled",
@@ -82,7 +96,6 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                     list.DisplayName));
             }
         }
-
         return result;
     }
 

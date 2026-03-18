@@ -110,6 +110,29 @@ public class CachedTodoService(
             .ToList();
     }
 
+    public async Task<IReadOnlyList<TodoTaskWithList>> GetTomorrowTasksAsync(string userId)
+    {
+        await using var db = await dbContextFactory.CreateDbContextAsync();
+        await EnsureCacheValidAsync(db, userId);
+
+        var today = await userTimeZoneService.GetTodayAsync();
+        var tomorrow = today.AddDays(1);
+
+        var tasks = await db.CachedTasks
+            .Include(t => t.List)
+            .Where(t => t.UserId == userId && !t.IsDeleted && t.DueDate == tomorrow && t.List!.IsSynced)
+            .ToListAsync();
+
+        return tasks
+            .Select(t => new TodoTaskWithList(
+                t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
+                t.ListId, t.List!.DisplayName))
+            .OrderBy(t => t.IsCompleted)
+            .ThenBy(t => ImportanceSortOrder(t.Importance))
+            .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
     private const int MaxSearchQueryLength = 500;
 
     public async Task<IReadOnlyList<TodoTaskWithList>> SearchTasksAsync(string query, string userId)
