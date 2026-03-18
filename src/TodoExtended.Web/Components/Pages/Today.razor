@@ -4,6 +4,7 @@
 @inject NavigationManager NavigationManager
 @inject ILogger<Today> Logger
 @inject INotificationService Notifications
+@inject IUserTimeZoneService UserTimeZoneService
 
 <PageTitle>Today</PageTitle>
 
@@ -20,7 +21,8 @@
 <TaskStatsBar OpenCount="@(TodayTasks?.Count(t => !t.IsCompleted) ?? 0)"
               CompletedCount="@(TodayTasks?.Count(t => t.IsCompleted) ?? 0)"
               OpenLabel="remaining"
-              @bind-HideCompleted="_hideCompleted" />
+              @bind-HideCompleted="_hideCompleted"
+              @bind-RescheduleMode="_rescheduleMode" />
 
 @if (_loading)
 {
@@ -68,7 +70,8 @@ else
         {
             @foreach (var task in visibleTasks)
             {
-                <div @key="task.Id" class="task-row @(task.IsCompleted ? "opacity-50" : "")">
+                var capturedTask = task;
+                <div @key="task.Id" class="task-row @(task.IsCompleted ? "opacity-50" : "") flex-wrap">
                     <TaskStatusCheckbox TaskId="@task.Id"
                                         ListId="@task.ListId"
                                         IsCompleted="@task.IsCompleted"
@@ -87,6 +90,11 @@ else
                             </svg>
                         }
                     </div>
+                    <RescheduleDatePicker Visible="@(_rescheduleMode && !task.IsCompleted)"
+                                         IsMoving="@(_movingTaskId == task.Id)"
+                                         IsDisabled="@(_movingTaskId is not null)"
+                                         DateOptions="@_dateOptions"
+                                         OnDateSelected="date => MoveTaskAsync(capturedTask, date)" />
                 </div>
             }
         }
@@ -102,7 +110,10 @@ else
 
     private bool _loading = true;
     private bool _hideCompleted = false;
+    private bool _rescheduleMode = false;
     private string? _error;
+    private string? _movingTaskId;
+    private List<(string Label, DateOnly Date)> _dateOptions = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -110,6 +121,7 @@ else
         {
             Logger.LogDebug("OnInitializedAsync: TodayTasks restored from persistent state, count={Count}", TodayTasks.Count);
             _loading = false;
+            await BuildDateOptionsAsync();
             return;
         }
 
@@ -132,11 +144,42 @@ else
         {
             _loading = false;
         }
+
+        await BuildDateOptionsAsync();
+    }
+
+    private async Task BuildDateOptionsAsync()
+    {
+        var today = await UserTimeZoneService.GetTodayAsync();
+        _dateOptions = DateRescheduleOptions.Build(today, includeToday: false);
     }
 
     private void HandleTaskStatusChanged(string taskId, bool newStatus)
     {
         Logger.LogDebug("HandleTaskStatusChanged: TaskId={TaskId}, NewStatus={NewStatus}", taskId, newStatus);
         TodayTasks = TodayTasks!.Select(t => t.Id == taskId ? t with { IsCompleted = newStatus } : t).ToList();
+    }
+
+    private async Task MoveTaskAsync(PersistedTodoTaskWithList task, DateOnly targetDate)
+    {
+        if (_movingTaskId is not null) return;
+        _movingTaskId = task.Id;
+        try
+        {
+            var authState = await AuthState!;
+            var userId = authState.User.GetUserId();
+            await TodoService.SetTaskDueDateAsync(task.ListId, task.Id, targetDate, userId);
+            TodayTasks = TodayTasks!.Where(t => t.Id != task.Id).ToList();
+            Notifications.Add($"'{task.Title}' moved to {targetDate:MMM d}", NotifySeverity.Success);
+        }
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
+        {
+            Logger.LogError(ex, "MoveTaskAsync: Failed to move task {TaskId}", task.Id);
+            Notifications.Add($"Failed to reschedule task: {ex.Message}", NotifySeverity.Warning);
+        }
+        finally
+        {
+            _movingTaskId = null;
+        }
     }
 }

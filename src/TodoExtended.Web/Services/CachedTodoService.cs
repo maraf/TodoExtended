@@ -204,6 +204,21 @@ public class CachedTodoService(
         }
     }
 
+    public async Task SetTaskDueDateAsync(string taskListId, string taskId, DateOnly dueDate, string userId)
+    {
+        await graphService.SetTaskDueDateAsync(taskListId, taskId, dueDate, userId);
+
+        await using var db = await dbContextFactory.CreateDbContextAsync();
+        var cachedTask = await db.CachedTasks.FindAsync(taskId);
+        if (cachedTask != null)
+        {
+            cachedTask.DueDate = dueDate;
+            cachedTask.UpdatedUtc = DateTime.UtcNow;
+            cachedTask.LastSyncUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+    }
+
     public async Task SetTaskReminderAsync(string taskListId, string taskId, DateOnly reminderDate, TimeOnly reminderTime, string userId)
     {
         await graphService.SetTaskReminderAsync(taskListId, taskId, reminderDate, reminderTime, userId);
