@@ -1,0 +1,225 @@
+@* Shared view for a single-day task list (Today / Tomorrow). *@
+@attribute [Authorize]
+@inject ITodoService TodoService
+@inject ILogger<DayTasksView> Logger
+@inject INotificationService Notifications
+@inject IUserTimeZoneService UserTimeZoneService
+
+<PageTitle>@Title</PageTitle>
+
+<PageHeader Title="@Title" FromColor="@FromColor" ToColor="@ToColor" ShadowColor="@ShadowColor">
+    <Icon>
+        @HeaderIcon
+    </Icon>
+</PageHeader>
+
+<p class="text-slate-500 dark:text-slate-400 text-sm mb-6">@(_displayDate?.ToString("dddd, MMMM d", System.Globalization.CultureInfo.InvariantCulture))</p>
+
+<TaskStatsBar OpenCount="@(Tasks?.Count(t => !t.IsCompleted) ?? 0)"
+              CompletedCount="@(Tasks?.Count(t => t.IsCompleted) ?? 0)"
+              OpenLabel="remaining"
+              @bind-HideCompleted="_hideCompleted"
+              @bind-RescheduleMode="_rescheduleMode" />
+
+@if (_loading)
+{
+    <TaskListSkeleton RowCount="4"
+                      GradientClasses="@SkeletonGradientClasses"
+                      ShowBadgeSkeleton="true" />
+}
+else if (_error is not null)
+{
+    <ErrorAlert Message="@_error" />
+}
+else if (Tasks is not { Count: > 0 })
+{
+    <EmptyState Heading="@EmptyStateHeading" Description="@EmptyStateDescription">
+        <CustomIcon>
+            @EmptyStateIcon
+        </CustomIcon>
+    </EmptyState>
+}
+else
+{
+    <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+        <!-- Progress bar -->
+        @{
+            var pct = Tasks.Count > 0 ? (int)(100.0 * Tasks.Count(t => t.IsCompleted) / Tasks.Count) : 0;
+            var visibleTasks = _hideCompleted ? Tasks.Where(t => !t.IsCompleted).ToList() : Tasks.ToList();
+        }
+        <div class="h-1.5 bg-slate-100 dark:bg-slate-700">
+            <div class="h-full bg-gradient-to-r @ProgressBarGradientClasses rounded-r-full transition-all duration-500" style="width: @(pct)%"></div>
+        </div>
+
+        @if (visibleTasks.Count == 0)
+        {
+            <div class="flex flex-col items-center justify-center py-12 text-center">
+                <div class="text-4xl mb-3">✅</div>
+                <p class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">All tasks completed!</p>
+                <button @onclick="() => _hideCompleted = false" class="text-xs text-brand-600 dark:text-brand-400 hover:underline">Show completed tasks</button>
+            </div>
+        }
+        else
+        {
+            @foreach (var task in visibleTasks)
+            {
+                var capturedTask = task;
+                <div @key="task.Id" class="task-row @(task.IsCompleted ? "opacity-50" : "") flex-wrap">
+                    <TaskStatusCheckbox TaskId="@task.Id"
+                                        ListId="@task.ListId"
+                                        IsCompleted="@task.IsCompleted"
+                                        TaskTitle="@task.Title"
+                                        OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                        OnError="(msg) => Notifications.Add(msg, NotifySeverity.Warning)" />
+                    <span class="flex-1 min-w-0 text-sm font-medium text-slate-800 dark:text-slate-200 @(task.IsCompleted ? "line-through text-slate-400 dark:text-slate-500" : "") truncate">
+                        @task.Title
+                    </span>
+                    <div class="flex items-center gap-1.5 flex-shrink-0">
+                        <span class="chip chip-info text-xs hidden sm:inline-flex">@task.ListName</span>
+                        @if (task.Importance == "High")
+                        {
+                            <svg class="w-4 h-4 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" title="High priority">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                            </svg>
+                        }
+                    </div>
+                    <RescheduleDatePicker Visible="@(_rescheduleMode && !task.IsCompleted)"
+                                         IsMoving="@(_movingTaskId == task.Id)"
+                                         IsDisabled="@(_movingTaskId is not null)"
+                                         DateOptions="@_dateOptions"
+                                         OnDateSelected="date => MoveTaskAsync(capturedTask, date)" />
+                </div>
+            }
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    /// <summary>Page title and header title (e.g., "Today" or "Tomorrow").</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    /// <summary>Tailwind gradient start class for the page header (e.g., "from-amber-400").</summary>
+    [Parameter, EditorRequired] public string FromColor { get; set; } = "";
+
+    /// <summary>Tailwind gradient end class for the page header (e.g., "to-orange-500").</summary>
+    [Parameter, EditorRequired] public string ToColor { get; set; } = "";
+
+    /// <summary>Tailwind shadow class for the page header (e.g., "shadow-amber-500/20").</summary>
+    [Parameter, EditorRequired] public string ShadowColor { get; set; } = "";
+
+    /// <summary>Tailwind gradient classes for the loading skeleton.</summary>
+    [Parameter, EditorRequired] public string SkeletonGradientClasses { get; set; } = "";
+
+    /// <summary>Tailwind gradient classes for the task-list progress bar (e.g., "from-brand-500 to-emerald-500").</summary>
+    [Parameter, EditorRequired] public string ProgressBarGradientClasses { get; set; } = "";
+
+    /// <summary>SVG icon rendered inside the page header.</summary>
+    [Parameter, EditorRequired] public RenderFragment? HeaderIcon { get; set; }
+
+    /// <summary>Heading shown when there are no tasks.</summary>
+    [Parameter, EditorRequired] public string EmptyStateHeading { get; set; } = "";
+
+    /// <summary>Description shown when there are no tasks.</summary>
+    [Parameter, EditorRequired] public string EmptyStateDescription { get; set; } = "";
+
+    /// <summary>Icon rendered inside the empty-state card.</summary>
+    [Parameter, EditorRequired] public RenderFragment? EmptyStateIcon { get; set; }
+
+    /// <summary>
+    /// Service method used to fetch the tasks for this day.
+    /// Receives the authenticated user ID and returns the task list.
+    /// </summary>
+    [Parameter, EditorRequired] public Func<string, Task<IReadOnlyList<TodoTaskWithList>>>? GetDayTasksAsync { get; set; }
+
+    /// <summary>When true, the reschedule picker includes "Today" as a target date.</summary>
+    [Parameter] public bool IncludeTodayInReschedule { get; set; }
+
+    /// <summary>
+    /// Offset in days from today used to compute the date label below the header.
+    /// 0 = today, 1 = tomorrow.
+    /// </summary>
+    [Parameter] public int DayOffset { get; set; }
+
+    [PersistentState]
+    public IReadOnlyList<PersistedTodoTaskWithList>? Tasks { get; set; }
+
+    private bool _loading = true;
+    private bool _hideCompleted = false;
+    private bool _rescheduleMode = false;
+    private string? _error;
+    private string? _movingTaskId;
+    private List<(string Label, DateOnly Date)> _dateOptions = [];
+    private DateOnly? _displayDate;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Tasks is not null)
+        {
+            Logger.LogDebug("OnInitializedAsync [{Title}]: Tasks restored from persistent state, count={Count}", Title, Tasks.Count);
+            _loading = false;
+            await BuildDateOptionsAsync();
+            return;
+        }
+
+        try
+        {
+            var authState = await AuthState!;
+            var userId = authState.User.GetUserId();
+
+            Logger.LogDebug("OnInitializedAsync [{Title}]: Tasks not in persistent state, fetching fresh", Title);
+            Tasks = (await GetDayTasksAsync!(userId))
+                .Select(t => new PersistedTodoTaskWithList(t.Id, t.Title, t.IsCompleted, t.Importance, t.ListId, t.ListName))
+                .ToList();
+            Logger.LogDebug("OnInitializedAsync [{Title}]: Fetched {Count} tasks", Title, Tasks?.Count ?? 0);
+        }
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
+        {
+            _error = $"Failed to load {Title.ToLowerInvariant()}'s tasks: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+
+        await BuildDateOptionsAsync();
+    }
+
+    private async Task BuildDateOptionsAsync()
+    {
+        var today = await UserTimeZoneService.GetTodayAsync();
+        _displayDate = today.AddDays(DayOffset);
+        _dateOptions = DateRescheduleOptions.Build(today, includeToday: IncludeTodayInReschedule);
+    }
+
+    private void HandleTaskStatusChanged(string taskId, bool newStatus)
+    {
+        Logger.LogDebug("HandleTaskStatusChanged: TaskId={TaskId}, NewStatus={NewStatus}", taskId, newStatus);
+        Tasks = Tasks!.Select(t => t.Id == taskId ? t with { IsCompleted = newStatus } : t).ToList();
+    }
+
+    private async Task MoveTaskAsync(PersistedTodoTaskWithList task, DateOnly targetDate)
+    {
+        if (_movingTaskId is not null) return;
+        _movingTaskId = task.Id;
+        try
+        {
+            var authState = await AuthState!;
+            var userId = authState.User.GetUserId();
+            await TodoService.SetTaskDueDateAsync(task.ListId, task.Id, targetDate, userId);
+            Tasks = Tasks!.Where(t => t.Id != task.Id).ToList();
+            Notifications.Add($"'{task.Title}' moved to {targetDate:MMM d}", NotifySeverity.Success);
+        }
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
+        {
+            Logger.LogError(ex, "MoveTaskAsync: Failed to move task {TaskId}", task.Id);
+            Notifications.Add($"Failed to reschedule task: {ex.Message}", NotifySeverity.Warning);
+        }
+        finally
+        {
+            _movingTaskId = null;
+        }
+    }
+}

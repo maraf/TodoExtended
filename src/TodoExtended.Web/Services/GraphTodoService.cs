@@ -48,32 +48,27 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             t.Importance?.ToString());
     }
 
-    public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync(string userId)
-    {
-        var lists = await GetTaskListsAsync(userId);
-        // "Today" in the user's configured timezone, with boundaries converted to UTC
-        // for the Graph API filter. Microsoft To Do stores due dates as midnight
-        // local time converted to UTC, so the filter must use UTC equivalents of
-        // the local day boundaries.
-        var userZone = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
-        var todayLocal = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, userZone));
-        var todayStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayLocal.ToDateTime(TimeOnly.MinValue), userZone);
-        var tomorrowStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayLocal.AddDays(1).ToDateTime(TimeOnly.MinValue), userZone);
-        var filter = $"dueDateTime/dateTime ge '{todayStartUtc:yyyy-MM-ddTHH:mm:ss}' and dueDateTime/dateTime lt '{tomorrowStartUtc:yyyy-MM-ddTHH:mm:ss}'";
-        logger.LogDebug("GetTodayTasksAsync: Graph filter='{Filter}'", filter);
-        return await GetTasksForDayFilterAsync(lists, filter, "GetTodayTasksAsync");
-    }
+    public Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync(string userId) =>
+        GetTasksForDayOffsetAsync(userId, dayOffset: 0);
 
-    public async Task<IReadOnlyList<TodoTaskWithList>> GetTomorrowTasksAsync(string userId)
+    public Task<IReadOnlyList<TodoTaskWithList>> GetTomorrowTasksAsync(string userId) =>
+        GetTasksForDayOffsetAsync(userId, dayOffset: 1);
+
+    private async Task<IReadOnlyList<TodoTaskWithList>> GetTasksForDayOffsetAsync(string userId, int dayOffset)
     {
         var lists = await GetTaskListsAsync(userId);
+        // Build UTC boundaries for the target day in the user's timezone.
+        // Microsoft To Do stores due dates as midnight local time converted to UTC,
+        // so the filter must use UTC equivalents of the local day boundaries.
         var userZone = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
         var todayLocal = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, userZone));
-        var tomorrowStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayLocal.AddDays(1).ToDateTime(TimeOnly.MinValue), userZone);
-        var dayAfterTomorrowStartUtc = TimeZoneInfo.ConvertTimeToUtc(todayLocal.AddDays(2).ToDateTime(TimeOnly.MinValue), userZone);
-        var filter = $"dueDateTime/dateTime ge '{tomorrowStartUtc:yyyy-MM-ddTHH:mm:ss}' and dueDateTime/dateTime lt '{dayAfterTomorrowStartUtc:yyyy-MM-ddTHH:mm:ss}'";
-        logger.LogDebug("GetTomorrowTasksAsync: Graph filter='{Filter}'", filter);
-        return await GetTasksForDayFilterAsync(lists, filter, "GetTomorrowTasksAsync");
+        var dayStartLocal = todayLocal.AddDays(dayOffset);
+        var dayStartUtc = TimeZoneInfo.ConvertTimeToUtc(dayStartLocal.ToDateTime(TimeOnly.MinValue), userZone);
+        var dayEndUtc = TimeZoneInfo.ConvertTimeToUtc(dayStartLocal.AddDays(1).ToDateTime(TimeOnly.MinValue), userZone);
+        var filter = $"dueDateTime/dateTime ge '{dayStartUtc:yyyy-MM-ddTHH:mm:ss}' and dueDateTime/dateTime lt '{dayEndUtc:yyyy-MM-ddTHH:mm:ss}'";
+        var callerName = dayOffset == 0 ? "GetTodayTasksAsync" : "GetTomorrowTasksAsync";
+        logger.LogDebug("{Caller}: Graph filter='{Filter}'", callerName, filter);
+        return await GetTasksForDayFilterAsync(lists, filter, callerName);
     }
 
     private async Task<List<TodoTaskWithList>> GetTasksForDayFilterAsync(IReadOnlyList<TodoTaskList> lists, string filter, string callerName)
