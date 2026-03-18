@@ -1,10 +1,14 @@
 @if (OpenCount + CompletedCount > 0)
 {
     <div class="flex items-center gap-2 mb-6 flex-wrap">
-        <span class="chip chip-primary">@OpenCount @OpenLabel</span>
         @if (CompletedCount > 0)
         {
-            <span class="chip chip-success">@CompletedCount done</span>
+            <span class="chip chip-primary sm:hidden">@CompletedCount/@(OpenCount + CompletedCount)</span>
+        }
+        <span class="chip chip-primary @(CompletedCount > 0 ? "hidden sm:inline-flex" : "")">@OpenCount @OpenLabel</span>
+        @if (CompletedCount > 0)
+        {
+            <span class="chip chip-success hidden sm:inline-flex">@CompletedCount done</span>
         }
         @if (RescheduleModeChanged.HasDelegate)
         {
