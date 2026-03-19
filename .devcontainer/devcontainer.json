@@ -1,0 +1,70 @@
+{
+  "name": "TodoExtended",
+  "image": "mcr.microsoft.com/devcontainers/dotnet:1-10.0",
+
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/sshd:1": {},
+    "ghcr.io/devcontainers/features/copilot-cli:1": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+
+  // Smallest available Codespaces machine (2-core, 8 GB RAM).
+  "hostRequirements": {
+    "cpus": 2,
+    "memory": "8gb",
+    "storage": "32gb"
+  },
+
+  // Restore NuGet packages and install npm dependencies for Tailwind.
+  "postCreateCommand": "dotnet restore TodoExtended.sln && cd src/TodoExtended.Web && npm ci",
+
+  // Wire the auto-injected GITHUB_TOKEN to the AiChat API key so GitHub
+  // Models work out of the box without any manual configuration.
+  // The token is written to a dedicated file on every start (so it stays
+  // current) and the source line is appended to ~/.bashrc only once.
+  "postStartCommand": "echo 'export AiChat__ApiKey=\"$GITHUB_TOKEN\"' > ~/.aichat-apikey && { grep -qF 'aichat-apikey' ~/.bashrc 2>/dev/null || echo '. ~/.aichat-apikey' >> ~/.bashrc; }",
+
+  "forwardPorts": [7065],
+  "portsAttributes": {
+    "7065": {
+      "label": "TodoExtended App",
+      "onAutoForward": "openBrowser",
+      "protocol": "https"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
+      ]
+    }
+  },
+
+  // Declare the GitHub Codespaces secrets this devcontainer needs.
+  // Set these at https://github.com/settings/codespaces (user-level) or
+  // in the repository/organisation Codespaces settings.
+  //
+  // AzureAd__ClientId        – Microsoft Entra App Registration Client ID
+  // AzureAd__ClientSecret    – Microsoft Entra App Registration Client Secret
+  //
+  // Both are automatically mapped by .NET's config system (__ → :) so they
+  // override the placeholder values in appsettings.json without any extra
+  // code changes.
+  //
+  // No secret is needed for GitHub Models: the built-in GITHUB_TOKEN is
+  // forwarded to AiChat__ApiKey via the postStartCommand above.
+  "secrets": {
+    "AzureAd__ClientId": {
+      "description": "Microsoft Entra App Registration Client ID (overrides AzureAd:ClientId in appsettings.json)"
+    },
+    "AzureAd__ClientSecret": {
+      "description": "Microsoft Entra App Registration Client Secret (overrides AzureAd:ClientSecret in appsettings.json)"
+    }
+  }
+}
