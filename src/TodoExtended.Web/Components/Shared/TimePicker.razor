@@ -7,7 +7,7 @@
         }
         else
         {
-            <span class="text-slate-400 dark:text-slate-500">Select time…</span>
+            <span class="text-slate-500 dark:text-slate-400">Select time…</span>
         }
     </button>
     <svg class="absolute right-4 bottom-3 w-3.5 h-3.5 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -22,7 +22,7 @@
             <div class="p-3">
                 @if (_pendingHour is null)
                 {
-                    <p class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2 px-0.5">Select Hour</p>
+                    <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 px-0.5">Select Hour</p>
                     <div class="grid grid-cols-6 gap-1">
                         @for (int h = 0; h < 24; h++)
                         {
@@ -44,7 +44,7 @@
                             </svg>
                             @_pendingHour.Value.ToString("D2"):__
                         </button>
-                        <p class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Minute</p>
+                        <p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Minute</p>
                     </div>
                     <div class="grid grid-cols-4 gap-1">
                         @foreach (var min in _minuteOptions)
@@ -62,7 +62,7 @@
             {
                 <div class="border-t border-slate-100 dark:border-slate-700 px-3 py-2">
                     <button type="button" @onclick="ClearValue"
-                            class="w-full text-xs text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors text-center">
+                            class="w-full text-xs text-slate-500 dark:text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition-colors text-center">
                         Clear
                     </button>
                 </div>
