@@ -25,7 +25,7 @@
   // Models work out of the box without any manual configuration.
   // The token is written to a dedicated file on every start (so it stays
   // current) and the source line is appended to ~/.bashrc only once.
-  "postStartCommand": "echo 'export AiChat__ApiKey=\"$GITHUB_TOKEN\"' > ~/.aichat-apikey && grep -qF 'aichat-apikey' ~/.bashrc || echo '. ~/.aichat-apikey' >> ~/.bashrc",
+  "postStartCommand": "echo 'export AiChat__ApiKey=\"$GITHUB_TOKEN\"' > ~/.aichat-apikey && { grep -qF 'aichat-apikey' ~/.bashrc 2>/dev/null || echo '. ~/.aichat-apikey' >> ~/.bashrc; }",
 
   "forwardPorts": [7065],
   "portsAttributes": {
