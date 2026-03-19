@@ -23,13 +23,16 @@
 
   // Wire the auto-injected GITHUB_TOKEN to the AiChat API key so GitHub
   // Models work out of the box without any manual configuration.
-  "postStartCommand": "echo 'export AiChat__ApiKey=\"$GITHUB_TOKEN\"' >> ~/.bashrc",
+  // The token is written to a dedicated file on every start (so it stays
+  // current) and the source line is appended to ~/.bashrc only once.
+  "postStartCommand": "echo 'export AiChat__ApiKey=\"$GITHUB_TOKEN\"' > ~/.aichat-apikey && grep -qF 'aichat-apikey' ~/.bashrc || echo '. ~/.aichat-apikey' >> ~/.bashrc",
 
-  "forwardPorts": [5000],
+  "forwardPorts": [7065],
   "portsAttributes": {
-    "5000": {
+    "7065": {
       "label": "TodoExtended App",
-      "onAutoForward": "openBrowser"
+      "onAutoForward": "openBrowser",
+      "protocol": "https"
     }
   },
 
