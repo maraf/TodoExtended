@@ -1,15 +1,19 @@
 @if (OpenCount + CompletedCount > 0)
 {
-    <div class="flex items-center gap-2 mb-6">
-        <span class="chip chip-primary">@OpenCount @OpenLabel</span>
+    <div class="flex items-center gap-2 mb-6 flex-wrap">
         @if (CompletedCount > 0)
         {
-            <span class="chip chip-success">@CompletedCount done</span>
+            <span class="chip chip-primary sm:hidden">@CompletedCount/@(OpenCount + CompletedCount)</span>
+        }
+        <span class="chip chip-primary @(CompletedCount > 0 ? "hidden sm:inline-flex" : "")">@OpenCount @OpenLabel</span>
+        @if (CompletedCount > 0)
+        {
+            <span class="chip chip-success hidden sm:inline-flex">@CompletedCount done</span>
         }
         @if (RescheduleModeChanged.HasDelegate)
         {
             <button @onclick="ToggleRescheduleMode"
-                    class="text-sm sm:text-xs flex items-center gap-1 transition-colors @(RescheduleMode ? "text-brand-600 dark:text-brand-400 font-medium" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200")">
+                    class="text-xs flex items-center gap-1 whitespace-nowrap transition-colors @(RescheduleMode ? "text-brand-600 dark:text-brand-400 font-medium" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200")">
                 <svg class="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                 </svg>
@@ -17,7 +21,7 @@
             </button>
         }
         <button @onclick="ToggleHideCompleted"
-                class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1 transition-colors ml-auto">
+                class="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 flex items-center gap-1 whitespace-nowrap transition-colors ml-auto">
             @if (HideCompleted)
             {
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
