@@ -116,79 +116,61 @@ public class ScreenshotCaptureTest : E2ETestBase
         TestContext.WriteLine($"[OK] {fileName}");
     }
 
-    private async Task SetThemeAsync(string theme)
-    {
-        bool wantDark = theme == "dark";
-
-        // Directly toggle the Tailwind dark mode class via JavaScript for reliability.
-        // The Blazor Server circuit may not be connected yet, making @onclick unreliable.
-        // For screenshot purposes, the visual appearance is what matters.
-        await Page.EvaluateAsync(@$"() => {{
-            const root = document.body.querySelector('div');
-            if (root) {{
-                if ({(wantDark ? "true" : "false")}) {{
-                    root.classList.add('dark');
-                }} else {{
-                    root.classList.remove('dark');
-                }}
-            }}
-        }}");
-        await Page.WaitForTimeoutAsync(300);
-    }
-
     private async Task CaptureTemplatesTimePickerScreenshots()
     {
         foreach (var theme in new[] { "dark", "light" })
         {
-            var vp = new ViewportSpec("desktop", 1280, 800);
-            try
+            foreach (var vp in Viewports)
             {
-                await Page.SetViewportSizeAsync(vp.Width, vp.Height);
-                await Page.GotoAsync($"{BaseUrl}/templates", new() { WaitUntil = WaitUntilState.NetworkIdle });
-                await Page.Locator("h1:has-text('Templates')").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
-
-                await SetThemeAsync(theme);
-                await Page.WaitForTimeoutAsync(500);
-
-                // Wait for Blazor circuit
-                await Page.WaitForTimeoutAsync(3_000);
-
-                // Open dialog
-                var newButton = Page.Locator("button:has-text('New Template')");
-                if (await newButton.CountAsync() == 0)
+                try
                 {
-                    TestContext.WriteLine("[WARN] No 'New Template' button — skipping timepicker screenshots.");
-                    return;
-                }
-                await newButton.First.ClickAsync();
+                    await Page.SetViewportSizeAsync(vp.Width, vp.Height);
+                    await Page.GotoAsync($"{BaseUrl}/templates", new() { WaitUntil = WaitUntilState.NetworkIdle });
+                    await Page.Locator("h1:has-text('Templates')").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
 
-                var dialogLocator = Page.Locator("div.fixed.inset-0.z-50");
-                await dialogLocator.First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 5_000 });
-                await Page.WaitForTimeoutAsync(500);
+                    await SetThemeAsync(theme);
+                    await Page.WaitForTimeoutAsync(500);
 
-                // Enable "Due Today" toggle — click the label wrapper, not the sr-only input
-                var dueTodayLabel = Page.Locator("label.cursor-pointer:has(input[type='checkbox'].sr-only)");
-                await dueTodayLabel.First.ClickAsync();
-                await Page.WaitForTimeoutAsync(300);
+                    // Wait for Blazor circuit
+                    await Page.WaitForTimeoutAsync(3_000);
 
-                // Click the time picker trigger to open the dropdown
-                var timePickerButton = Page.Locator("button:has-text('Select time…')");
-                if (await timePickerButton.CountAsync() > 0)
-                {
-                    await timePickerButton.First.ClickAsync();
+                    // Open dialog
+                    var newButton = Page.Locator("button:has-text('New Template')");
+                    if (await newButton.CountAsync() == 0)
+                    {
+                        TestContext.WriteLine("[WARN] No 'New Template' button — skipping timepicker screenshots.");
+                        return;
+                    }
+                    await newButton.First.ClickAsync();
+
+                    var dialogLocator = Page.Locator("div.fixed.inset-0.z-50");
+                    await dialogLocator.First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 5_000 });
+                    await Page.WaitForTimeoutAsync(500);
+
+                    // Enable "Due Today" toggle — click the label wrapper, not the sr-only input
+                    var dueTodayLabel = Page.Locator("label.cursor-pointer:has(input[type='checkbox'].sr-only)");
+                    await dueTodayLabel.First.ClickAsync();
                     await Page.WaitForTimeoutAsync(300);
-                }
 
-                var fileName = $"templates-timepicker--{vp.Name}-{theme}.png";
-                await Page.ScreenshotAsync(new()
+                    // Click the time picker trigger to open the dropdown
+                    var timePickerButton = Page.Locator("button:has-text('Select time…')");
+                    if (await timePickerButton.CountAsync() > 0)
+                    {
+                        await timePickerButton.First.ClickAsync();
+                        await Page.WaitForTimeoutAsync(300);
+                    }
+
+                    var fileName = $"templates-timepicker--{vp.Name}-{theme}.png";
+                    await Page.ScreenshotAsync(new()
+                    {
+                        Path = Path.Combine(ScreenshotsDir, fileName),
+                    });
+                    TestContext.WriteLine($"[OK] {fileName}");
+                }
+                catch (Exception ex)
                 {
-                    Path = Path.Combine(ScreenshotsDir, fileName),
-                });
-                TestContext.WriteLine($"[OK] {fileName}");
-            }
-            catch (Exception ex)
-            {
-                TestContext.WriteLine($"[WARN] Failed: templates-timepicker--{vp.Name}-{theme}: {ex.Message}");
+                    TestContext.WriteLine($"[WARN] Failed: templates-timepicker--{vp.Name}-{theme}: {ex.Message}");
+                }
             }
         }
     }

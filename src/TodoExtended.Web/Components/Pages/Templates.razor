@@ -54,7 +54,7 @@ else
     @foreach (var group in TemplateItems.GroupBy(t => t.TaskListName).OrderBy(g => g.Key))
     {
         <div class="mb-8">
-            <p class="text-xs font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">@group.Key</p>
+            <p class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">@group.Key</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 @foreach (var template in group.OrderBy(t => t.SortOrder).ThenBy(t => t.Title))
                 {
@@ -67,7 +67,7 @@ else
                         <div class="flex items-start justify-between gap-2 mb-4">
                             <div class="flex-1 min-w-0">
                                 <h3 class="font-bold text-slate-900 dark:text-white text-sm leading-tight">@tmpl.Title</h3>
-                                <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">@tmpl.TaskListName</p>
+                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">@tmpl.TaskListName</p>
                             </div>
                         </div>
                         <div class="flex flex-wrap gap-1.5 mb-4">

@@ -18,16 +18,28 @@ public class NotificationTest : E2ETestBase
     [Test]
     public async Task Notification_IsVisibleAndDoesNotOverflow_OnMobileViewport()
     {
-        await AssertNotificationDoesNotOverflowAsync(width: 390, height: 844, screenshotName: "notification--mobile-light.png");
+        await AssertNotificationDoesNotOverflowAsync(width: 390, height: 844, screenshotName: "notification--mobile-light.png", theme: "light");
     }
 
     [Test]
     public async Task Notification_IsVisibleAndDoesNotOverflow_OnDesktopViewport()
     {
-        await AssertNotificationDoesNotOverflowAsync(width: 1280, height: 800, screenshotName: "notification--desktop-light.png");
+        await AssertNotificationDoesNotOverflowAsync(width: 1280, height: 800, screenshotName: "notification--desktop-light.png", theme: "light");
     }
 
-    private async Task AssertNotificationDoesNotOverflowAsync(int width, int height, string screenshotName)
+    [Test]
+    public async Task Notification_IsVisibleAndDoesNotOverflow_OnMobileViewport_Dark()
+    {
+        await AssertNotificationDoesNotOverflowAsync(width: 390, height: 844, screenshotName: "notification--mobile-dark.png", theme: "dark");
+    }
+
+    [Test]
+    public async Task Notification_IsVisibleAndDoesNotOverflow_OnDesktopViewport_Dark()
+    {
+        await AssertNotificationDoesNotOverflowAsync(width: 1280, height: 800, screenshotName: "notification--desktop-dark.png", theme: "dark");
+    }
+
+    private async Task AssertNotificationDoesNotOverflowAsync(int width, int height, string screenshotName, string theme = "light")
     {
         Directory.CreateDirectory(ScreenshotsDir);
 
@@ -55,6 +67,9 @@ public class NotificationTest : E2ETestBase
             Assert.Inconclusive("No Quick Create templates available in demo mode — cannot trigger notification.");
             return;
         }
+
+        // Apply the requested theme before triggering the notification
+        await SetThemeAsync(theme);
 
         // Click the first "Create Task" button — this triggers a success notification
         var createTaskButton = Page.Locator("button:has-text('Create Task')").First;

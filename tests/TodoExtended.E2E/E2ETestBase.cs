@@ -136,6 +136,26 @@ public abstract class E2ETestBase
     /// <summary>Override to supply custom <see cref="BrowserNewContextOptions"/>.</summary>
     protected virtual BrowserNewContextOptions ContextOptions() => new();
 
+    /// <summary>
+    /// Sets the Tailwind dark-mode class on the page's root element via JavaScript.
+    /// Works without requiring the Blazor Server circuit to be connected.
+    /// </summary>
+    protected async Task SetThemeAsync(string theme)
+    {
+        bool wantDark = theme == "dark";
+        await Page.EvaluateAsync(@$"() => {{
+            const root = document.body.querySelector('div');
+            if (root) {{
+                if ({(wantDark ? "true" : "false")}) {{
+                    root.classList.add('dark');
+                }} else {{
+                    root.classList.remove('dark');
+                }}
+            }}
+        }}");
+        await Page.WaitForTimeoutAsync(300);
+    }
+
     protected static ILocatorAssertions Expect(ILocator locator) =>
         Assertions.Expect(locator);
 
