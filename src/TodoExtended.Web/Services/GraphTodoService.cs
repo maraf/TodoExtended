@@ -324,7 +324,7 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                 var userLocalDt = TimeZoneInfo.ConvertTimeFromUtc(utcDt, userZone);
                 return TimeOnly.FromDateTime(userLocalDt);
             }
-            catch (TimeZoneNotFoundException)
+            catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException or ArgumentException)
             {
                 // Fall back: treat the datetime as already in the user's timezone.
             }

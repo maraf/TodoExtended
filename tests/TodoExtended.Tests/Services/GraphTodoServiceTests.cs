@@ -27,7 +27,7 @@ public class GraphTodoServiceTests
         // Arrange
         // Use a fixed-offset zone to avoid platform TZ database differences in CI.
         // We simulate: user sees UTC+1 (CET), Graph stores reminder in UTC.
-        var cetZone = TimeZoneInfo.CreateCustomTimeZone("CET+1", TimeSpan.FromHours(1), "CET+1", "CET+1");
+        var cetZone = TimeZoneInfo.CreateCustomTimeZone("TestZone+1", TimeSpan.FromHours(1), "TestZone+1", "TestZone+1");
 
         // Existing task: reminder is ON and Graph returned it in UTC (08:00 UTC = 09:00 CET)
         var existingTask = new GraphTodoTask
@@ -60,7 +60,7 @@ public class GraphTodoServiceTests
 
         // Assert: reminder should be 09:00 in CET (the user's original local time), not 08:00
         Assert.NotNull(patchedTask);
-        Assert.True(patchedTask.IsReminderOn);
+        Assert.True(patchedTask.IsReminderOn == true);
         Assert.NotNull(patchedTask.ReminderDateTime);
         Assert.Equal("2026-03-22T09:00:00", patchedTask.ReminderDateTime.DateTime);
         Assert.Equal(cetZone.Id, patchedTask.ReminderDateTime.TimeZone);
@@ -74,7 +74,7 @@ public class GraphTodoServiceTests
     public async Task SetTaskDueDateAsync_ReminderInUserTimezone_PreservesLocalTime()
     {
         // Arrange
-        var userZone = TimeZoneInfo.CreateCustomTimeZone("CET+1", TimeSpan.FromHours(1), "CET+1", "CET+1");
+        var userZone = TimeZoneInfo.CreateCustomTimeZone("TestZone+1", TimeSpan.FromHours(1), "TestZone+1", "TestZone+1");
 
         // Graph returned reminder already in user's timezone (09:00 CET)
         var existingTask = new GraphTodoTask
@@ -107,7 +107,53 @@ public class GraphTodoServiceTests
 
         // Assert: 09:00 in CET is preserved
         Assert.NotNull(patchedTask);
-        Assert.True(patchedTask.IsReminderOn);
+        Assert.True(patchedTask.IsReminderOn == true);
+        Assert.NotNull(patchedTask.ReminderDateTime);
+        Assert.Equal("2026-03-22T09:00:00", patchedTask.ReminderDateTime.DateTime);
+        Assert.Equal(userZone.Id, patchedTask.ReminderDateTime.TimeZone);
+    }
+
+    /// <summary>
+    /// When Graph returns the reminder with an unrecognized timezone ID, the code falls back
+    /// to treating the datetime as already in the user's local timezone (no exception thrown).
+    /// </summary>
+    [Fact]
+    public async Task SetTaskDueDateAsync_ReminderWithUnknownTimezone_FallsBackToUserLocalTime()
+    {
+        // Arrange
+        var userZone = TimeZoneInfo.CreateCustomTimeZone("TestZone+1", TimeSpan.FromHours(1), "TestZone+1", "TestZone+1");
+
+        var existingTask = new GraphTodoTask
+        {
+            IsReminderOn = true,
+            ReminderDateTime = new GraphDateTimeTimeZone
+            {
+                DateTime = "2026-03-15T09:00:00",
+                TimeZone = "Unknown/Bogus_Timezone_That_Does_Not_Exist",
+            },
+        };
+
+        var graphClient = Substitute.For<IGraphTodoClient>();
+        graphClient.GetTaskAsync(ListId, TaskId).Returns(existingTask);
+
+        GraphTodoTask? patchedTask = null;
+        graphClient
+            .When(c => c.PatchTaskAsync(ListId, TaskId, Arg.Any<GraphTodoTask>()))
+            .Do(ci => patchedTask = ci.Arg<GraphTodoTask>());
+
+        var userTimeZoneService = Substitute.For<IUserTimeZoneService>();
+        userTimeZoneService.GetCurrentUserTimeZoneAsync().Returns(userZone);
+
+        var service = new GraphTodoService(graphClient, userTimeZoneService, NullLogger<GraphTodoService>.Instance);
+
+        var newDueDate = new DateOnly(2026, 3, 22);
+
+        // Act — must not throw
+        await service.SetTaskDueDateAsync(ListId, TaskId, newDueDate, "user-1");
+
+        // Assert: falls back to treating the raw time as user-local (09:00)
+        Assert.NotNull(patchedTask);
+        Assert.True(patchedTask.IsReminderOn == true);
         Assert.NotNull(patchedTask.ReminderDateTime);
         Assert.Equal("2026-03-22T09:00:00", patchedTask.ReminderDateTime.DateTime);
         Assert.Equal(userZone.Id, patchedTask.ReminderDateTime.TimeZone);
