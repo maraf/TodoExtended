@@ -191,7 +191,11 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             if (current?.IsReminderOn == true && current.ReminderDateTime?.DateTime is not null)
             {
                 var currentReminderDt = DateTime.Parse(current.ReminderDateTime.DateTime, CultureInfo.InvariantCulture, DateTimeStyles.None);
-                var reminderTime = TimeOnly.FromDateTime(currentReminderDt);
+
+                // Graph may return ReminderDateTime in a different timezone than the user's (e.g. UTC).
+                // Convert from the returned timezone to the user's local timezone so the clock time is preserved.
+                var reminderTime = ConvertReminderToUserLocalTime(currentReminderDt, current.ReminderDateTime.TimeZone, userZone);
+
                 var newReminderDt = dueDate.ToDateTime(reminderTime);
                 patch.IsReminderOn = true;
                 patch.ReminderDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
@@ -199,7 +203,7 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                     DateTime = newReminderDt.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
                     TimeZone = userZone.Id,
                 };
-                logger.LogDebug("SetTaskDueDateAsync: Rescheduling reminder from {Old} to {New}", currentReminderDt, newReminderDt);
+                logger.LogDebug("SetTaskDueDateAsync: Rescheduling reminder from {Old} (tz={OldTz}) to {New} (tz={NewTz})", currentReminderDt, current.ReminderDateTime.TimeZone, newReminderDt, userZone.Id);
             }
 
             await graphClient.PatchTaskAsync(taskListId, taskId, patch);
@@ -302,6 +306,31 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             .Where(l => l.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
             .OrderBy(l => l.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    /// <summary>
+    /// Converts a reminder datetime returned by Graph (which may be in a different timezone, e.g. UTC)
+    /// to the equivalent local time in <paramref name="userZone"/>, so the user's intended clock time
+    /// is preserved when rescheduling.
+    /// </summary>
+    private static TimeOnly ConvertReminderToUserLocalTime(DateTime reminderDt, string? reminderTzId, TimeZoneInfo userZone)
+    {
+        if (!string.IsNullOrEmpty(reminderTzId))
+        {
+            try
+            {
+                var reminderTz = TimeZoneInfo.FindSystemTimeZoneById(reminderTzId);
+                var utcDt = TimeZoneInfo.ConvertTimeToUtc(reminderDt, reminderTz);
+                var userLocalDt = TimeZoneInfo.ConvertTimeFromUtc(utcDt, userZone);
+                return TimeOnly.FromDateTime(userLocalDt);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // Fall back: treat the datetime as already in the user's timezone.
+            }
+        }
+
+        return TimeOnly.FromDateTime(reminderDt);
     }
 
     /// <summary>
