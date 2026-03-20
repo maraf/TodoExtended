@@ -106,5 +106,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: e2e-screenshots
-          path: docs/screenshots/
+          path: tests/TodoExtended.E2E/screenshots/
           if-no-files-found: warn
