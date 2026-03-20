@@ -1,6 +1,7 @@
 @using Microsoft.Identity.Web
 @using Microsoft.Extensions.Logging
 @inject ITodoService TodoService
+@inject ITagService TagService
 @inject NavigationManager NavigationManager
 @inject ILogger<NavMenu> Logger
 
@@ -16,6 +17,16 @@
             <p class="section-title mt-5">TOOLS</p>
             <NavItem Href="/templates" Match="NavLinkMatch.Prefix" Icon="copy">Templates</NavItem>
             <NavItem Href="/api-keys" Match="NavLinkMatch.Prefix" Icon="key">API Keys</NavItem>
+            <NavItem Href="/tags" Match="NavLinkMatch.All" Icon="tag">Tags</NavItem>
+
+            @if (_pinnedTags.Count > 0)
+            {
+                <p class="section-title mt-5">PINNED TAGS</p>
+                @foreach (var tag in _pinnedTags)
+                {
+                    <NavItem Href="@($"/tags/{tag}")" Icon="tag">#@tag</NavItem>
+                }
+            }
 
             @if (_taskLists.Count > 0)
             {
@@ -38,13 +49,17 @@
     [PersistentState]
     public IReadOnlyList<PersistedTodoTaskList>? TaskLists { get; set; }
 
+    [PersistentState]
+    public IReadOnlyList<string>? PinnedTags { get; set; }
+
     private IReadOnlyList<PersistedTodoTaskList> _taskLists => TaskLists ?? [];
+    private IReadOnlyList<string> _pinnedTags => PinnedTags ?? [];
 
     protected override async Task OnInitializedAsync()
     {
-        if (TaskLists is not null)
+        if (TaskLists is not null && PinnedTags is not null)
         {
-            Logger.LogDebug("OnInitializedAsync: TaskLists restored from persistent state, count={Count}", TaskLists.Count);
+            Logger.LogDebug("OnInitializedAsync: state restored from persistent state (Lists: {ListCount}, PinnedTags: {TagCount})", TaskLists.Count, PinnedTags.Count);
             return;
         }
 
@@ -57,9 +72,16 @@
             var userId = state.User.GetUserIdOrNull();
             if (string.IsNullOrEmpty(userId)) return;
 
-            TaskLists = (await TodoService.GetTaskListsAsync(userId))
+            var listsTask = TodoService.GetTaskListsAsync(userId);
+            var pinnedTask = TagService.GetPinnedTagsAsync(userId);
+
+            await Task.WhenAll(listsTask, pinnedTask);
+
+            TaskLists = (await listsTask)
                 .Select(l => new PersistedTodoTaskList(l.Id, l.DisplayName))
                 .ToList();
+
+            PinnedTags = (await pinnedTask).ToList();
         }
         catch (Exception ex) when (AuthExceptionHelper.IsIrrecoverableMsalError(ex))
         {
@@ -71,7 +93,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "NavMenu: failed to load task lists");
+            Logger.LogWarning(ex, "NavMenu: failed to load task lists or pinned tags");
         }
     }
 }

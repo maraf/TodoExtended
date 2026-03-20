@@ -781,16 +781,18 @@ public class CachedTodoService(
                         if (cachedTask == null)
                         {
                             logger.LogDebug("Adding new task {TaskId} to cache", graphTask.Id);
+                            var title = graphTask.Title ?? "Untitled";
                             cachedTask = new CachedTask
                             {
                                 Id = graphTask.Id!,
                                 ListId = listId,
-                                Title = graphTask.Title ?? "Untitled",
+                                Title = title,
                                 Body = graphTask.Body?.Content,
                                 IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed,
                                 DueDate = dueDate,
                                 Importance = graphTask.Importance?.ToString(),
                                 IsDeleted = false,
+                                Tags = TagExtractor.ExtractTagsString(title),
                                 LastSyncUtc = now,
                                 CreatedUtc = now,
                                 UpdatedUtc = now,
@@ -801,12 +803,14 @@ public class CachedTodoService(
                         else
                         {
                             logger.LogDebug("Updating task {TaskId} in cache", graphTask.Id);
-                            cachedTask.Title = graphTask.Title ?? "Untitled";
+                            var title = graphTask.Title ?? "Untitled";
+                            cachedTask.Title = title;
                             cachedTask.Body = graphTask.Body?.Content;
                             cachedTask.IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed;
                             cachedTask.DueDate = dueDate;
                             cachedTask.Importance = graphTask.Importance?.ToString();
                             cachedTask.IsDeleted = false;
+                            cachedTask.Tags = TagExtractor.ExtractTagsString(title);
                             cachedTask.UpdatedUtc = now;
                             cachedTask.LastSyncUtc = now;
                         }

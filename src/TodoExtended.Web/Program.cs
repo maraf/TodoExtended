@@ -152,6 +152,7 @@ builder.Services.AddScoped<ITemplateService, TemplateService>();
 builder.Services.AddScoped<IUserTimeZoneService, UserTimeZoneService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<IUserPreferenceService, UserPreferenceService>();
+builder.Services.AddScoped<ITagService, TagService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<INotificationService, NotificationService>();

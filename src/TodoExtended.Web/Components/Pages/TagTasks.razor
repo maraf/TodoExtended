@@ -1,0 +1,133 @@
+@page "/tags/{Tag}"
+@attribute [Authorize]
+@inject ITagService TagService
+@inject ITodoService TodoService
+@inject NavigationManager NavigationManager
+@inject INotificationService Notifications
+
+<PageTitle>#@Tag</PageTitle>
+
+<PageHeader Title="@($"#{Tag}")" FromColor="from-teal-500" ToColor="to-cyan-600" ShadowColor="shadow-teal-500/20">
+    <Icon>
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/>
+        </svg>
+    </Icon>
+</PageHeader>
+
+@if (_loading)
+{
+    <TaskListSkeleton />
+}
+else if (_error is not null)
+{
+    <ErrorAlert Message="@_error" />
+}
+else if (_tasks.Count == 0)
+{
+    <EmptyState Emoji="🏷️" Heading="No tasks" Description="@($"No tasks tagged with #{Tag}.")" />
+}
+else
+{
+    <TaskStatsBar OpenCount="@(_tasks.Count(t => !t.IsCompleted))"
+                  CompletedCount="@(_tasks.Count(t => t.IsCompleted))"
+                  @bind-HideCompleted="_hideCompleted"
+                  @bind-RescheduleMode="_rescheduleMode" />
+
+    <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
+        @foreach (var task in _tasks)
+        {
+            @if (_hideCompleted && task.IsCompleted) { continue; }
+            <div class="task-row gap-3">
+                <button @onclick="() => ToggleTask(task)"
+                        class="flex-shrink-0 w-5 h-5 rounded-full border-2 @(task.IsCompleted ? "bg-emerald-500 border-emerald-500" : "border-slate-300 dark:border-slate-600") flex items-center justify-center transition-colors hover:border-emerald-400"
+                        aria-label="@(task.IsCompleted ? "Mark incomplete" : "Mark complete")">
+                    @if (task.IsCompleted)
+                    {
+                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    }
+                </button>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-slate-800 dark:text-slate-200 @(task.IsCompleted ? "line-through text-slate-400 dark:text-slate-500" : "") truncate">
+                        @task.Title
+                    </p>
+                    <a href="/tasks/@task.ListId" class="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-500 truncate">@task.ListName</a>
+                </div>
+                @if (task.DueDate.HasValue)
+                {
+                    <span class="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">@task.DueDate.Value.ToString("MMM d")</span>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string Tag { get; set; } = "";
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private IReadOnlyList<TodoTaskWithList> _tasks = [];
+    private bool _loading = true;
+    private string? _error;
+    private bool _hideCompleted;
+    private bool _rescheduleMode;
+    private string? _userId;
+
+    private async Task<string> GetUserIdAsync()
+    {
+        if (_userId is not null) return _userId;
+        var state = await AuthState!;
+        _userId = state.User.GetUserId();
+        return _userId;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasksAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_loading)
+        {
+            _loading = true;
+            _error = null;
+            await LoadTasksAsync();
+        }
+    }
+
+    private async Task LoadTasksAsync()
+    {
+        try
+        {
+            var userId = await GetUserIdAsync();
+            _tasks = await TagService.GetTasksByTagAsync(Tag, userId);
+        }
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
+        {
+            _error = $"Failed to load tasks: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ToggleTask(TodoTaskWithList task)
+    {
+        try
+        {
+            var userId = await GetUserIdAsync();
+            await TodoService.UpdateTaskStatusAsync(task.ListId, task.Id, !task.IsCompleted, userId);
+            _tasks = _tasks.Select(t => t.Id == task.Id ? t with { IsCompleted = !t.IsCompleted } : t).ToList();
+        }
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
+        {
+            Notifications.Add($"Failed: {ex.Message}", NotifySeverity.Error);
+        }
+    }
+}

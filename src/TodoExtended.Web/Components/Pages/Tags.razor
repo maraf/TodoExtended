@@ -1,0 +1,125 @@
+@page "/tags"
+@attribute [Authorize]
+@inject ITagService TagService
+@inject INotificationService Notifications
+@inject NavigationManager NavigationManager
+
+<PageTitle>Tags</PageTitle>
+
+<PageHeader Title="Tags" FromColor="from-teal-500" ToColor="to-cyan-600" ShadowColor="shadow-teal-500/20">
+    <Icon>
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/>
+        </svg>
+    </Icon>
+</PageHeader>
+
+<p class="text-slate-500 dark:text-slate-400 text-sm mb-6">Tags extracted from task titles. Click a tag to see its tasks. Pin tags to keep them in the sidebar.</p>
+
+@if (_loading)
+{
+    <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden max-w-lg">
+        <div class="h-1 bg-gradient-to-r from-teal-500 to-cyan-500 animate-pulse"></div>
+        @for (int i = 0; i < 5; i++)
+        {
+            <div class="task-row">
+                <div class="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse"></div>
+            </div>
+        }
+    </div>
+}
+else if (_error is not null)
+{
+    <ErrorAlert Message="@_error" />
+}
+else if (_tags.Count == 0)
+{
+    <EmptyState Emoji="🏷️" Heading="No tags yet" Description="Add #tags to your task titles during the next sync to see them here." />
+}
+else
+{
+    <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden max-w-lg">
+        @foreach (var tag in _tags)
+        {
+            <div class="task-row gap-3">
+                <a href="/tags/@tag.Tag"
+                   class="flex-1 text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline">
+                    #@tag.Tag
+                </a>
+                <span class="text-xs text-slate-400 dark:text-slate-500 font-mono tabular-nums">
+                    @tag.TaskCount open
+                </span>
+                <button @onclick="() => TogglePin(tag.Tag)"
+                        title="@(_pinnedTags.Contains(tag.Tag) ? "Unpin tag" : "Pin to sidebar")"
+                        class="@(_pinnedTags.Contains(tag.Tag) ? "text-amber-500 hover:text-amber-400" : "text-slate-300 dark:text-slate-600 hover:text-amber-400") transition-colors flex-shrink-0"
+                        aria-label="@(_pinnedTags.Contains(tag.Tag) ? "Unpin" : "Pin")">
+                    <svg class="w-4 h-4" fill="@(_pinnedTags.Contains(tag.Tag) ? "currentColor" : "none")" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+                    </svg>
+                </button>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private IReadOnlyList<TagWithCount> _tags = [];
+    private HashSet<string> _pinnedTags = new(StringComparer.OrdinalIgnoreCase);
+    private bool _loading = true;
+    private string? _error;
+    private string? _userId;
+
+    private async Task<string> GetUserIdAsync()
+    {
+        if (_userId is not null) return _userId;
+        var state = await AuthState!;
+        _userId = state.User.GetUserId();
+        return _userId;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var userId = await GetUserIdAsync();
+            _tags = await TagService.GetTagsAsync(userId);
+            var pinned = await TagService.GetPinnedTagsAsync(userId);
+            _pinnedTags = new HashSet<string>(pinned, StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
+        {
+            _error = $"Failed to load tags: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task TogglePin(string tag)
+    {
+        var isPinned = _pinnedTags.Contains(tag);
+        try
+        {
+            var userId = await GetUserIdAsync();
+            await TagService.SetTagPinnedAsync(tag, !isPinned, userId);
+            if (isPinned)
+            {
+                _pinnedTags.Remove(tag);
+                Notifications.Add($"#{tag} unpinned.", NotifySeverity.Success);
+            }
+            else
+            {
+                _pinnedTags.Add(tag);
+                Notifications.Add($"#{tag} pinned to sidebar.", NotifySeverity.Success);
+            }
+        }
+        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
+        {
+            Notifications.Add($"Failed: {ex.Message}", NotifySeverity.Error);
+        }
+    }
+}

@@ -48,6 +48,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.ListId).HasMaxLength(256);
             entity.Property(e => e.Title).HasMaxLength(512);
             entity.Property(e => e.Importance).HasMaxLength(32);
+            entity.Property(e => e.Tags).HasMaxLength(1024);
             
             entity.Property(e => e.UserId).HasMaxLength(256);
             entity.HasIndex(e => e.ListId);
@@ -75,6 +76,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.Email).HasMaxLength(256);
             entity.Property(e => e.DisplayName).HasMaxLength(256);
             entity.Property(e => e.HomeAccountId).HasMaxLength(256);
+            entity.Property(e => e.PinnedTags).HasMaxLength(2048);
             entity.HasIndex(e => e.Email);
         });
 
