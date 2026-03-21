@@ -540,6 +540,13 @@ public class CachedTodoService(
     {
         await SyncTaskListsAsync(db, userId);
 
+        // Delta sync only processes changed tasks, so if the tags table is empty while
+        // the task cache is warm (e.g. after a migration that cleared tags), unchanged
+        // tasks would never have their tags extracted. Rebuild tags from cached tasks now.
+        var hasAnyTags = await db.CachedTags.AnyAsync(t => t.UserId == userId);
+        if (!hasAnyTags)
+            await RebuildTagsFromCachedTasksAsync(db, userId);
+
         var lists = await db.CachedTaskLists
             .Where(l => l.UserId == userId && l.IsSynced)
             .Select(l => new { l.Id, l.DeltaToken })
@@ -868,6 +875,39 @@ public class CachedTodoService(
         await db.Database.ExecuteSqlRawAsync("DELETE FROM SyncMetadata WHERE Key = {0}", deltaTokenKey);
         
         await InitialSyncAsync(db, userId);
+    }
+
+    /// <summary>
+    /// Rebuilds <see cref="CachedTag"/> rows and their M:N task associations by extracting
+    /// tags from the titles of all non-deleted cached tasks for the user.
+    /// Called at the start of a delta sync when the tags table is unexpectedly empty
+    /// (e.g. after a migration or partial data loss) but the task cache is still warm.
+    /// </summary>
+    private async Task RebuildTagsFromCachedTasksAsync(AppDbContext db, string userId)
+    {
+        var cachedTasks = await db.CachedTasks
+            .Where(t => t.UserId == userId && !t.IsDeleted)
+            .ToListAsync();
+
+        if (cachedTasks.Count == 0)
+            return;
+
+        logger.LogInformation("Tags DB is empty for user {UserId}; rebuilding from {Count} cached tasks", userId, cachedTasks.Count);
+
+        // No tags exist yet so there are no pinned tags to preserve
+        var pinnedTagNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var cachedTask in cachedTasks)
+        {
+            var tagNames = TagExtractor.ExtractTags(cachedTask.Title);
+            if (tagNames.Count == 0) continue;
+
+            await AddTagsToContextAsync(db, cachedTask, tagNames, userId, pinnedTagNames);
+        }
+
+        await db.SaveChangesAsync();
+
+        logger.LogInformation("Tags rebuilt from cached tasks for user {UserId}", userId);
     }
 
     private static bool ShouldRebuildCache(Exception ex)
