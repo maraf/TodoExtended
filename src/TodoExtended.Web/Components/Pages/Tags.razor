@@ -116,6 +116,9 @@ else
                 _pinnedTags.Add(tag);
                 Notifications.Add($"#{tag} pinned to sidebar.", NotifySeverity.Success);
             }
+
+            // Reload the page so the sidebar NavMenu reflects the updated pinned tags immediately.
+            NavigationManager.NavigateTo(NavigationManager.Uri, forceLoad: true);
         }
         catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {

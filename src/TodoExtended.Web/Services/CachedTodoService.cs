@@ -881,19 +881,25 @@ public class CachedTodoService(
     /// <summary>
     /// Finds or creates <see cref="CachedTag"/> aggregate rows and links them to a brand-new
     /// task via the EF Core native M:N relationship. EF Core inserts the join rows automatically
-    /// on the next <c>SaveChangesAsync</c>.
+    /// on the next <c>SaveChangesAsync</c>. Existing <see cref="CachedTag"/> rows are fetched in
+    /// a single batch query to avoid per-tag <c>FindAsync</c> DB round-trips.
     /// </summary>
     private static async Task AddTagsToContextAsync(
         AppDbContext db, CachedTask task, IReadOnlyList<string> tags, string userId,
         HashSet<string> pinnedTagNames)
     {
+        if (tags.Count == 0) return;
+
+        // Prefetch all existing CachedTag rows for these names in a single query
+        var existingInDb = await db.CachedTags
+            .Where(t => t.UserId == userId && tags.Contains(t.Name))
+            .ToDictionaryAsync(t => t.Name, StringComparer.OrdinalIgnoreCase);
+
         foreach (var tagName in tags)
         {
-            // Reuse an already-tracked CachedTag (from earlier in the same sync page) if possible
-            var tag = db.CachedTags.Local.FirstOrDefault(t => t.Name == tagName && t.UserId == userId)
-                ?? await db.CachedTags.FindAsync(tagName, userId);
-
-            if (tag == null)
+            // Prefer already-tracked instance (from earlier in the same sync page)
+            var tag = db.CachedTags.Local.FirstOrDefault(t => t.Name == tagName && t.UserId == userId);
+            if (tag == null && !existingInDb.TryGetValue(tagName, out tag))
             {
                 tag = new CachedTag
                 {
@@ -911,33 +917,39 @@ public class CachedTodoService(
     /// <summary>
     /// Reconciles the <see cref="CachedTag"/> M:N collection for a task whose title has changed.
     /// Removed tag links are deleted; new <see cref="CachedTag"/> aggregates are upserted and
-    /// linked via the native M:N relationship.
+    /// linked via the native M:N relationship. New tag rows are fetched in a single batch query
+    /// to avoid per-tag <c>FindAsync</c> DB round-trips.
     /// </summary>
     private async Task UpdateTagsForExistingTaskAsync(
         AppDbContext db, CachedTask task, string title, string userId,
         HashSet<string> pinnedTagNames)
     {
         var extractedTags = TagExtractor.ExtractTags(title);
+        var extractedTagSet = extractedTags.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         // Eagerly load the current tag collection for this task
         await db.Entry(task).Collection(t => t.Tags).LoadAsync();
 
         // Unlink tags that are no longer present in the title
-        var tagsToRemove = task.Tags.Where(t => !extractedTags.Contains(t.Name)).ToList();
+        var tagsToRemove = task.Tags.Where(t => !extractedTagSet.Contains(t.Name)).ToList();
         foreach (var tag in tagsToRemove)
             task.Tags.Remove(tag);
 
         var existingTagNames = task.Tags.Select(t => t.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var tagName in extractedTags)
+        // Only process tags that aren't already linked
+        var newTagNames = extractedTagSet.Where(n => !existingTagNames.Contains(n)).ToList();
+        if (newTagNames.Count == 0) return;
+
+        // Prefetch all existing CachedTag rows for the new names in a single query
+        var existingInDb = await db.CachedTags
+            .Where(t => t.UserId == userId && newTagNames.Contains(t.Name))
+            .ToDictionaryAsync(t => t.Name, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var tagName in newTagNames)
         {
-            if (existingTagNames.Contains(tagName))
-                continue;
-
-            var tag = db.CachedTags.Local.FirstOrDefault(t => t.Name == tagName && t.UserId == userId)
-                ?? await db.CachedTags.FindAsync(tagName, userId);
-
-            if (tag == null)
+            var tag = db.CachedTags.Local.FirstOrDefault(t => t.Name == tagName && t.UserId == userId);
+            if (tag == null && !existingInDb.TryGetValue(tagName, out tag))
             {
                 tag = new CachedTag
                 {

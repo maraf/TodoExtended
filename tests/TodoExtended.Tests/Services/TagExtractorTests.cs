@@ -97,7 +97,7 @@ public class TagExtractorTests
     }
 
     [Fact]
-    public void ExtractTagsString_OnTag_ReturnsTagName()
+    public void ExtractTagsString_OneTag_ReturnsTagName()
     {
         Assert.Equal("work", TagExtractor.ExtractTagsString("Do #work"));
     }
@@ -111,6 +111,24 @@ public class TagExtractorTests
         Assert.Equal(2, parts.Length);
         Assert.Contains("alpha", parts);
         Assert.Contains("beta", parts);
+    }
+
+    [Fact]
+    public void ExtractTags_TagExceedsMaxLength_Skipped()
+    {
+        var longTag = new string('a', 129); // one over the 128-char DB column limit
+        var tags = TagExtractor.ExtractTags($"Task #{longTag} #valid");
+        Assert.Single(tags);
+        Assert.Equal("valid", tags[0]);
+    }
+
+    [Fact]
+    public void ExtractTags_TagAtExactMaxLength_Included()
+    {
+        var maxTag = new string('a', 128);
+        var tags = TagExtractor.ExtractTags($"Task #{maxTag}");
+        Assert.Single(tags);
+        Assert.Equal(maxTag, tags[0]);
     }
 
     // ── ParseTags ─────────────────────────────────────────────────────────────

@@ -9,8 +9,12 @@ public static partial class TagExtractor
     [GeneratedRegex(@"#(\w+)(?=\s|$)", RegexOptions.CultureInvariant)]
     private static partial Regex TagPattern();
 
+    private const int MaxTagLength = 128;
+
     /// <summary>
     /// Extracts distinct, lower-cased tag names from a task title.
+    /// Tags longer than <see cref="MaxTagLength"/> characters are skipped so that
+    /// arbitrarily long <c>#\w+</c> tokens cannot exceed the DB column length constraint.
     /// </summary>
     public static IReadOnlyList<string> ExtractTags(string title)
     {
@@ -23,7 +27,11 @@ public static partial class TagExtractor
 
         var tags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (Match m in matches)
+        {
+            if (m.Groups[1].Value.Length > MaxTagLength)
+                continue;
             tags.Add(m.Groups[1].Value.ToLowerInvariant());
+        }
 
         return [.. tags];
     }
