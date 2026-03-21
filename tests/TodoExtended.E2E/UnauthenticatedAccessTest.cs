@@ -26,7 +26,7 @@ public class UnauthenticatedAccessTest : E2ETestBase
         var signInLink = Page.Locator("a[href='MicrosoftIdentity/Account/SignIn']").First;
         await Expect(signInLink).ToBeVisibleAsync(new() { Timeout = 15_000 });
 
-        // Confirm we are on the landing page URL.
-        await Expect(Page).ToHaveURLAsync(new Regex($"^{Regex.Escape(BaseUrl)}/?$"), new() { Timeout = 5_000 });
+        // Confirm we are on the landing page URL (allow optional ReturnUrl query param added by auth middleware).
+        await Expect(Page).ToHaveURLAsync(new Regex($"^{Regex.Escape(BaseUrl)}/?(?:\\?.*)?$"), new() { Timeout = 5_000 });
     }
 }
