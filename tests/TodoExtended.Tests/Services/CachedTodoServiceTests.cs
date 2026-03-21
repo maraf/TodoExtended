@@ -21,8 +21,16 @@ public class CachedTodoServiceTests : IDisposable
         _dbPath = Path.Combine(Path.GetTempPath(), $"test-cachedtodo-{Guid.NewGuid():N}.db");
         _factory = new SimpleDbContextFactory($"Data Source={_dbPath}", new EnableForeignKeysInterceptor());
 
-        using var seed = _factory.CreateDbContext();
-        seed.Database.EnsureCreated();
+        try
+        {
+            using var seed = _factory.CreateDbContext();
+            seed.Database.EnsureCreated();
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
     }
 
     public void Dispose()

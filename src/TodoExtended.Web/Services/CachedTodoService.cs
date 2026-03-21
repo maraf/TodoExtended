@@ -543,9 +543,17 @@ public class CachedTodoService(
         // Delta sync only processes changed tasks, so if the tags table is empty while
         // the task cache is warm (e.g. after a migration that cleared tags), unchanged
         // tasks would never have their tags extracted. Rebuild tags from cached tasks now.
+        // Avoid doing an O(N) scan for users who never use tags: only rebuild if there
+        // exists at least one non-deleted cached task whose title contains a '#'.
         var hasAnyTags = await db.CachedTags.AnyAsync(t => t.UserId == userId);
         if (!hasAnyTags)
-            await RebuildTagsFromCachedTasksAsync(db, userId);
+        {
+            var hasPotentialTagTasks = await db.CachedTasks
+                .AnyAsync(t => t.UserId == userId && !t.IsDeleted && t.Title.Contains("#"));
+
+            if (hasPotentialTagTasks)
+                await RebuildTagsFromCachedTasksAsync(db, userId);
+        }
 
         var lists = await db.CachedTaskLists
             .Where(l => l.UserId == userId && l.IsSynced)
@@ -894,15 +902,46 @@ public class CachedTodoService(
 
         logger.LogInformation("Tags DB is empty for user {UserId}; rebuilding from {Count} cached tasks", userId, cachedTasks.Count);
 
-        // No tags exist yet so there are no pinned tags to preserve
-        var pinnedTagNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Pass 1: collect all distinct tag names and map each task to its tags
+        var taskTagNames = new Dictionary<CachedTask, List<string>>();
+        var allTagNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var cachedTask in cachedTasks)
         {
             var tagNames = TagExtractor.ExtractTags(cachedTask.Title);
             if (tagNames.Count == 0) continue;
 
-            await AddTagsToContextAsync(db, cachedTask, tagNames, userId, pinnedTagNames);
+            taskTagNames[cachedTask] = [.. tagNames];
+            foreach (var tagName in tagNames)
+                allTagNames.Add(tagName);
+        }
+
+        if (allTagNames.Count == 0)
+            return;
+
+        // Pass 2: fetch any already-existing CachedTag rows in a single query
+        var existingTags = await db.CachedTags
+            .Where(t => t.UserId == userId && allTagNames.Contains(t.Name))
+            .ToDictionaryAsync(t => t.Name, StringComparer.OrdinalIgnoreCase);
+
+        // Pass 3: create missing CachedTag aggregates once (no per-task DB round-trips)
+        foreach (var tagName in allTagNames)
+        {
+            if (existingTags.ContainsKey(tagName)) continue;
+
+            var newTag = new CachedTag { Name = tagName, UserId = userId };
+            db.CachedTags.Add(newTag);
+            existingTags[tagName] = newTag;
+        }
+
+        // Pass 4: link tags to tasks in-memory (EF Core writes join rows on SaveChanges)
+        foreach (var (cachedTask, tagNamesForTask) in taskTagNames)
+        {
+            foreach (var tagName in tagNamesForTask)
+            {
+                if (existingTags.TryGetValue(tagName, out var tag))
+                    cachedTask.Tags.Add(tag);
+            }
         }
 
         await db.SaveChangesAsync();
