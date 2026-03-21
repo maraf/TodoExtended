@@ -7,6 +7,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TaskTemplate> TaskTemplates => Set<TaskTemplate>();
     public DbSet<CachedTaskList> CachedTaskLists => Set<CachedTaskList>();
     public DbSet<CachedTask> CachedTasks => Set<CachedTask>();
+    public DbSet<CachedTag> CachedTags => Set<CachedTag>();
     public DbSet<SyncMetadata> SyncMetadata => Set<SyncMetadata>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
@@ -48,7 +49,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.ListId).HasMaxLength(256);
             entity.Property(e => e.Title).HasMaxLength(512);
             entity.Property(e => e.Importance).HasMaxLength(32);
-            entity.Property(e => e.Tags).HasMaxLength(1024);
             
             entity.Property(e => e.UserId).HasMaxLength(256);
             entity.HasIndex(e => e.ListId);
@@ -58,6 +58,27 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.HasOne(e => e.List)
                 .WithMany(e => e.Tasks)
                 .HasForeignKey(e => e.ListId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CachedTag>(entity =>
+        {
+            entity.HasKey(e => new { e.Name, e.TaskId });
+            entity.Property(e => e.Name).HasMaxLength(128);
+            entity.Property(e => e.TaskId).HasMaxLength(256);
+            entity.Property(e => e.UserId).HasMaxLength(256);
+
+            entity.HasIndex(e => new { e.UserId, e.Name });
+            entity.HasIndex(e => new { e.UserId, e.IsPinned });
+
+            entity.HasOne(e => e.Task)
+                .WithMany(e => e.CachedTags)
+                .HasForeignKey(e => e.TaskId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -76,7 +97,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.Email).HasMaxLength(256);
             entity.Property(e => e.DisplayName).HasMaxLength(256);
             entity.Property(e => e.HomeAccountId).HasMaxLength(256);
-            entity.Property(e => e.PinnedTags).HasMaxLength(2048);
             entity.HasIndex(e => e.Email);
         });
 

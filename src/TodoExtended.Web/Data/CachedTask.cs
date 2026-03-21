@@ -10,11 +10,11 @@ public class CachedTask
     public DateOnly? DueDate { get; set; }
     public string? Importance { get; set; }
     public bool IsDeleted { get; set; }
-    public string? Tags { get; set; }
     public DateTime LastSyncUtc { get; set; }
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
     public required string UserId { get; set; }
     
     public CachedTaskList? List { get; set; }
+    public ICollection<CachedTag> CachedTags { get; set; } = [];
 }

@@ -11,7 +11,7 @@ using TodoExtended.Web.Data;
 namespace TodoExtended.Web.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260320092415_AddTagSupport")]
+    [Migration("20260321091731_AddTagSupport")]
     partial class AddTagSupport
     {
         /// <inheritdoc />
@@ -59,6 +59,35 @@ namespace TodoExtended.Web.Migrations
                     b.ToTable("ApiKeys");
                 });
 
+            modelBuilder.Entity("TodoExtended.Web.Data.CachedTag", b =>
+                {
+                    b.Property<string>("Name")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TaskId")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Name", "TaskId");
+
+                    b.HasIndex("TaskId");
+
+                    b.HasIndex("UserId", "IsPinned");
+
+                    b.HasIndex("UserId", "Name");
+
+                    b.ToTable("CachedTags");
+                });
+
             modelBuilder.Entity("TodoExtended.Web.Data.CachedTask", b =>
                 {
                     b.Property<string>("Id")
@@ -90,10 +119,6 @@ namespace TodoExtended.Web.Migrations
                     b.Property<string>("ListId")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Tags")
-                        .HasMaxLength(1024)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Title")
@@ -283,10 +308,6 @@ namespace TodoExtended.Web.Migrations
                     b.Property<DateTime>("LastSeenUtc")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("PinnedTags")
-                        .HasMaxLength(2048)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("TimeZone")
                         .HasColumnType("TEXT");
 
@@ -326,6 +347,25 @@ namespace TodoExtended.Web.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("TodoExtended.Web.Data.CachedTag", b =>
+                {
+                    b.HasOne("TodoExtended.Web.Data.CachedTask", "Task")
+                        .WithMany("CachedTags")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TodoExtended.Web.Data.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Task");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("TodoExtended.Web.Data.CachedTask", b =>
                 {
                     b.HasOne("TodoExtended.Web.Data.CachedTaskList", "List")
@@ -357,6 +397,11 @@ namespace TodoExtended.Web.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("TodoExtended.Web.Data.CachedTask", b =>
+                {
+                    b.Navigation("CachedTags");
                 });
 
             modelBuilder.Entity("TodoExtended.Web.Data.CachedTaskList", b =>
