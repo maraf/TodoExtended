@@ -34,6 +34,8 @@ public class ScreenshotCaptureTest : E2ETestBase
         new("templates", "/templates", "h1:has-text('Templates')"),
         new("sync-settings", "/sync-settings", "h1:has-text('Sync Settings')"),
         new("api-keys", "/api-keys", "h1:has-text('API Keys')"),
+        new("tags", "/tags", "h1:has-text('Tags'), .card"),
+        new("tags-by-tag", "/tags/work", "h1:has-text('work'), .card, .empty-state"),
     ];
 
     [Test]
@@ -70,6 +72,9 @@ public class ScreenshotCaptureTest : E2ETestBase
 
         // Capture sidebar-open on mobile
         await CaptureSidebarOpenScreenshots();
+
+        // Capture tags sidebar (pinned tag) on mobile
+        await CaptureTagsSidebarWithPinnedTagScreenshots();
 
         // Capture chat screenshots
         await CaptureChatEmptyScreenshots();
@@ -494,6 +499,52 @@ public class ScreenshotCaptureTest : E2ETestBase
                 {
                     TestContext.WriteLine($"[WARN] Failed: chat-action-cards--{vp.Name}-{theme}: {ex.Message}");
                 }
+            }
+        }
+    }
+
+    private async Task CaptureTagsSidebarWithPinnedTagScreenshots()
+    {
+        // Pin the "work" tag, then open the mobile sidebar so the PINNED TAGS section is visible.
+        var mobileVp = new ViewportSpec("mobile", 390, 844);
+
+        foreach (var theme in new[] { "dark", "light" })
+        {
+            try
+            {
+                // Desktop — navigate to tags page and pin "work" via Blazor button (circuit must be ready)
+                await Page.SetViewportSizeAsync(1280, 800);
+                await Page.GotoAsync($"{BaseUrl}/tags", new() { WaitUntil = WaitUntilState.NetworkIdle });
+                await Page.Locator("h1:has-text('Tags'), .card").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
+
+                await SetThemeAsync(theme);
+                await Page.WaitForTimeoutAsync(3_000); // wait for Blazor circuit
+
+                // Pin the first tag by clicking its bookmark button
+                var pinButton = Page.Locator("button[aria-label='Pin']").First;
+                if (await pinButton.CountAsync() > 0)
+                    await pinButton.ClickAsync();
+
+                await Page.WaitForTimeoutAsync(500);
+
+                // Now switch to mobile and open the sidebar to show PINNED TAGS section
+                await Page.SetViewportSizeAsync(mobileVp.Width, mobileVp.Height);
+                await Page.GotoAsync($"{BaseUrl}/tags", new() { WaitUntil = WaitUntilState.NetworkIdle });
+                await Page.Locator("h1:has-text('Tags'), .card").First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10_000 });
+                await SetThemeAsync(theme);
+                await Page.WaitForTimeoutAsync(3_000); // wait for Blazor circuit
+
+                var toggleButton = Page.Locator("nav button[aria-label='Toggle menu']").First;
+                await toggleButton.ClickAsync();
+                await Page.WaitForTimeoutAsync(500);
+
+                var fileName = $"tags-sidebar-pinned--{mobileVp.Name}-{theme}.png";
+                await Page.ScreenshotAsync(new() { Path = Path.Combine(ScreenshotsDir, fileName) });
+                TestContext.WriteLine($"[OK] {fileName}");
+            }
+            catch (Exception ex)
+            {
+                TestContext.WriteLine($"[WARN] Failed: tags-sidebar-pinned--{mobileVp.Name}-{theme}: {ex.Message}");
             }
         }
     }

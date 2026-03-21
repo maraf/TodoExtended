@@ -745,6 +745,12 @@ public class CachedTodoService(
     /// </summary>
     private async Task ProcessTasksDeltaPagesAsync(AppDbContext scopedDb, string listId, GraphDeltaPage<Microsoft.Graph.Models.TodoTask> page, string userId)
     {
+        // Pre-load all tag names currently pinned by this user to avoid per-tag DB lookups in the loop
+        var pinnedTagNames = await scopedDb.CachedTags
+            .Where(t => t.UserId == userId && t.IsPinned)
+            .Select(t => t.Name)
+            .ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
+
         while (true)
         {
             if (page.Value.Count > 0)
@@ -777,6 +783,7 @@ public class CachedTodoService(
                         var cachedTask = await scopedDb.CachedTasks.FindAsync(graphTask.Id);
                         var now = DateTime.UtcNow;
                         var dueDate = ParseDueDate(graphTask.DueDateTime);
+                        var title = graphTask.Title ?? "Untitled";
 
                         if (cachedTask == null)
                         {
@@ -785,7 +792,7 @@ public class CachedTodoService(
                             {
                                 Id = graphTask.Id!,
                                 ListId = listId,
-                                Title = graphTask.Title ?? "Untitled",
+                                Title = title,
                                 Body = graphTask.Body?.Content,
                                 IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed,
                                 DueDate = dueDate,
@@ -797,11 +804,13 @@ public class CachedTodoService(
                                 UserId = userId,
                             };
                             scopedDb.CachedTasks.Add(cachedTask);
+                            // Add tags to the same context — EF Core will insert the task before the join rows
+                            await AddTagsToContextAsync(scopedDb, cachedTask, TagExtractor.ExtractTags(title), userId, pinnedTagNames);
                         }
                         else
                         {
                             logger.LogDebug("Updating task {TaskId} in cache", graphTask.Id);
-                            cachedTask.Title = graphTask.Title ?? "Untitled";
+                            cachedTask.Title = title;
                             cachedTask.Body = graphTask.Body?.Content;
                             cachedTask.IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed;
                             cachedTask.DueDate = dueDate;
@@ -809,6 +818,7 @@ public class CachedTodoService(
                             cachedTask.IsDeleted = false;
                             cachedTask.UpdatedUtc = now;
                             cachedTask.LastSyncUtc = now;
+                            await UpdateTagsForExistingTaskAsync(scopedDb, cachedTask, title, userId, pinnedTagNames);
                         }
                     }
                 }
@@ -854,6 +864,7 @@ public class CachedTodoService(
         
         await db.Database.ExecuteSqlRawAsync("DELETE FROM CachedTasks WHERE UserId = {0}", userId);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM CachedTaskLists WHERE UserId = {0}", userId);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM CachedTags WHERE UserId = {0}", userId);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM SyncMetadata WHERE Key = {0}", deltaTokenKey);
         
         await InitialSyncAsync(db, userId);
@@ -865,6 +876,92 @@ public class CachedTodoService(
         return message.Contains("410") || 
                message.Contains("Gone") || 
                message.Contains("delta") && message.Contains("invalid");
+    }
+
+    /// <summary>
+    /// Finds or creates <see cref="CachedTag"/> aggregate rows and links them to a brand-new
+    /// task via the EF Core native M:N relationship. EF Core inserts the join rows automatically
+    /// on the next <c>SaveChangesAsync</c>. Existing <see cref="CachedTag"/> rows are fetched in
+    /// a single batch query to avoid per-tag <c>FindAsync</c> DB round-trips.
+    /// </summary>
+    private static async Task AddTagsToContextAsync(
+        AppDbContext db, CachedTask task, IReadOnlyList<string> tags, string userId,
+        HashSet<string> pinnedTagNames)
+    {
+        if (tags.Count == 0) return;
+
+        // Prefetch all existing CachedTag rows for these names in a single query
+        var existingInDb = await db.CachedTags
+            .Where(t => t.UserId == userId && tags.Contains(t.Name))
+            .ToDictionaryAsync(t => t.Name, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var tagName in tags)
+        {
+            // Prefer already-tracked instance (from earlier in the same sync page)
+            var tag = db.CachedTags.Local.FirstOrDefault(t => t.Name == tagName && t.UserId == userId);
+            if (tag == null && !existingInDb.TryGetValue(tagName, out tag))
+            {
+                tag = new CachedTag
+                {
+                    Name = tagName,
+                    UserId = userId,
+                    IsPinned = pinnedTagNames.Contains(tagName),
+                };
+                db.CachedTags.Add(tag);
+            }
+
+            task.Tags.Add(tag);
+        }
+    }
+
+    /// <summary>
+    /// Reconciles the <see cref="CachedTag"/> M:N collection for a task whose title has changed.
+    /// Removed tag links are deleted; new <see cref="CachedTag"/> aggregates are upserted and
+    /// linked via the native M:N relationship. New tag rows are fetched in a single batch query
+    /// to avoid per-tag <c>FindAsync</c> DB round-trips.
+    /// </summary>
+    private async Task UpdateTagsForExistingTaskAsync(
+        AppDbContext db, CachedTask task, string title, string userId,
+        HashSet<string> pinnedTagNames)
+    {
+        var extractedTags = TagExtractor.ExtractTags(title);
+        var extractedTagSet = extractedTags.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Eagerly load the current tag collection for this task
+        await db.Entry(task).Collection(t => t.Tags).LoadAsync();
+
+        // Unlink tags that are no longer present in the title
+        var tagsToRemove = task.Tags.Where(t => !extractedTagSet.Contains(t.Name)).ToList();
+        foreach (var tag in tagsToRemove)
+            task.Tags.Remove(tag);
+
+        var existingTagNames = task.Tags.Select(t => t.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Only process tags that aren't already linked
+        var newTagNames = extractedTagSet.Where(n => !existingTagNames.Contains(n)).ToList();
+        if (newTagNames.Count == 0) return;
+
+        // Prefetch all existing CachedTag rows for the new names in a single query
+        var existingInDb = await db.CachedTags
+            .Where(t => t.UserId == userId && newTagNames.Contains(t.Name))
+            .ToDictionaryAsync(t => t.Name, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var tagName in newTagNames)
+        {
+            var tag = db.CachedTags.Local.FirstOrDefault(t => t.Name == tagName && t.UserId == userId);
+            if (tag == null && !existingInDb.TryGetValue(tagName, out tag))
+            {
+                tag = new CachedTag
+                {
+                    Name = tagName,
+                    UserId = userId,
+                    IsPinned = pinnedTagNames.Contains(tagName),
+                };
+                db.CachedTags.Add(tag);
+            }
+
+            task.Tags.Add(tag);
+        }
     }
 
     /// <summary>

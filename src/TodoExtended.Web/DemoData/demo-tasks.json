@@ -6,21 +6,21 @@
       "tasks": [
         {
           "id": "demo-task-w1",
-          "title": "Review quarterly report",
+          "title": "Review quarterly report #work #urgent",
           "isCompleted": false,
           "dueDate": null,
           "importance": "High"
         },
         {
           "id": "demo-task-w2",
-          "title": "Prepare sprint retrospective",
+          "title": "Prepare sprint retrospective #work",
           "isCompleted": false,
           "dueDate": null,
           "importance": "Normal"
         },
         {
           "id": "demo-task-w3",
-          "title": "Update project documentation",
+          "title": "Update project documentation #work",
           "isCompleted": true,
           "dueDate": null,
           "importance": "Low"
@@ -33,14 +33,14 @@
       "tasks": [
         {
           "id": "demo-task-p1",
-          "title": "Buy groceries",
+          "title": "Buy groceries #shopping #errands",
           "isCompleted": false,
           "dueDate": null,
           "importance": "Normal"
         },
         {
           "id": "demo-task-p2",
-          "title": "Schedule dentist appointment",
+          "title": "Schedule dentist appointment #health",
           "isCompleted": false,
           "dueDate": null,
           "importance": "High"
@@ -53,14 +53,14 @@
       "tasks": [
         {
           "id": "demo-task-l1",
-          "title": "Finish online course on Blazor",
+          "title": "Finish online course on Blazor #learning",
           "isCompleted": false,
           "dueDate": null,
           "importance": "Normal"
         },
         {
           "id": "demo-task-l2",
-          "title": "Read Clean Architecture book",
+          "title": "Read Clean Architecture book #learning #reading",
           "isCompleted": false,
           "dueDate": null,
           "importance": "Normal"

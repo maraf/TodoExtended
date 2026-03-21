@@ -7,6 +7,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TaskTemplate> TaskTemplates => Set<TaskTemplate>();
     public DbSet<CachedTaskList> CachedTaskLists => Set<CachedTaskList>();
     public DbSet<CachedTask> CachedTasks => Set<CachedTask>();
+    public DbSet<CachedTag> CachedTags => Set<CachedTag>();
     public DbSet<SyncMetadata> SyncMetadata => Set<SyncMetadata>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
@@ -58,6 +59,44 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany(e => e.Tasks)
                 .HasForeignKey(e => e.ListId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CachedTag>(entity =>
+        {
+            entity.HasKey(e => new { e.Name, e.UserId });
+            entity.Property(e => e.Name).HasMaxLength(128);
+            entity.Property(e => e.UserId).HasMaxLength(256);
+
+            entity.HasIndex(e => new { e.UserId, e.IsPinned });
+
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.Tasks)
+                .WithMany(e => e.Tags)
+                .UsingEntity<Dictionary<string, object>>(
+                    "CachedTaskTags",
+                    r => r.HasOne<CachedTask>()
+                          .WithMany()
+                          .HasForeignKey("TaskId")
+                          .HasPrincipalKey(nameof(CachedTask.Id))
+                          .OnDelete(DeleteBehavior.Cascade),
+                    l => l.HasOne<CachedTag>()
+                          .WithMany()
+                          .HasForeignKey("TagName", "TagUserId")
+                          .HasPrincipalKey(nameof(CachedTag.Name), nameof(CachedTag.UserId))
+                          .OnDelete(DeleteBehavior.Cascade),
+                    j =>
+                    {
+                        j.HasKey("TagName", "TagUserId", "TaskId");
+                        j.Property<string>("TagName").HasMaxLength(128);
+                        j.Property<string>("TagUserId").HasMaxLength(256);
+                        j.Property<string>("TaskId").HasMaxLength(256);
+                        j.HasIndex("TaskId");
+                        j.HasIndex("TagUserId", "TagName");
+                    });
         });
 
         modelBuilder.Entity<SyncMetadata>(entity =>
