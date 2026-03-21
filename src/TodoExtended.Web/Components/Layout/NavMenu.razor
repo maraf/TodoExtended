@@ -14,11 +14,6 @@
             <NavItem Href="/tomorrow" Match="NavLinkMatch.Prefix" Icon="calendar">Tomorrow</NavItem>
             <NavItem Href="/chat" Match="NavLinkMatch.Prefix" Icon="chat">AI Chat</NavItem>
 
-            <p class="section-title mt-5">TOOLS</p>
-            <NavItem Href="/templates" Match="NavLinkMatch.Prefix" Icon="copy">Templates</NavItem>
-            <NavItem Href="/api-keys" Match="NavLinkMatch.Prefix" Icon="key">API Keys</NavItem>
-            <NavItem Href="/tags" Match="NavLinkMatch.All" Icon="tag">Tags</NavItem>
-
             @if (_pinnedTags.Count > 0)
             {
                 <p class="section-title mt-5">PINNED TAGS</p>
@@ -27,6 +22,11 @@
                     <NavItem Href="@($"/tags/{tag}")" Icon="tag">#@tag</NavItem>
                 }
             }
+
+            <p class="section-title mt-5">TOOLS</p>
+            <NavItem Href="/templates" Match="NavLinkMatch.Prefix" Icon="copy">Templates</NavItem>
+            <NavItem Href="/api-keys" Match="NavLinkMatch.Prefix" Icon="key">API Keys</NavItem>
+            <NavItem Href="/tags" Match="NavLinkMatch.All" Icon="tag">Tags</NavItem>
 
             @if (_taskLists.Count > 0)
             {
