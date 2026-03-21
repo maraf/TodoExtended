@@ -804,8 +804,8 @@ public class CachedTodoService(
                                 UserId = userId,
                             };
                             scopedDb.CachedTasks.Add(cachedTask);
-                            // Add tag rows to the same context — EF Core will insert the task first due to FK dependency
-                            AddTagsToContext(scopedDb, cachedTask.Id, TagExtractor.ExtractTags(title), userId, pinnedTagNames);
+                            // Add tags to the same context — EF Core will insert the task before the join rows
+                            await AddTagsToContextAsync(scopedDb, cachedTask, TagExtractor.ExtractTags(title), userId, pinnedTagNames);
                         }
                         else
                         {
@@ -818,7 +818,7 @@ public class CachedTodoService(
                             cachedTask.IsDeleted = false;
                             cachedTask.UpdatedUtc = now;
                             cachedTask.LastSyncUtc = now;
-                            await UpdateTagsForExistingTaskAsync(scopedDb, cachedTask.Id, title, userId, pinnedTagNames);
+                            await UpdateTagsForExistingTaskAsync(scopedDb, cachedTask, title, userId, pinnedTagNames);
                         }
                     }
                 }
@@ -864,6 +864,7 @@ public class CachedTodoService(
         
         await db.Database.ExecuteSqlRawAsync("DELETE FROM CachedTasks WHERE UserId = {0}", userId);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM CachedTaskLists WHERE UserId = {0}", userId);
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM CachedTags WHERE UserId = {0}", userId);
         await db.Database.ExecuteSqlRawAsync("DELETE FROM SyncMetadata WHERE Key = {0}", deltaTokenKey);
         
         await InitialSyncAsync(db, userId);
@@ -878,88 +879,76 @@ public class CachedTodoService(
     }
 
     /// <summary>
-    /// Adds <see cref="CachedTag"/> and <see cref="CachedTaskTag"/> rows to the EF Core change
-    /// tracker for a brand-new task. EF Core inserts the task (and any new tags) before the join
-    /// rows due to FK ordering. The caller saves with a single <c>SaveChangesAsync</c>.
+    /// Finds or creates <see cref="CachedTag"/> aggregate rows and links them to a brand-new
+    /// task via the EF Core native M:N relationship. EF Core inserts the join rows automatically
+    /// on the next <c>SaveChangesAsync</c>.
     /// </summary>
-    private static void AddTagsToContext(
-        AppDbContext db, string taskId, IReadOnlyList<string> tags, string userId,
+    private static async Task AddTagsToContextAsync(
+        AppDbContext db, CachedTask task, IReadOnlyList<string> tags, string userId,
         HashSet<string> pinnedTagNames)
     {
         foreach (var tagName in tags)
         {
-            // Upsert the aggregate CachedTag (one per name+user) if not already tracked
-            if (db.CachedTags.Local.All(t => !(t.Name == tagName && t.UserId == userId)))
+            // Reuse an already-tracked CachedTag (from earlier in the same sync page) if possible
+            var tag = db.CachedTags.Local.FirstOrDefault(t => t.Name == tagName && t.UserId == userId)
+                ?? await db.CachedTags.FindAsync(tagName, userId);
+
+            if (tag == null)
             {
-                db.CachedTags.Add(new CachedTag
+                tag = new CachedTag
                 {
                     Name = tagName,
                     UserId = userId,
                     IsPinned = pinnedTagNames.Contains(tagName),
-                });
+                };
+                db.CachedTags.Add(tag);
             }
 
-            db.CachedTaskTags.Add(new CachedTaskTag
-            {
-                TagName = tagName,
-                TagUserId = userId,
-                TaskId = taskId,
-            });
+            task.Tags.Add(tag);
         }
     }
 
     /// <summary>
-    /// Reconciles <see cref="CachedTag"/> and <see cref="CachedTaskTag"/> rows for a task whose
-    /// title has changed. Stale join rows are deleted; new aggregate tag rows are upserted and new
-    /// join rows are inserted.
+    /// Reconciles the <see cref="CachedTag"/> M:N collection for a task whose title has changed.
+    /// Removed tag links are deleted; new <see cref="CachedTag"/> aggregates are upserted and
+    /// linked via the native M:N relationship.
     /// </summary>
     private async Task UpdateTagsForExistingTaskAsync(
-        AppDbContext db, string taskId, string title, string userId,
+        AppDbContext db, CachedTask task, string title, string userId,
         HashSet<string> pinnedTagNames)
     {
         var extractedTags = TagExtractor.ExtractTags(title);
 
-        // Remove join rows for tags no longer in the title
-        await db.CachedTaskTags
-            .Where(tt => tt.TaskId == taskId && !extractedTags.Contains(tt.TagName))
-            .ExecuteDeleteAsync();
+        // Eagerly load the current tag collection for this task
+        await db.Entry(task).Collection(t => t.Tags).LoadAsync();
 
-        // Determine which join rows already exist for this task
-        var existing = await db.CachedTaskTags
-            .Where(tt => tt.TaskId == taskId)
-            .Select(tt => tt.TagName)
-            .ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
+        // Unlink tags that are no longer present in the title
+        var tagsToRemove = task.Tags.Where(t => !extractedTags.Contains(t.Name)).ToList();
+        foreach (var tag in tagsToRemove)
+            task.Tags.Remove(tag);
 
-        // Determine which aggregate CachedTag rows already exist for this user
-        var existingTagsInDb = await db.CachedTags
-            .Where(t => t.UserId == userId && extractedTags.Contains(t.Name))
-            .Select(t => t.Name)
-            .ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
+        var existingTagNames = task.Tags.Select(t => t.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var tagName in extractedTags)
         {
-            // Upsert the aggregate tag if it doesn't exist yet
-            if (!existingTagsInDb.Contains(tagName))
+            if (existingTagNames.Contains(tagName))
+                continue;
+
+            var tag = db.CachedTags.Local.FirstOrDefault(t => t.Name == tagName && t.UserId == userId)
+                ?? await db.CachedTags.FindAsync(tagName, userId);
+
+            if (tag == null)
             {
-                db.CachedTags.Add(new CachedTag
+                tag = new CachedTag
                 {
                     Name = tagName,
                     UserId = userId,
                     IsPinned = pinnedTagNames.Contains(tagName),
-                });
-                existingTagsInDb.Add(tagName);
+                };
+                db.CachedTags.Add(tag);
             }
 
-            // Add the task→tag join row if it doesn't exist
-            if (!existing.Contains(tagName))
-            {
-                db.CachedTaskTags.Add(new CachedTaskTag
-                {
-                    TagName = tagName,
-                    TagUserId = userId,
-                    TaskId = taskId,
-                });
-            }
+            task.Tags.Add(tag);
         }
     }
 

@@ -7,5 +7,5 @@ public class CachedTag
     public bool IsPinned { get; set; }
 
     public User? User { get; set; }
-    public ICollection<CachedTaskTag> TaskTags { get; set; } = [];
+    public ICollection<CachedTask> Tasks { get; set; } = [];
 }

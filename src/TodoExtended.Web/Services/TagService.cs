@@ -15,8 +15,8 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
             .Select(t => new
             {
                 Tag = t.Name,
-                TaskCount = t.TaskTags.Count(tt =>
-                    !tt.Task!.IsDeleted && tt.Task.List!.IsSynced && !tt.Task.IsCompleted),
+                TaskCount = t.Tasks.Count(task =>
+                    !task.IsDeleted && task.List!.IsSynced && !task.IsCompleted),
             })
             .ToListAsync();
 
@@ -36,13 +36,13 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
 
         var normalizedTag = tag.ToLowerInvariant();
 
-        var tasks = await db.CachedTaskTags
+        var tasks = await db.CachedTasks
             .AsNoTracking()
-            .Where(tt => tt.TagName == normalizedTag && tt.TagUserId == userId
-                && !tt.Task!.IsDeleted && tt.Task.List!.IsSynced)
-            .Select(tt => new TodoTaskWithList(
-                tt.Task!.Id, tt.Task.Title, tt.Task.Body, tt.Task.IsCompleted,
-                tt.Task.DueDate, tt.Task.Importance, tt.Task.ListId, tt.Task.List!.DisplayName))
+            .Where(task => task.UserId == userId && !task.IsDeleted && task.List!.IsSynced
+                && task.Tags.Any(t => t.Name == normalizedTag))
+            .Select(task => new TodoTaskWithList(
+                task.Id, task.Title, task.Body, task.IsCompleted,
+                task.DueDate, task.Importance, task.ListId, task.List!.DisplayName))
             .ToListAsync();
 
         return tasks

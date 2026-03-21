@@ -17,6 +17,29 @@ namespace TodoExtended.Web.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.7");
 
+            modelBuilder.Entity("CachedTaskTags", b =>
+                {
+                    b.Property<string>("TagName")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TagUserId")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TaskId")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("TagName", "TagUserId", "TaskId");
+
+                    b.HasIndex("TaskId");
+
+                    b.HasIndex("TagUserId", "TagName");
+
+                    b.ToTable("CachedTaskTags");
+                });
+
             modelBuilder.Entity("TodoExtended.Web.Data.ApiKey", b =>
                 {
                     b.Property<int>("Id")
@@ -174,29 +197,6 @@ namespace TodoExtended.Web.Migrations
                     b.ToTable("CachedTaskLists");
                 });
 
-            modelBuilder.Entity("TodoExtended.Web.Data.CachedTaskTag", b =>
-                {
-                    b.Property<string>("TagName")
-                        .HasMaxLength(128)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("TagUserId")
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("TaskId")
-                        .HasMaxLength(256)
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("TagName", "TagUserId", "TaskId");
-
-                    b.HasIndex("TaskId");
-
-                    b.HasIndex("TagUserId", "TagName");
-
-                    b.ToTable("CachedTaskTags");
-                });
-
             modelBuilder.Entity("TodoExtended.Web.Data.DistributedCacheEntry", b =>
                 {
                     b.Property<string>("Key")
@@ -347,6 +347,21 @@ namespace TodoExtended.Web.Migrations
                     b.ToTable("UserTokens");
                 });
 
+            modelBuilder.Entity("CachedTaskTags", b =>
+                {
+                    b.HasOne("TodoExtended.Web.Data.CachedTask", null)
+                        .WithMany()
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("TodoExtended.Web.Data.CachedTag", null)
+                        .WithMany()
+                        .HasForeignKey("TagName", "TagUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("TodoExtended.Web.Data.ApiKey", b =>
                 {
                     b.HasOne("TodoExtended.Web.Data.User", "User")
@@ -380,25 +395,6 @@ namespace TodoExtended.Web.Migrations
                     b.Navigation("List");
                 });
 
-            modelBuilder.Entity("TodoExtended.Web.Data.CachedTaskTag", b =>
-                {
-                    b.HasOne("TodoExtended.Web.Data.CachedTask", "Task")
-                        .WithMany("TaskTags")
-                        .HasForeignKey("TaskId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("TodoExtended.Web.Data.CachedTag", "Tag")
-                        .WithMany("TaskTags")
-                        .HasForeignKey("TagName", "TagUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Tag");
-
-                    b.Navigation("Task");
-                });
-
             modelBuilder.Entity("TodoExtended.Web.Data.TaskTemplate", b =>
                 {
                     b.HasOne("TodoExtended.Web.Data.User", "User")
@@ -419,16 +415,6 @@ namespace TodoExtended.Web.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("TodoExtended.Web.Data.CachedTag", b =>
-                {
-                    b.Navigation("TaskTags");
-                });
-
-            modelBuilder.Entity("TodoExtended.Web.Data.CachedTask", b =>
-                {
-                    b.Navigation("TaskTags");
                 });
 
             modelBuilder.Entity("TodoExtended.Web.Data.CachedTaskList", b =>

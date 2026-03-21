@@ -8,7 +8,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<CachedTaskList> CachedTaskLists => Set<CachedTaskList>();
     public DbSet<CachedTask> CachedTasks => Set<CachedTask>();
     public DbSet<CachedTag> CachedTags => Set<CachedTag>();
-    public DbSet<CachedTaskTag> CachedTaskTags => Set<CachedTaskTag>();
     public DbSet<SyncMetadata> SyncMetadata => Set<SyncMetadata>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
@@ -74,27 +73,30 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
-        });
 
-        modelBuilder.Entity<CachedTaskTag>(entity =>
-        {
-            entity.HasKey(e => new { e.TagName, e.TagUserId, e.TaskId });
-            entity.Property(e => e.TagName).HasMaxLength(128);
-            entity.Property(e => e.TagUserId).HasMaxLength(256);
-            entity.Property(e => e.TaskId).HasMaxLength(256);
-
-            entity.HasIndex(e => e.TaskId);
-            entity.HasIndex(e => new { e.TagUserId, e.TagName });
-
-            entity.HasOne(e => e.Tag)
-                .WithMany(e => e.TaskTags)
-                .HasForeignKey(e => new { e.TagName, e.TagUserId })
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(e => e.Task)
-                .WithMany(e => e.TaskTags)
-                .HasForeignKey(e => e.TaskId)
-                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(e => e.Tasks)
+                .WithMany(e => e.Tags)
+                .UsingEntity<Dictionary<string, object>>(
+                    "CachedTaskTags",
+                    r => r.HasOne<CachedTask>()
+                          .WithMany()
+                          .HasForeignKey("TaskId")
+                          .HasPrincipalKey(nameof(CachedTask.Id))
+                          .OnDelete(DeleteBehavior.Cascade),
+                    l => l.HasOne<CachedTag>()
+                          .WithMany()
+                          .HasForeignKey("TagName", "TagUserId")
+                          .HasPrincipalKey(nameof(CachedTag.Name), nameof(CachedTag.UserId))
+                          .OnDelete(DeleteBehavior.Cascade),
+                    j =>
+                    {
+                        j.HasKey("TagName", "TagUserId", "TaskId");
+                        j.Property<string>("TagName").HasMaxLength(128);
+                        j.Property<string>("TagUserId").HasMaxLength(256);
+                        j.Property<string>("TaskId").HasMaxLength(256);
+                        j.HasIndex("TaskId");
+                        j.HasIndex("TagUserId", "TagName");
+                    });
         });
 
         modelBuilder.Entity<SyncMetadata>(entity =>

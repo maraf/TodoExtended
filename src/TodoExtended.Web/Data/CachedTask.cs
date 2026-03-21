@@ -16,5 +16,5 @@ public class CachedTask
     public required string UserId { get; set; }
     
     public CachedTaskList? List { get; set; }
-    public ICollection<CachedTaskTag> TaskTags { get; set; } = [];
+    public ICollection<CachedTag> Tags { get; set; } = [];
 }

@@ -10,30 +10,24 @@ namespace TodoExtended.Web.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK_CachedTags_CachedTasks_TaskId",
-                table: "CachedTags");
-
-            migrationBuilder.DropPrimaryKey(
-                name: "PK_CachedTags",
-                table: "CachedTags");
-
-            migrationBuilder.DropIndex(
-                name: "IX_CachedTags_TaskId",
-                table: "CachedTags");
-
-            migrationBuilder.DropIndex(
-                name: "IX_CachedTags_UserId_Name",
-                table: "CachedTags");
-
-            migrationBuilder.DropColumn(
-                name: "TaskId",
-                table: "CachedTags");
-
-            migrationBuilder.AddPrimaryKey(
-                name: "PK_CachedTags",
-                table: "CachedTags",
-                columns: new[] { "Name", "UserId" });
+            migrationBuilder.CreateTable(
+                name: "CachedTags",
+                columns: table => new
+                {
+                    Name = table.Column<string>(type: "TEXT", maxLength: 128, nullable: false),
+                    UserId = table.Column<string>(type: "TEXT", maxLength: 256, nullable: false),
+                    IsPinned = table.Column<bool>(type: "INTEGER", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CachedTags", x => new { x.Name, x.UserId });
+                    table.ForeignKey(
+                        name: "FK_CachedTags_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
 
             migrationBuilder.CreateTable(
                 name: "CachedTaskTags",
@@ -61,6 +55,11 @@ namespace TodoExtended.Web.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_CachedTags_UserId_IsPinned",
+                table: "CachedTags",
+                columns: new[] { "UserId", "IsPinned" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_CachedTaskTags_TagUserId_TagName",
                 table: "CachedTaskTags",
                 columns: new[] { "TagUserId", "TagName" });
@@ -77,40 +76,8 @@ namespace TodoExtended.Web.Migrations
             migrationBuilder.DropTable(
                 name: "CachedTaskTags");
 
-            migrationBuilder.DropPrimaryKey(
-                name: "PK_CachedTags",
-                table: "CachedTags");
-
-            migrationBuilder.AddColumn<string>(
-                name: "TaskId",
-                table: "CachedTags",
-                type: "TEXT",
-                maxLength: 256,
-                nullable: false,
-                defaultValue: "");
-
-            migrationBuilder.AddPrimaryKey(
-                name: "PK_CachedTags",
-                table: "CachedTags",
-                columns: new[] { "Name", "TaskId" });
-
-            migrationBuilder.CreateIndex(
-                name: "IX_CachedTags_TaskId",
-                table: "CachedTags",
-                column: "TaskId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_CachedTags_UserId_Name",
-                table: "CachedTags",
-                columns: new[] { "UserId", "Name" });
-
-            migrationBuilder.AddForeignKey(
-                name: "FK_CachedTags_CachedTasks_TaskId",
-                table: "CachedTags",
-                column: "TaskId",
-                principalTable: "CachedTasks",
-                principalColumn: "Id",
-                onDelete: ReferentialAction.Cascade);
+            migrationBuilder.DropTable(
+                name: "CachedTags");
         }
     }
 }
