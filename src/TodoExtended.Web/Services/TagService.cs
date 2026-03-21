@@ -9,15 +9,14 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
     {
         await using var db = await dbContextFactory.CreateDbContextAsync();
 
-        // Group CachedTag rows by Name, count open (non-completed, non-deleted, synced) tasks per tag
         var tagCounts = await db.CachedTags
             .AsNoTracking()
-            .Where(ct => ct.UserId == userId && ct.Task!.List!.IsSynced && !ct.Task.IsDeleted)
-            .GroupBy(ct => ct.Name)
-            .Select(g => new
+            .Where(t => t.UserId == userId)
+            .Select(t => new
             {
-                Tag = g.Key,
-                TaskCount = g.Count(ct => !ct.Task!.IsCompleted),
+                Tag = t.Name,
+                TaskCount = t.TaskTags.Count(tt =>
+                    !tt.Task!.IsDeleted && tt.Task.List!.IsSynced && !tt.Task.IsCompleted),
             })
             .ToListAsync();
 
@@ -37,13 +36,13 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
 
         var normalizedTag = tag.ToLowerInvariant();
 
-        var tasks = await db.CachedTags
+        var tasks = await db.CachedTaskTags
             .AsNoTracking()
-            .Where(ct => ct.UserId == userId && ct.Name == normalizedTag
-                && !ct.Task!.IsDeleted && ct.Task.List!.IsSynced)
-            .Select(ct => new TodoTaskWithList(
-                ct.Task!.Id, ct.Task.Title, ct.Task.Body, ct.Task.IsCompleted,
-                ct.Task.DueDate, ct.Task.Importance, ct.Task.ListId, ct.Task.List!.DisplayName))
+            .Where(tt => tt.TagName == normalizedTag && tt.TagUserId == userId
+                && !tt.Task!.IsDeleted && tt.Task.List!.IsSynced)
+            .Select(tt => new TodoTaskWithList(
+                tt.Task!.Id, tt.Task.Title, tt.Task.Body, tt.Task.IsCompleted,
+                tt.Task.DueDate, tt.Task.Importance, tt.Task.ListId, tt.Task.List!.DisplayName))
             .ToListAsync();
 
         return tasks
@@ -58,9 +57,8 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
 
         return await db.CachedTags
             .AsNoTracking()
-            .Where(ct => ct.UserId == userId && ct.IsPinned)
-            .Select(ct => ct.Name)
-            .Distinct()
+            .Where(t => t.UserId == userId && t.IsPinned)
+            .Select(t => t.Name)
             .OrderBy(n => n)
             .ToListAsync();
     }
@@ -72,7 +70,7 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
         var normalizedTag = tag.ToLowerInvariant();
 
         await db.CachedTags
-            .Where(ct => ct.UserId == userId && ct.Name == normalizedTag)
-            .ExecuteUpdateAsync(s => s.SetProperty(ct => ct.IsPinned, pinned));
+            .Where(t => t.UserId == userId && t.Name == normalizedTag)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.IsPinned, pinned));
     }
 }

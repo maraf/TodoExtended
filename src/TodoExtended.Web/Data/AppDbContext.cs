@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<CachedTaskList> CachedTaskLists => Set<CachedTaskList>();
     public DbSet<CachedTask> CachedTasks => Set<CachedTask>();
     public DbSet<CachedTag> CachedTags => Set<CachedTag>();
+    public DbSet<CachedTaskTag> CachedTaskTags => Set<CachedTaskTag>();
     public DbSet<SyncMetadata> SyncMetadata => Set<SyncMetadata>();
     public DbSet<User> Users => Set<User>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
@@ -63,22 +64,36 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         modelBuilder.Entity<CachedTag>(entity =>
         {
-            entity.HasKey(e => new { e.Name, e.TaskId });
+            entity.HasKey(e => new { e.Name, e.UserId });
             entity.Property(e => e.Name).HasMaxLength(128);
-            entity.Property(e => e.TaskId).HasMaxLength(256);
             entity.Property(e => e.UserId).HasMaxLength(256);
 
-            entity.HasIndex(e => new { e.UserId, e.Name });
             entity.HasIndex(e => new { e.UserId, e.IsPinned });
-
-            entity.HasOne(e => e.Task)
-                .WithMany(e => e.CachedTags)
-                .HasForeignKey(e => e.TaskId)
-                .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasOne(e => e.User)
                 .WithMany()
                 .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CachedTaskTag>(entity =>
+        {
+            entity.HasKey(e => new { e.TagName, e.TagUserId, e.TaskId });
+            entity.Property(e => e.TagName).HasMaxLength(128);
+            entity.Property(e => e.TagUserId).HasMaxLength(256);
+            entity.Property(e => e.TaskId).HasMaxLength(256);
+
+            entity.HasIndex(e => e.TaskId);
+            entity.HasIndex(e => new { e.TagUserId, e.TagName });
+
+            entity.HasOne(e => e.Tag)
+                .WithMany(e => e.TaskTags)
+                .HasForeignKey(e => new { e.TagName, e.TagUserId })
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Task)
+                .WithMany(e => e.TaskTags)
+                .HasForeignKey(e => e.TaskId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
