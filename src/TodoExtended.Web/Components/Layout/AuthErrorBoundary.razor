@@ -16,6 +16,12 @@ else
         if (!AuthExceptionHelper.IsAuthException(exception))
             return base.OnErrorAsync(exception);
 
+        if (AuthExceptionHelper.IsUnauthenticatedUser(exception))
+        {
+            NavigationManager.NavigateTo("/");
+            return Task.CompletedTask;
+        }
+
         var destination = AuthExceptionHelper.IsIrrecoverableMsalError(exception)
             ? "MicrosoftIdentity/Account/SignOut"
             : "MicrosoftIdentity/Account/SignIn";
