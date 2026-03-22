@@ -40,6 +40,16 @@ module ApiClient {
         _makePostRequest(url, callback);
     }
 
+    function getFavoriteTags(callback as ApiCallback) as Void {
+        var url = Settings.getApiBaseUrl() + "/api/tags/pinned";
+        _makeGetRequest(url, callback);
+    }
+
+    function getTagTasks(tagName as String, callback as ApiCallback) as Void {
+        var url = Settings.getApiBaseUrl() + "/api/tags/" + tagName + "/tasks";
+        _makeGetRequest(url, callback);
+    }
+
     function _makeGetRequest(url as String, callback as ApiCallback) as Void {
         var options = {
             :method => Communications.HTTP_REQUEST_METHOD_GET,
