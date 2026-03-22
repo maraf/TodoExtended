@@ -21,8 +21,7 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
             .ToListAsync();
 
         return tagCounts
-            .OrderByDescending(t => t.TaskCount)
-            .ThenBy(t => t.Tag, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(t => t.Tag, StringComparer.OrdinalIgnoreCase)
             .Select(t => new TagWithCount(t.Tag, t.TaskCount))
             .ToList();
     }
