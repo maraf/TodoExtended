@@ -1,8 +1,6 @@
 @page "/tags/{Tag}"
 @attribute [Authorize]
 @inject ITagService TagService
-@inject ITodoService TodoService
-@inject NavigationManager NavigationManager
 @inject INotificationService Notifications
 
 <PageTitle>#@Tag</PageTitle>
@@ -38,17 +36,13 @@ else
         @foreach (var task in _tasks)
         {
             @if (_hideCompleted && task.IsCompleted) { continue; }
-            <div class="task-row gap-3">
-                <button @onclick="() => ToggleTask(task)"
-                        class="flex-shrink-0 w-5 h-5 rounded-full border-2 @(task.IsCompleted ? "bg-emerald-500 border-emerald-500" : "border-slate-300 dark:border-slate-600") flex items-center justify-center transition-colors hover:border-emerald-400"
-                        aria-label="@(task.IsCompleted ? "Mark incomplete" : "Mark complete")">
-                    @if (task.IsCompleted)
-                    {
-                        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
-                        </svg>
-                    }
-                </button>
+            <div @key="task.Id" class="task-row @(task.IsCompleted ? "opacity-50" : "") gap-3">
+                <TaskStatusCheckbox TaskId="@task.Id"
+                                    ListId="@task.ListId"
+                                    IsCompleted="@task.IsCompleted"
+                                    TaskTitle="@task.Title"
+                                    OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                    OnError="(msg) => Notifications.Add(msg, NotifySeverity.Warning)" />
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium text-slate-800 dark:text-slate-200 @(task.IsCompleted ? "line-through text-slate-400 dark:text-slate-500" : "") truncate">
                         @task.Title
@@ -117,17 +111,8 @@ else
         }
     }
 
-    private async Task ToggleTask(TodoTaskWithList task)
+    private void HandleTaskStatusChanged(string taskId, bool newStatus)
     {
-        try
-        {
-            var userId = await GetUserIdAsync();
-            await TodoService.UpdateTaskStatusAsync(task.ListId, task.Id, !task.IsCompleted, userId);
-            _tasks = _tasks.Select(t => t.Id == task.Id ? t with { IsCompleted = !t.IsCompleted } : t).ToList();
-        }
-        catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
-        {
-            Notifications.Add($"Failed: {ex.Message}", NotifySeverity.Error);
-        }
+        _tasks = _tasks.Select(t => t.Id == taskId ? t with { IsCompleted = newStatus } : t).ToList();
     }
 }
