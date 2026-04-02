@@ -52,6 +52,13 @@
                     }
                     wasKeyboardOpen = keyboardOpen;
                 });
+                // Exposed so the reconnect modal can re-evaluate keyboard state after it closes,
+                // preventing a stale keyboard-open class from removing content bottom padding.
+                window.updateKeyboardState = function () {
+                    var current = window.visualViewport.height;
+                    var keyboardOpen = baseline - current > keyboardOpenThreshold;
+                    document.body.classList.toggle('keyboard-open', keyboardOpen);
+                };
             }
         })();
     </script>
