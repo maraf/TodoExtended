@@ -433,7 +433,7 @@ api.MapGet("/tasklists/{listId}/tasks", async (string listId, HttpContext contex
 {
     var userId = context.User.GetUserId();
     var tasks = await todoService.GetTasksAsync(listId, userId);
-    return Results.Ok(tasks.Select(t => new ApiTodoTask(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance)));
+    return Results.Ok(tasks.Where(t => !t.IsCompleted).Select(t => new ApiTodoTask(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance)));
 });
 
 app.Run();
