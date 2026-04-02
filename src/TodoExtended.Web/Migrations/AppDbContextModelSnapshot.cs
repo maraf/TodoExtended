@@ -114,9 +114,6 @@ namespace TodoExtended.Web.Migrations
                     b.Property<DateOnly?>("DueDate")
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("HasReminder")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("Importance")
                         .HasMaxLength(32)
                         .HasColumnType("TEXT");
@@ -127,15 +124,18 @@ namespace TodoExtended.Web.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("INTEGER");
 
-                    b.Property<bool>("IsRecurring")
-                        .HasColumnType("INTEGER");
-
                     b.Property<DateTime>("LastSyncUtc")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("ListId")
                         .IsRequired()
                         .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RecurrencePattern")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ReminderDateTime")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Title")

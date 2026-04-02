@@ -125,7 +125,15 @@ public class DemoGraphTodoClient(DemoDataStore store) : IGraphTodoClient
         }
 
         if (t.HasReminder)
+        {
             task.IsReminderOn = true;
+            // Use tomorrow 09:00 UTC as a representative reminder time for demo tasks.
+            task.ReminderDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = DateTime.UtcNow.Date.AddDays(1).AddHours(9).ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
+                TimeZone = "UTC",
+            };
+        }
 
         if (t.IsRecurring)
         {

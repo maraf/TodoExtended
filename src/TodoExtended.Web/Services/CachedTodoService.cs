@@ -70,7 +70,8 @@ public class CachedTodoService(
         
         return tasks
             .Select(t => new TodoTask(
-                t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance, t.HasReminder, t.IsRecurring))
+                t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
+                t.ReminderDateTime.HasValue, t.RecurrencePattern != null))
             .OrderBy(t => t.IsCompleted)
             .ThenBy(t => ImportanceSortOrder(t.Importance))
             .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
@@ -85,7 +86,8 @@ public class CachedTodoService(
         var t = await db.CachedTasks
             .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == taskListId && t.UserId == userId && !t.IsDeleted);
 
-        return t == null ? null : new TodoTask(t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance, t.HasReminder, t.IsRecurring);
+        return t == null ? null : new TodoTask(t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
+            t.ReminderDateTime.HasValue, t.RecurrencePattern != null);
     }
 
     public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync(string userId)
@@ -113,7 +115,7 @@ public class CachedTodoService(
         return tasks
             .Select(t => new TodoTaskWithList(
                 t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
-                t.ListId, t.List!.DisplayName, t.HasReminder, t.IsRecurring))
+                t.ListId, t.List!.DisplayName, t.ReminderDateTime.HasValue, t.RecurrencePattern != null))
             .OrderBy(t => t.IsCompleted)
             .ThenBy(t => ImportanceSortOrder(t.Importance))
             .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
@@ -137,7 +139,7 @@ public class CachedTodoService(
                 && EF.Functions.Like(t.Title, likePattern, "\\"))
             .Select(t => new TodoTaskWithList(
                 t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
-                t.ListId, t.List!.DisplayName, t.HasReminder, t.IsRecurring))
+                t.ListId, t.List!.DisplayName, t.ReminderDateTime != null, t.RecurrencePattern != null))
             .ToListAsync();
 
         return matchingTasks
@@ -175,7 +177,17 @@ public class CachedTodoService(
     public async Task<TodoTask> CreateTaskAsync(string taskListId, string title, DateOnly? dueDate, string userId, TimeOnly? reminderTime = null)
     {
         var created = await graphService.CreateTaskAsync(taskListId, title, dueDate, userId, reminderTime);
-        
+
+        // Compute the UTC reminder datetime from the parameter, since the returned TodoTask only carries a boolean.
+        DateTime? reminderDateTimeUtc = null;
+        if (reminderTime.HasValue)
+        {
+            var userZone = await userTimeZoneService.GetCurrentUserTimeZoneAsync();
+            var todayLocal = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, userZone));
+            var reminderLocal = todayLocal.ToDateTime(reminderTime.Value);
+            reminderDateTimeUtc = TimeZoneInfo.ConvertTimeToUtc(reminderLocal, userZone);
+        }
+
         await using var db = await dbContextFactory.CreateDbContextAsync();
         var cachedTask = new CachedTask
         {
@@ -186,8 +198,8 @@ public class CachedTodoService(
             IsCompleted = created.IsCompleted,
             DueDate = created.DueDate,
             Importance = created.Importance,
-            HasReminder = created.HasReminder,
-            IsRecurring = created.IsRecurring,
+            ReminderDateTime = reminderDateTimeUtc,
+            RecurrencePattern = null,
             IsDeleted = false,
             LastSyncUtc = DateTime.UtcNow,
             CreatedUtc = DateTime.UtcNow,
@@ -801,8 +813,10 @@ public class CachedTodoService(
                         var now = DateTime.UtcNow;
                         var dueDate = ParseDueDate(graphTask.DueDateTime);
                         var title = graphTask.Title ?? "Untitled";
-                        var hasReminder = graphTask.IsReminderOn == true;
-                        var isRecurring = graphTask.Recurrence != null;
+                        var reminderDateTime = graphTask.IsReminderOn == true
+                            ? ParseReminderDateTimeUtc(graphTask.ReminderDateTime)
+                            : null;
+                        var recurrencePattern = ParseRecurrencePattern(graphTask.Recurrence);
 
                         if (cachedTask == null)
                         {
@@ -816,8 +830,8 @@ public class CachedTodoService(
                                 IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed,
                                 DueDate = dueDate,
                                 Importance = graphTask.Importance?.ToString(),
-                                HasReminder = hasReminder,
-                                IsRecurring = isRecurring,
+                                ReminderDateTime = reminderDateTime,
+                                RecurrencePattern = recurrencePattern,
                                 IsDeleted = false,
                                 LastSyncUtc = now,
                                 CreatedUtc = now,
@@ -836,8 +850,8 @@ public class CachedTodoService(
                             cachedTask.IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed;
                             cachedTask.DueDate = dueDate;
                             cachedTask.Importance = graphTask.Importance?.ToString();
-                            cachedTask.HasReminder = hasReminder;
-                            cachedTask.IsRecurring = isRecurring;
+                            cachedTask.ReminderDateTime = reminderDateTime;
+                            cachedTask.RecurrencePattern = recurrencePattern;
                             cachedTask.IsDeleted = false;
                             cachedTask.UpdatedUtc = now;
                             cachedTask.LastSyncUtc = now;
@@ -1077,4 +1091,38 @@ public class CachedTodoService(
         "low" => 2,
         _ => 1,
     };
+
+    /// <summary>
+    /// Converts a Graph <see cref="Microsoft.Graph.Models.DateTimeTimeZone"/> reminder value to UTC.
+    /// Returns null when the value is absent or cannot be parsed.
+    /// </summary>
+    private static DateTime? ParseReminderDateTimeUtc(Microsoft.Graph.Models.DateTimeTimeZone? reminderDateTime)
+    {
+        if (reminderDateTime?.DateTime is null) return null;
+
+        if (!DateTime.TryParse(reminderDateTime.DateTime, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+            return null;
+
+        if (!string.IsNullOrEmpty(reminderDateTime.TimeZone))
+        {
+            try
+            {
+                var tz = TimeZoneInfo.FindSystemTimeZoneById(reminderDateTime.TimeZone);
+                return TimeZoneInfo.ConvertTimeToUtc(dt, tz);
+            }
+            catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+            {
+                // Fall through — treat the value as UTC
+            }
+        }
+
+        return DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+    }
+
+    /// <summary>
+    /// Returns the recurrence pattern type string (e.g. "Daily", "Weekly") from a Graph
+    /// <see cref="Microsoft.Graph.Models.PatternedRecurrence"/>, or null if there is no recurrence.
+    /// </summary>
+    private static string? ParseRecurrencePattern(Microsoft.Graph.Models.PatternedRecurrence? recurrence) =>
+        recurrence?.Pattern?.Type?.ToString();
 }

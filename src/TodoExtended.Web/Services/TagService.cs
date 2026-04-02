@@ -42,7 +42,7 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
             .Select(task => new TodoTaskWithList(
                 task.Id, task.Title, task.Body, task.IsCompleted,
                 task.DueDate, task.Importance, task.ListId, task.List!.DisplayName,
-                task.HasReminder, task.IsRecurring))
+                task.ReminderDateTime != null, task.RecurrencePattern != null))
             .ToListAsync();
 
         return tasks
