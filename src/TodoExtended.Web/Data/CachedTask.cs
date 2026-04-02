@@ -9,6 +9,10 @@ public class CachedTask
     public bool IsCompleted { get; set; }
     public DateOnly? DueDate { get; set; }
     public string? Importance { get; set; }
+    /// <summary>UTC date/time of the reminder, or null if there is no active reminder.</summary>
+    public DateTime? ReminderDateTime { get; set; }
+    /// <summary>Recurrence pattern type (e.g. "Daily", "Weekly"), or null if the task is not recurring.</summary>
+    public string? RecurrencePattern { get; set; }
     public bool IsDeleted { get; set; }
     public DateTime LastSyncUtc { get; set; }
     public DateTime CreatedUtc { get; set; }

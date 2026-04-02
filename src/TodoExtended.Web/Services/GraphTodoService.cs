@@ -28,7 +28,9 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                     t.Body?.Content,
                     t.Status == Microsoft.Graph.Models.TaskStatus.Completed,
                     ParseDueDate(t.DueDateTime),
-                    t.Importance?.ToString());
+                    t.Importance?.ToString(),
+                    t.IsReminderOn == true,
+                    t.Recurrence != null);
             })
             .ToList();
     }
@@ -45,7 +47,9 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             t.Body?.Content,
             t.Status == Microsoft.Graph.Models.TaskStatus.Completed,
             ParseDueDate(t.DueDateTime),
-            t.Importance?.ToString());
+            t.Importance?.ToString(),
+            t.IsReminderOn == true,
+            t.Recurrence != null);
     }
 
     public Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync(string userId) =>
@@ -88,7 +92,9 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                     ParseDueDate(t.DueDateTime),
                     t.Importance?.ToString(),
                     list.Id,
-                    list.DisplayName));
+                    list.DisplayName,
+                    t.IsReminderOn == true,
+                    t.Recurrence != null));
             }
         }
         return result;
@@ -131,7 +137,9 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             created.Body?.Content,
             created.Status == Microsoft.Graph.Models.TaskStatus.Completed,
             ParseDueDate(created.DueDateTime),
-            created.Importance?.ToString());
+            created.Importance?.ToString(),
+            created.IsReminderOn == true,
+            created.Recurrence != null);
     }
 
     public async Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed, string userId)
@@ -288,7 +296,7 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                 .Where(t => t.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
                 .Select(t => new TodoTaskWithList(
                     t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
-                    lt.list.Id, lt.list.DisplayName)))
+                    lt.list.Id, lt.list.DisplayName, t.HasReminder, t.IsRecurring)))
             .OrderBy(t => t.IsCompleted)
             .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();

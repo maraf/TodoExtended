@@ -66,6 +66,7 @@ else
                     {
                         <span class="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">@task.DueDate.Value.ToString("MMM d")</span>
                     }
+                    <TaskIndicators HasReminder="@task.HasReminder" IsRecurring="@task.IsRecurring" />
                 </div>
             }
         }

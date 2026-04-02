@@ -45,7 +45,9 @@ public record TodoTask(
     string? Body,
     bool IsCompleted,
     DateOnly? DueDate,
-    string? Importance);
+    string? Importance,
+    bool HasReminder = false,
+    bool IsRecurring = false);
 
 public record TodoTaskWithList(
     string Id,
@@ -55,7 +57,9 @@ public record TodoTaskWithList(
     DateOnly? DueDate,
     string? Importance,
     string ListId,
-    string ListName);
+    string ListName,
+    bool HasReminder = false,
+    bool IsRecurring = false);
 
 public interface ITodoService
 {

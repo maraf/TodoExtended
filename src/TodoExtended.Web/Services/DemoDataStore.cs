@@ -99,5 +99,7 @@ public class DemoTaskItem
     public bool IsCompleted { get; set; }
     public DateOnly? DueDate { get; set; }
     public string? Importance { get; set; }
+    public bool HasReminder { get; set; }
+    public bool IsRecurring { get; set; }
 }
 
