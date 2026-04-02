@@ -84,6 +84,7 @@ else
     private bool _hideCompleted = true;
     private bool _rescheduleMode;
     private string? _userId;
+    private long _loadVersion;
 
     private async Task<string> GetUserIdAsync()
     {
@@ -93,37 +94,48 @@ else
         return _userId;
     }
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadTasksAsync();
-    }
-
     protected override async Task OnParametersSetAsync()
     {
-        if (!_loading)
-        {
-            _loading = true;
-            _error = null;
-            _hideCompleted = true;
-            _rescheduleMode = false;
-            await LoadTasksAsync();
-        }
+        _loading = true;
+        _error = null;
+        _tasks = [];
+        _hideCompleted = true;
+        _rescheduleMode = false;
+
+        var loadVersion = Interlocked.Increment(ref _loadVersion);
+        await LoadTasksAsync(Tag, loadVersion);
     }
 
-    private async Task LoadTasksAsync()
+    private async Task LoadTasksAsync(string tag, long loadVersion)
     {
         try
         {
             var userId = await GetUserIdAsync();
-            _tasks = await TagService.GetTasksByTagAsync(Tag, userId);
+            var tasks = await TagService.GetTasksByTagAsync(tag, userId);
+
+            if (loadVersion != _loadVersion)
+            {
+                return;
+            }
+
+            _tasks = tasks;
         }
         catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
+            if (loadVersion != _loadVersion)
+            {
+                return;
+            }
+
             _error = $"Failed to load tasks: {ex.Message}";
+            _tasks = [];
         }
         finally
         {
-            _loading = false;
+            if (loadVersion == _loadVersion)
+            {
+                _loading = false;
+            }
         }
     }
 

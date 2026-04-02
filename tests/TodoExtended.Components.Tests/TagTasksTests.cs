@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Collections.Concurrent;
 using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -55,9 +56,45 @@ public class TagTasksTests : TestContext
         cut.WaitForAssertion(() => Assert.Contains("Done task", cut.Markup));
     }
 
+    [Fact]
+    public void Render_WhenTagChangesDuringLoad_ShowsLatestTagTasks()
+    {
+        var tagService = new ControlledTagService();
+        RegisterServices(tagService);
+
+        var cut = RenderTagTasks("home");
+        tagService.WaitForCall("home");
+
+        cut.FindComponent<TagTasks>()
+            .SetParametersAndRender(parameters => parameters.Add(p => p.Tag, "work"));
+
+        tagService.WaitForCall("work");
+
+        tagService.Complete("work",
+        [
+            new TodoTaskWithList("work-1", "Work task", null, false, null, null, "list-2", "Office")
+        ]);
+        tagService.Complete("home",
+        [
+            new TodoTaskWithList("home-1", "Home task", null, false, null, null, "list-1", "Inbox")
+        ]);
+
+        cut.WaitForAssertion(() =>
+        {
+            var markup = cut.Markup;
+            Assert.Contains("Work task", markup);
+            Assert.DoesNotContain("Home task", markup);
+        });
+    }
+
     private void RegisterServices(IReadOnlyList<TodoTaskWithList> tasks)
     {
-        Services.AddSingleton<ITagService>(new StubTagService(tasks));
+        RegisterServices(new StubTagService(tasks));
+    }
+
+    private void RegisterServices(ITagService tagService)
+    {
+        Services.AddSingleton(tagService);
         Services.AddSingleton<ITodoService>(new StubTodoService());
         Services.AddSingleton<INotificationService>(new StubNotificationService());
     }
@@ -85,6 +122,39 @@ public class TagTasksTests : TestContext
             Task.FromResult<IReadOnlyList<string>>([]);
 
         public Task SetTagPinnedAsync(string tag, bool pinned, string userId) => Task.CompletedTask;
+    }
+
+    private sealed class ControlledTagService : ITagService
+    {
+        private readonly ConcurrentQueue<string> _calls = new();
+        private readonly ConcurrentDictionary<string, TaskCompletionSource<IReadOnlyList<TodoTaskWithList>>> _pending =
+            new(StringComparer.Ordinal);
+
+        public Task<IReadOnlyList<TagWithCount>> GetTagsAsync(string userId) =>
+            Task.FromResult<IReadOnlyList<TagWithCount>>([]);
+
+        public Task<IReadOnlyList<TodoTaskWithList>> GetTasksByTagAsync(string tag, string userId)
+        {
+            _calls.Enqueue(tag);
+            return _pending.GetOrAdd(tag, static _ => new(TaskCreationOptions.RunContinuationsAsynchronously)).Task;
+        }
+
+        public Task<IReadOnlyList<string>> GetPinnedTagsAsync(string userId) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
+        public Task SetTagPinnedAsync(string tag, bool pinned, string userId) => Task.CompletedTask;
+
+        public void WaitForCall(string tag)
+        {
+            var success = SpinWait.SpinUntil(() => _calls.Contains(tag), TimeSpan.FromSeconds(2));
+            Assert.True(success, $"Expected GetTasksByTagAsync to be called for tag '{tag}'.");
+        }
+
+        public void Complete(string tag, IReadOnlyList<TodoTaskWithList> tasks)
+        {
+            var completionSource = _pending.GetOrAdd(tag, static _ => new(TaskCreationOptions.RunContinuationsAsynchronously));
+            Assert.True(completionSource.TrySetResult(tasks), $"Tag '{tag}' request was already completed.");
+        }
     }
 
     private sealed class StubTodoService : ITodoService
