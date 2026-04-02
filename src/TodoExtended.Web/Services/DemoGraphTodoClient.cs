@@ -124,6 +124,25 @@ public class DemoGraphTodoClient(DemoDataStore store) : IGraphTodoClient
             task.Importance = importance;
         }
 
+        if (t.HasReminder)
+            task.IsReminderOn = true;
+
+        if (t.IsRecurring)
+        {
+            task.Recurrence = new Microsoft.Graph.Models.PatternedRecurrence
+            {
+                Pattern = new Microsoft.Graph.Models.RecurrencePattern
+                {
+                    Type = Microsoft.Graph.Models.RecurrencePatternType.Daily,
+                    Interval = 1,
+                },
+                Range = new Microsoft.Graph.Models.RecurrenceRange
+                {
+                    Type = Microsoft.Graph.Models.RecurrenceRangeType.NoEnd,
+                },
+            };
+        }
+
         return task;
     }
 

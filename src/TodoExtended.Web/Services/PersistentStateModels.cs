@@ -8,7 +8,9 @@ public record PersistedTodoTask(
     string Title,
     bool IsCompleted,
     DateOnly? DueDate,
-    string? Importance);
+    string? Importance,
+    bool HasReminder = false,
+    bool IsRecurring = false);
 
 public record PersistedTodoTaskWithList(
     string Id,
@@ -16,7 +18,9 @@ public record PersistedTodoTaskWithList(
     bool IsCompleted,
     string? Importance,
     string ListId,
-    string ListName);
+    string ListName,
+    bool HasReminder = false,
+    bool IsRecurring = false);
 
 public record PersistedTodoTaskList(string Id, string DisplayName)
 {

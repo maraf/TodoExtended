@@ -70,7 +70,7 @@ public class CachedTodoService(
         
         return tasks
             .Select(t => new TodoTask(
-                t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance))
+                t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance, t.HasReminder, t.IsRecurring))
             .OrderBy(t => t.IsCompleted)
             .ThenBy(t => ImportanceSortOrder(t.Importance))
             .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
@@ -85,7 +85,7 @@ public class CachedTodoService(
         var t = await db.CachedTasks
             .FirstOrDefaultAsync(t => t.Id == taskId && t.ListId == taskListId && t.UserId == userId && !t.IsDeleted);
 
-        return t == null ? null : new TodoTask(t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance);
+        return t == null ? null : new TodoTask(t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance, t.HasReminder, t.IsRecurring);
     }
 
     public async Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync(string userId)
@@ -113,7 +113,7 @@ public class CachedTodoService(
         return tasks
             .Select(t => new TodoTaskWithList(
                 t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
-                t.ListId, t.List!.DisplayName))
+                t.ListId, t.List!.DisplayName, t.HasReminder, t.IsRecurring))
             .OrderBy(t => t.IsCompleted)
             .ThenBy(t => ImportanceSortOrder(t.Importance))
             .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
@@ -137,7 +137,7 @@ public class CachedTodoService(
                 && EF.Functions.Like(t.Title, likePattern, "\\"))
             .Select(t => new TodoTaskWithList(
                 t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
-                t.ListId, t.List!.DisplayName))
+                t.ListId, t.List!.DisplayName, t.HasReminder, t.IsRecurring))
             .ToListAsync();
 
         return matchingTasks
@@ -186,6 +186,8 @@ public class CachedTodoService(
             IsCompleted = created.IsCompleted,
             DueDate = created.DueDate,
             Importance = created.Importance,
+            HasReminder = created.HasReminder,
+            IsRecurring = created.IsRecurring,
             IsDeleted = false,
             LastSyncUtc = DateTime.UtcNow,
             CreatedUtc = DateTime.UtcNow,
@@ -799,6 +801,8 @@ public class CachedTodoService(
                         var now = DateTime.UtcNow;
                         var dueDate = ParseDueDate(graphTask.DueDateTime);
                         var title = graphTask.Title ?? "Untitled";
+                        var hasReminder = graphTask.IsReminderOn == true;
+                        var isRecurring = graphTask.Recurrence != null;
 
                         if (cachedTask == null)
                         {
@@ -812,6 +816,8 @@ public class CachedTodoService(
                                 IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed,
                                 DueDate = dueDate,
                                 Importance = graphTask.Importance?.ToString(),
+                                HasReminder = hasReminder,
+                                IsRecurring = isRecurring,
                                 IsDeleted = false,
                                 LastSyncUtc = now,
                                 CreatedUtc = now,
@@ -830,6 +836,8 @@ public class CachedTodoService(
                             cachedTask.IsCompleted = graphTask.Status == Microsoft.Graph.Models.TaskStatus.Completed;
                             cachedTask.DueDate = dueDate;
                             cachedTask.Importance = graphTask.Importance?.ToString();
+                            cachedTask.HasReminder = hasReminder;
+                            cachedTask.IsRecurring = isRecurring;
                             cachedTask.IsDeleted = false;
                             cachedTask.UpdatedUtc = now;
                             cachedTask.LastSyncUtc = now;

@@ -9,6 +9,8 @@ public class CachedTask
     public bool IsCompleted { get; set; }
     public DateOnly? DueDate { get; set; }
     public string? Importance { get; set; }
+    public bool HasReminder { get; set; }
+    public bool IsRecurring { get; set; }
     public bool IsDeleted { get; set; }
     public DateTime LastSyncUtc { get; set; }
     public DateTime CreatedUtc { get; set; }
