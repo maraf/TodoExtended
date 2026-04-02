@@ -31,18 +31,7 @@
                 var baseline = window.visualViewport.height;
                 var lastWidth = window.visualViewport.width;
                 var wasKeyboardOpen = false;
-                function applyKeyboardState(current) {
-                    var keyboardOpen = baseline - current > keyboardOpenThreshold;
-                    document.body.classList.toggle('keyboard-open', keyboardOpen);
-                    if (wasKeyboardOpen && !keyboardOpen && document.querySelector('.chat-input-sticky')) {
-                        // Keyboard just closed on the chat page — scroll main to bottom
-                        // so the sticky chat input re-aligns to its correct bottom-14 position.
-                        var el = document.querySelector('main');
-                        if (el) el.scrollTop = el.scrollHeight - el.clientHeight;
-                    }
-                    wasKeyboardOpen = keyboardOpen;
-                }
-                window.visualViewport.addEventListener('resize', function () {
+                function handleViewportChange() {
                     var current = window.visualViewport.height;
                     var currentWidth = window.visualViewport.width;
                     // Width change means orientation change — reset baseline and clear state.
@@ -53,15 +42,22 @@
                         wasKeyboardOpen = false;
                         return;
                     }
-                    applyKeyboardState(current);
-                });
+                    var keyboardOpen = baseline - current > keyboardOpenThreshold;
+                    document.body.classList.toggle('keyboard-open', keyboardOpen);
+                    if (wasKeyboardOpen && !keyboardOpen && document.querySelector('.chat-input-sticky')) {
+                        // Keyboard just closed on the chat page — scroll main to bottom
+                        // so the sticky chat input re-aligns to its correct bottom-14 position.
+                        var el = document.querySelector('main');
+                        if (el) el.scrollTop = el.scrollHeight - el.clientHeight;
+                    }
+                    wasKeyboardOpen = keyboardOpen;
+                }
+                window.visualViewport.addEventListener('resize', handleViewportChange);
                 // Exposed so the reconnect modal can re-evaluate keyboard state after it closes,
                 // preventing a stale keyboard-open class from removing content bottom padding.
-                // Uses the same shared logic as the resize handler, including updating wasKeyboardOpen,
-                // so that the next resize event does not incorrectly see a stale transition.
-                window.updateKeyboardState = function () {
-                    applyKeyboardState(window.visualViewport.height);
-                };
+                // Runs the same full handler as the resize event (including the orientation-change
+                // width check and wasKeyboardOpen update) so all closure state stays consistent.
+                window.updateKeyboardState = handleViewportChange;
             }
         })();
     </script>
