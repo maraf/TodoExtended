@@ -65,13 +65,14 @@ public class CachedTodoService(
         await EnsureListCacheValidAsync(db, taskListId, userId);
         
         var tasks = await db.CachedTasks
-            .Where(t => t.ListId == taskListId && t.UserId == userId && !t.IsDeleted && !t.IsCompleted)
+            .Where(t => t.ListId == taskListId && t.UserId == userId && !t.IsDeleted)
             .ToListAsync();
         
         return tasks
             .Select(t => new TodoTask(
                 t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance))
-            .OrderBy(t => ImportanceSortOrder(t.Importance))
+            .OrderBy(t => t.IsCompleted)
+            .ThenBy(t => ImportanceSortOrder(t.Importance))
             .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
