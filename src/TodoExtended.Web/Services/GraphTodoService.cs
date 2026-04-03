@@ -194,8 +194,10 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
 
         try
         {
-            // If the task has an active reminder, reschedule it to the same time on the new due date.
+            // Fetch the current task to check for an active reminder and recurrence.
             var current = await graphClient.GetTaskAsync(taskListId, taskId);
+
+            // If the task has an active reminder, reschedule it to the same time on the new due date.
             if (current?.IsReminderOn == true && current.ReminderDateTime?.DateTime is not null)
             {
                 var currentReminderDt = DateTime.Parse(current.ReminderDateTime.DateTime, CultureInfo.InvariantCulture, DateTimeStyles.None);
@@ -212,6 +214,26 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                     TimeZone = userZone.Id,
                 };
                 logger.LogDebug("SetTaskDueDateAsync: Rescheduling reminder from {Old} (tz={OldTz}) to {New} (tz={NewTz})", currentReminderDt, current.ReminderDateTime.TimeZone, newReminderDt, userZone.Id);
+            }
+
+            // If the task is recurring, update the recurrence range startDate to match the new due date.
+            // Without this, Microsoft To Do creates a duplicate occurrence for the original date when
+            // the dueDateTime is patched.
+            if (current?.Recurrence?.Range != null)
+            {
+                patch.Recurrence = new Microsoft.Graph.Models.PatternedRecurrence
+                {
+                    Pattern = current.Recurrence.Pattern,
+                    Range = new Microsoft.Graph.Models.RecurrenceRange
+                    {
+                        Type = current.Recurrence.Range.Type,
+                        StartDate = new Microsoft.Kiota.Abstractions.Date(dueDate.Year, dueDate.Month, dueDate.Day),
+                        EndDate = current.Recurrence.Range.EndDate,
+                        NumberOfOccurrences = current.Recurrence.Range.NumberOfOccurrences,
+                        RecurrenceTimeZone = current.Recurrence.Range.RecurrenceTimeZone,
+                    },
+                };
+                logger.LogDebug("SetTaskDueDateAsync: Updating recurrence startDate to {StartDate} for recurring task {TaskId}", dueDate, taskId);
             }
 
             await graphClient.PatchTaskAsync(taskListId, taskId, patch);
