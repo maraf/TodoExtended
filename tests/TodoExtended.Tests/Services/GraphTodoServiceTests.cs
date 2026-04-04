@@ -350,4 +350,62 @@ public class GraphTodoServiceTests
         Assert.NotNull(patchedTask);
         Assert.Null(patchedTask.Recurrence);
     }
+
+    /// <summary>
+    /// When the existing recurring task's RecurrencePattern has null AdditionalData
+    /// (as can happen with certain Graph SDK / Kiota versions), rescheduling must not throw.
+    /// Regression test for: "Failed to reschedule task: AdditionalData can not be null".
+    /// </summary>
+    [Fact]
+    public async Task SetTaskDueDateAsync_RecurringTaskWithNullAdditionalData_DoesNotThrow()
+    {
+        // Arrange
+        var userZone = TimeZoneInfo.Utc;
+        var newDueDate = new DateOnly(2026, 4, 10);
+
+        var pattern = new GraphRecurrencePattern
+        {
+            Type = Microsoft.Graph.Models.RecurrencePatternType.Daily,
+            Interval = 1,
+        };
+        // Simulate Kiota deserialization leaving AdditionalData null
+        pattern.AdditionalData = null!;
+
+        var existingTask = new GraphTodoTask
+        {
+            IsReminderOn = false,
+            ReminderDateTime = null,
+            Recurrence = new GraphPatternedRecurrence
+            {
+                Pattern = pattern,
+                Range = new GraphRecurrenceRange
+                {
+                    Type = Microsoft.Graph.Models.RecurrenceRangeType.NoEnd,
+                    StartDate = new Date(2026, 3, 1),
+                },
+            },
+        };
+
+        var graphClient = Substitute.For<IGraphTodoClient>();
+        graphClient.GetTaskAsync(ListId, TaskId).Returns(existingTask);
+
+        GraphTodoTask? patchedTask = null;
+        graphClient
+            .When(c => c.PatchTaskAsync(ListId, TaskId, Arg.Any<GraphTodoTask>()))
+            .Do(ci => patchedTask = ci.Arg<GraphTodoTask>());
+
+        var userTimeZoneService = Substitute.For<IUserTimeZoneService>();
+        userTimeZoneService.GetCurrentUserTimeZoneAsync().Returns(userZone);
+
+        var service = new GraphTodoService(graphClient, userTimeZoneService, NullLogger<GraphTodoService>.Instance);
+
+        // Act — must not throw
+        await service.SetTaskDueDateAsync(ListId, TaskId, newDueDate, "user-1");
+
+        // Assert: recurrence is included with updated startDate and AdditionalData is initialized
+        Assert.NotNull(patchedTask);
+        Assert.NotNull(patchedTask.Recurrence?.Pattern);
+        Assert.NotNull(patchedTask.Recurrence!.Pattern!.AdditionalData);
+        Assert.Equal(new Date(2026, 4, 10), patchedTask.Recurrence.Range!.StartDate);
+    }
 }
