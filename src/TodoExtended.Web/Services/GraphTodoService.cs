@@ -221,9 +221,22 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             // the dueDateTime is patched.
             if (current?.Recurrence?.Range != null)
             {
+                // Build a fresh RecurrencePattern instead of reusing the deserialized one.
+                // The Kiota backing store on the GET response object may have null AdditionalData,
+                // which causes "AdditionalData can not be null" during PATCH serialization.
+                var src = current.Recurrence.Pattern;
                 patch.Recurrence = new Microsoft.Graph.Models.PatternedRecurrence
                 {
-                    Pattern = current.Recurrence.Pattern,
+                    Pattern = src == null ? null : new Microsoft.Graph.Models.RecurrencePattern
+                    {
+                        Type = src.Type,
+                        Interval = src.Interval,
+                        Month = src.Month,
+                        DayOfMonth = src.DayOfMonth,
+                        DaysOfWeek = src.DaysOfWeek,
+                        FirstDayOfWeek = src.FirstDayOfWeek,
+                        Index = src.Index,
+                    },
                     Range = new Microsoft.Graph.Models.RecurrenceRange
                     {
                         Type = current.Recurrence.Range.Type,
