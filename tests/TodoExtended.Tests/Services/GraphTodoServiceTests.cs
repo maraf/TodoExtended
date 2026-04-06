@@ -227,6 +227,8 @@ public class GraphTodoServiceTests
                 {
                     Type = Microsoft.Graph.Models.RecurrenceRangeType.NoEnd,
                     StartDate = new Date(2026, 3, 1),
+                    // Graph API returns default 0001-01-01 for NoEnd ranges
+                    EndDate = new Date(1, 1, 1),
                 },
             },
         };
