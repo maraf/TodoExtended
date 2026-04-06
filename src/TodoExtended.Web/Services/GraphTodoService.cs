@@ -241,7 +241,12 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                     {
                         Type = current.Recurrence.Range.Type,
                         StartDate = new Microsoft.Kiota.Abstractions.Date(dueDate.Year, dueDate.Month, dueDate.Day),
-                        EndDate = current.Recurrence.Range.EndDate,
+                        // Only copy EndDate when the range type is EndDate; for NoEnd/Numbered
+                        // ranges the Graph API returns a default 0001-01-01 value which is invalid
+                        // for OData serialization.
+                        EndDate = current.Recurrence.Range.Type == Microsoft.Graph.Models.RecurrenceRangeType.EndDate
+                            ? current.Recurrence.Range.EndDate
+                            : null,
                         NumberOfOccurrences = current.Recurrence.Range.NumberOfOccurrences,
                         RecurrenceTimeZone = current.Recurrence.Range.RecurrenceTimeZone,
                     },
