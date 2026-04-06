@@ -227,6 +227,8 @@ public class GraphTodoServiceTests
                 {
                     Type = Microsoft.Graph.Models.RecurrenceRangeType.NoEnd,
                     StartDate = new Date(2026, 3, 1),
+                    // Graph API returns default 0001-01-01 for NoEnd ranges
+                    EndDate = new Date(1, 1, 1),
                 },
             },
         };
@@ -253,6 +255,63 @@ public class GraphTodoServiceTests
         Assert.NotNull(patchedTask.Recurrence.Range);
         Assert.Equal(new Date(2026, 4, 10), patchedTask.Recurrence.Range.StartDate);
         Assert.Equal(Microsoft.Graph.Models.RecurrenceRangeType.NoEnd, patchedTask.Recurrence.Range.Type);
+        // EndDate must be null for NoEnd ranges to avoid OData serialization error with "0001-01-01"
+        Assert.Null(patchedTask.Recurrence.Range.EndDate);
+    }
+
+    /// <summary>
+    /// When rescheduling a recurring task with an EndDate range type,
+    /// the patch must preserve the original EndDate value.
+    /// </summary>
+    [Fact]
+    public async Task SetTaskDueDateAsync_RecurringTaskWithEndDate_PreservesEndDate()
+    {
+        // Arrange
+        var userZone = TimeZoneInfo.Utc;
+        var newDueDate = new DateOnly(2026, 4, 10);
+        var endDate = new Date(2026, 12, 31);
+
+        var existingTask = new GraphTodoTask
+        {
+            IsReminderOn = false,
+            ReminderDateTime = null,
+            Recurrence = new GraphPatternedRecurrence
+            {
+                Pattern = new GraphRecurrencePattern
+                {
+                    Type = Microsoft.Graph.Models.RecurrencePatternType.Daily,
+                    Interval = 1,
+                },
+                Range = new GraphRecurrenceRange
+                {
+                    Type = Microsoft.Graph.Models.RecurrenceRangeType.EndDate,
+                    StartDate = new Date(2026, 3, 1),
+                    EndDate = endDate,
+                },
+            },
+        };
+
+        var graphClient = Substitute.For<IGraphTodoClient>();
+        graphClient.GetTaskAsync(ListId, TaskId).Returns(existingTask);
+
+        GraphTodoTask? patchedTask = null;
+        graphClient
+            .When(c => c.PatchTaskAsync(ListId, TaskId, Arg.Any<GraphTodoTask>()))
+            .Do(ci => patchedTask = ci.Arg<GraphTodoTask>());
+
+        var userTimeZoneService = Substitute.For<IUserTimeZoneService>();
+        userTimeZoneService.GetCurrentUserTimeZoneAsync().Returns(userZone);
+
+        var service = new GraphTodoService(graphClient, userTimeZoneService, NullLogger<GraphTodoService>.Instance);
+
+        // Act
+        await service.SetTaskDueDateAsync(ListId, TaskId, newDueDate, "user-1");
+
+        // Assert: recurrence startDate is updated, endDate is preserved
+        Assert.NotNull(patchedTask?.Recurrence?.Range);
+        Assert.Equal(new Date(2026, 4, 10), patchedTask!.Recurrence!.Range!.StartDate);
+        Assert.Equal(Microsoft.Graph.Models.RecurrenceRangeType.EndDate, patchedTask.Recurrence.Range.Type);
+        Assert.Equal(endDate, patchedTask.Recurrence.Range.EndDate);
     }
 
     /// <summary>
