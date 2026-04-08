@@ -452,7 +452,7 @@ public class ChatService(
         [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
         string title,
         string? dueDate = null,
-        [Description("Reminder time in HH:mm format (e.g. 09:00). If provided, a reminder will be set on the task at this time.")] string? reminderTime = null,
+        [Description("Reminder time in HH:mm format (e.g. 09:00). If provided, a reminder will be set for today at this time in the user's timezone.")] string? reminderTime = null,
         [Description("The display name of the task list from get_task_lists")] string? listName = null) => "proposed";
     private static string CompleteTaskTool(
         [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
@@ -576,11 +576,23 @@ public class ChatService(
                     && DateOnly.TryParse(dueDateStr, out var parsed)
                     ? parsed
                     : null;
-                TimeOnly? createReminderTime = action.Parameters.TryGetValue("reminderTime", out var createReminderStr)
-                    && !string.IsNullOrEmpty(createReminderStr)
-                    && TimeOnly.TryParseExact(createReminderStr, ["HH:mm", "H:mm"], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedCreateReminder)
-                    ? parsedCreateReminder
-                    : null;
+                TimeOnly? createReminderTime = null;
+                if (action.Parameters.TryGetValue("reminderTime", out var createReminderStr)
+                    && !string.IsNullOrEmpty(createReminderStr))
+                {
+                    if (!TimeOnly.TryParseExact(
+                            createReminderStr,
+                            ["HH:mm", "H:mm"],
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.None,
+                            out var parsedCreateReminder))
+                    {
+                        throw new InvalidOperationException(
+                            "Missing or invalid reminderTime parameter (expected HH:mm).");
+                    }
+
+                    createReminderTime = parsedCreateReminder;
+                }
                 await todoService.CreateTaskAsync(
                     action.Parameters["listId"],
                     action.Parameters["title"],
