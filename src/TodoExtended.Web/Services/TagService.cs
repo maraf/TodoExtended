@@ -41,7 +41,8 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
                 && task.Tags.Any(t => t.Name == normalizedTag))
             .Select(task => new TodoTaskWithList(
                 task.Id, task.Title, task.Body, task.IsCompleted,
-                task.DueDate, task.Importance, task.ListId, task.List!.DisplayName))
+                task.DueDate, task.Importance, task.ListId, task.List!.DisplayName,
+                task.ReminderDateTime != null, task.RecurrencePattern != null))
             .ToListAsync();
 
         return tasks

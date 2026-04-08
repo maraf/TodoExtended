@@ -124,6 +124,33 @@ public class DemoGraphTodoClient(DemoDataStore store) : IGraphTodoClient
             task.Importance = importance;
         }
 
+        if (t.HasReminder)
+        {
+            task.IsReminderOn = true;
+            // Use tomorrow 09:00 UTC as a representative reminder time for demo tasks.
+            task.ReminderDateTime = new Microsoft.Graph.Models.DateTimeTimeZone
+            {
+                DateTime = DateTime.UtcNow.Date.AddDays(1).AddHours(9).ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
+                TimeZone = "UTC",
+            };
+        }
+
+        if (t.IsRecurring)
+        {
+            task.Recurrence = new Microsoft.Graph.Models.PatternedRecurrence
+            {
+                Pattern = new Microsoft.Graph.Models.RecurrencePattern
+                {
+                    Type = Microsoft.Graph.Models.RecurrencePatternType.Daily,
+                    Interval = 1,
+                },
+                Range = new Microsoft.Graph.Models.RecurrenceRange
+                {
+                    Type = Microsoft.Graph.Models.RecurrenceRangeType.NoEnd,
+                },
+            };
+        }
+
         return task;
     }
 

@@ -28,7 +28,9 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                     t.Body?.Content,
                     t.Status == Microsoft.Graph.Models.TaskStatus.Completed,
                     ParseDueDate(t.DueDateTime),
-                    t.Importance?.ToString());
+                    t.Importance?.ToString(),
+                    t.IsReminderOn == true,
+                    t.Recurrence != null);
             })
             .ToList();
     }
@@ -45,7 +47,9 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             t.Body?.Content,
             t.Status == Microsoft.Graph.Models.TaskStatus.Completed,
             ParseDueDate(t.DueDateTime),
-            t.Importance?.ToString());
+            t.Importance?.ToString(),
+            t.IsReminderOn == true,
+            t.Recurrence != null);
     }
 
     public Task<IReadOnlyList<TodoTaskWithList>> GetTodayTasksAsync(string userId) =>
@@ -88,7 +92,9 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                     ParseDueDate(t.DueDateTime),
                     t.Importance?.ToString(),
                     list.Id,
-                    list.DisplayName));
+                    list.DisplayName,
+                    t.IsReminderOn == true,
+                    t.Recurrence != null));
             }
         }
         return result;
@@ -131,7 +137,9 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             created.Body?.Content,
             created.Status == Microsoft.Graph.Models.TaskStatus.Completed,
             ParseDueDate(created.DueDateTime),
-            created.Importance?.ToString());
+            created.Importance?.ToString(),
+            created.IsReminderOn == true,
+            created.Recurrence != null);
     }
 
     public async Task UpdateTaskStatusAsync(string taskListId, string taskId, bool completed, string userId)
@@ -186,8 +194,10 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
 
         try
         {
-            // If the task has an active reminder, reschedule it to the same time on the new due date.
+            // Fetch the current task to check for an active reminder and recurrence.
             var current = await graphClient.GetTaskAsync(taskListId, taskId);
+
+            // If the task has an active reminder, reschedule it to the same time on the new due date.
             if (current?.IsReminderOn == true && current.ReminderDateTime?.DateTime is not null)
             {
                 var currentReminderDt = DateTime.Parse(current.ReminderDateTime.DateTime, CultureInfo.InvariantCulture, DateTimeStyles.None);
@@ -204,6 +214,44 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                     TimeZone = userZone.Id,
                 };
                 logger.LogDebug("SetTaskDueDateAsync: Rescheduling reminder from {Old} (tz={OldTz}) to {New} (tz={NewTz})", currentReminderDt, current.ReminderDateTime.TimeZone, newReminderDt, userZone.Id);
+            }
+
+            // If the task is recurring, update the recurrence range startDate to match the new due date.
+            // Without this, Microsoft To Do creates a duplicate occurrence for the original date when
+            // the dueDateTime is patched.
+            if (current?.Recurrence?.Range != null)
+            {
+                // Build a fresh RecurrencePattern instead of reusing the deserialized one.
+                // The Kiota backing store on the GET response object may have null AdditionalData,
+                // which causes "AdditionalData can not be null" during PATCH serialization.
+                var src = current.Recurrence.Pattern;
+                patch.Recurrence = new Microsoft.Graph.Models.PatternedRecurrence
+                {
+                    Pattern = src == null ? null : new Microsoft.Graph.Models.RecurrencePattern
+                    {
+                        Type = src.Type,
+                        Interval = src.Interval,
+                        Month = src.Month,
+                        DayOfMonth = src.DayOfMonth,
+                        DaysOfWeek = src.DaysOfWeek,
+                        FirstDayOfWeek = src.FirstDayOfWeek,
+                        Index = src.Index,
+                    },
+                    Range = new Microsoft.Graph.Models.RecurrenceRange
+                    {
+                        Type = current.Recurrence.Range.Type,
+                        StartDate = new Microsoft.Kiota.Abstractions.Date(dueDate.Year, dueDate.Month, dueDate.Day),
+                        // Only copy EndDate when the range type is EndDate; for NoEnd/Numbered
+                        // ranges the Graph API returns a default 0001-01-01 value which is invalid
+                        // for OData serialization.
+                        EndDate = current.Recurrence.Range.Type == Microsoft.Graph.Models.RecurrenceRangeType.EndDate
+                            ? current.Recurrence.Range.EndDate
+                            : null,
+                        NumberOfOccurrences = current.Recurrence.Range.NumberOfOccurrences,
+                        RecurrenceTimeZone = current.Recurrence.Range.RecurrenceTimeZone,
+                    },
+                };
+                logger.LogDebug("SetTaskDueDateAsync: Updating recurrence startDate to {StartDate} for recurring task {TaskId}", dueDate, taskId);
             }
 
             await graphClient.PatchTaskAsync(taskListId, taskId, patch);
@@ -288,7 +336,7 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                 .Where(t => t.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
                 .Select(t => new TodoTaskWithList(
                     t.Id, t.Title, t.Body, t.IsCompleted, t.DueDate, t.Importance,
-                    lt.list.Id, lt.list.DisplayName)))
+                    lt.list.Id, lt.list.DisplayName, t.HasReminder, t.IsRecurring)))
             .OrderBy(t => t.IsCompleted)
             .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();

@@ -14,6 +14,11 @@ function handleReconnectStateChanged(event) {
         reconnectModal.showModal();
     } else if (event.detail.state === "hide") {
         reconnectModal.close();
+        // Re-evaluate keyboard state after the dialog closes to prevent a stale
+        // keyboard-open class from removing the bottom padding of content pages.
+        if (window.updateKeyboardState) {
+            window.updateKeyboardState();
+        }
     } else if (event.detail.state === "failed") {
         document.addEventListener("visibilitychange", retryWhenDocumentBecomesVisible);
     } else if (event.detail.state === "rejected") {
@@ -38,6 +43,9 @@ async function retry() {
                 location.reload();
             } else {
                 reconnectModal.close();
+                if (window.updateKeyboardState) {
+                    window.updateKeyboardState();
+                }
             }
         }
     } catch (err) {

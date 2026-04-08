@@ -1,9 +1,13 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Kiota.Abstractions;
 using NSubstitute;
 using TodoExtended.Web.Services;
 
 using GraphTodoTask = Microsoft.Graph.Models.TodoTask;
 using GraphDateTimeTimeZone = Microsoft.Graph.Models.DateTimeTimeZone;
+using GraphPatternedRecurrence = Microsoft.Graph.Models.PatternedRecurrence;
+using GraphRecurrencePattern = Microsoft.Graph.Models.RecurrencePattern;
+using GraphRecurrenceRange = Microsoft.Graph.Models.RecurrenceRange;
 
 namespace TodoExtended.Tests.Services;
 
@@ -194,5 +198,273 @@ public class GraphTodoServiceTests
         Assert.NotNull(patchedTask);
         Assert.Null(patchedTask.IsReminderOn);
         Assert.Null(patchedTask.ReminderDateTime);
+    }
+
+    /// <summary>
+    /// When rescheduling a recurring task (with a daily recurrence and no-end range),
+    /// the patch must include the recurrence with an updated startDate matching the new due date.
+    /// This prevents Microsoft To Do from creating a duplicate occurrence for the original date.
+    /// </summary>
+    [Fact]
+    public async Task SetTaskDueDateAsync_RecurringTask_UpdatesRecurrenceStartDate()
+    {
+        // Arrange
+        var userZone = TimeZoneInfo.Utc;
+        var newDueDate = new DateOnly(2026, 4, 10);
+
+        var existingTask = new GraphTodoTask
+        {
+            IsReminderOn = false,
+            ReminderDateTime = null,
+            Recurrence = new GraphPatternedRecurrence
+            {
+                Pattern = new GraphRecurrencePattern
+                {
+                    Type = Microsoft.Graph.Models.RecurrencePatternType.Daily,
+                    Interval = 1,
+                },
+                Range = new GraphRecurrenceRange
+                {
+                    Type = Microsoft.Graph.Models.RecurrenceRangeType.NoEnd,
+                    StartDate = new Date(2026, 3, 1),
+                    // Graph API returns default 0001-01-01 for NoEnd ranges
+                    EndDate = new Date(1, 1, 1),
+                },
+            },
+        };
+
+        var graphClient = Substitute.For<IGraphTodoClient>();
+        graphClient.GetTaskAsync(ListId, TaskId).Returns(existingTask);
+
+        GraphTodoTask? patchedTask = null;
+        graphClient
+            .When(c => c.PatchTaskAsync(ListId, TaskId, Arg.Any<GraphTodoTask>()))
+            .Do(ci => patchedTask = ci.Arg<GraphTodoTask>());
+
+        var userTimeZoneService = Substitute.For<IUserTimeZoneService>();
+        userTimeZoneService.GetCurrentUserTimeZoneAsync().Returns(userZone);
+
+        var service = new GraphTodoService(graphClient, userTimeZoneService, NullLogger<GraphTodoService>.Instance);
+
+        // Act
+        await service.SetTaskDueDateAsync(ListId, TaskId, newDueDate, "user-1");
+
+        // Assert: recurrence is included in the patch with startDate updated to the new due date
+        Assert.NotNull(patchedTask);
+        Assert.NotNull(patchedTask.Recurrence);
+        Assert.NotNull(patchedTask.Recurrence.Range);
+        Assert.Equal(new Date(2026, 4, 10), patchedTask.Recurrence.Range.StartDate);
+        Assert.Equal(Microsoft.Graph.Models.RecurrenceRangeType.NoEnd, patchedTask.Recurrence.Range.Type);
+        // EndDate must be null for NoEnd ranges to avoid OData serialization error with "0001-01-01"
+        Assert.Null(patchedTask.Recurrence.Range.EndDate);
+    }
+
+    /// <summary>
+    /// When rescheduling a recurring task with an EndDate range type,
+    /// the patch must preserve the original EndDate value.
+    /// </summary>
+    [Fact]
+    public async Task SetTaskDueDateAsync_RecurringTaskWithEndDate_PreservesEndDate()
+    {
+        // Arrange
+        var userZone = TimeZoneInfo.Utc;
+        var newDueDate = new DateOnly(2026, 4, 10);
+        var endDate = new Date(2026, 12, 31);
+
+        var existingTask = new GraphTodoTask
+        {
+            IsReminderOn = false,
+            ReminderDateTime = null,
+            Recurrence = new GraphPatternedRecurrence
+            {
+                Pattern = new GraphRecurrencePattern
+                {
+                    Type = Microsoft.Graph.Models.RecurrencePatternType.Daily,
+                    Interval = 1,
+                },
+                Range = new GraphRecurrenceRange
+                {
+                    Type = Microsoft.Graph.Models.RecurrenceRangeType.EndDate,
+                    StartDate = new Date(2026, 3, 1),
+                    EndDate = endDate,
+                },
+            },
+        };
+
+        var graphClient = Substitute.For<IGraphTodoClient>();
+        graphClient.GetTaskAsync(ListId, TaskId).Returns(existingTask);
+
+        GraphTodoTask? patchedTask = null;
+        graphClient
+            .When(c => c.PatchTaskAsync(ListId, TaskId, Arg.Any<GraphTodoTask>()))
+            .Do(ci => patchedTask = ci.Arg<GraphTodoTask>());
+
+        var userTimeZoneService = Substitute.For<IUserTimeZoneService>();
+        userTimeZoneService.GetCurrentUserTimeZoneAsync().Returns(userZone);
+
+        var service = new GraphTodoService(graphClient, userTimeZoneService, NullLogger<GraphTodoService>.Instance);
+
+        // Act
+        await service.SetTaskDueDateAsync(ListId, TaskId, newDueDate, "user-1");
+
+        // Assert: recurrence startDate is updated, endDate is preserved
+        Assert.NotNull(patchedTask?.Recurrence?.Range);
+        Assert.Equal(new Date(2026, 4, 10), patchedTask!.Recurrence!.Range!.StartDate);
+        Assert.Equal(Microsoft.Graph.Models.RecurrenceRangeType.EndDate, patchedTask.Recurrence.Range.Type);
+        Assert.Equal(endDate, patchedTask.Recurrence.Range.EndDate);
+    }
+
+    /// <summary>
+    /// When rescheduling a recurring task that also has an active reminder,
+    /// the patch must include both the updated recurrence startDate and the rescheduled reminder.
+    /// </summary>
+    [Fact]
+    public async Task SetTaskDueDateAsync_RecurringTaskWithReminder_UpdatesBothRecurrenceAndReminder()
+    {
+        // Arrange
+        var userZone = TimeZoneInfo.Utc;
+        var newDueDate = new DateOnly(2026, 4, 10);
+
+        var existingTask = new GraphTodoTask
+        {
+            IsReminderOn = true,
+            ReminderDateTime = new GraphDateTimeTimeZone
+            {
+                DateTime = "2026-03-01T09:00:00",
+                TimeZone = "UTC",
+            },
+            Recurrence = new GraphPatternedRecurrence
+            {
+                Pattern = new GraphRecurrencePattern
+                {
+                    Type = Microsoft.Graph.Models.RecurrencePatternType.Weekly,
+                    Interval = 1,
+                },
+                Range = new GraphRecurrenceRange
+                {
+                    Type = Microsoft.Graph.Models.RecurrenceRangeType.NoEnd,
+                    StartDate = new Date(2026, 3, 1),
+                },
+            },
+        };
+
+        var graphClient = Substitute.For<IGraphTodoClient>();
+        graphClient.GetTaskAsync(ListId, TaskId).Returns(existingTask);
+
+        GraphTodoTask? patchedTask = null;
+        graphClient
+            .When(c => c.PatchTaskAsync(ListId, TaskId, Arg.Any<GraphTodoTask>()))
+            .Do(ci => patchedTask = ci.Arg<GraphTodoTask>());
+
+        var userTimeZoneService = Substitute.For<IUserTimeZoneService>();
+        userTimeZoneService.GetCurrentUserTimeZoneAsync().Returns(userZone);
+
+        var service = new GraphTodoService(graphClient, userTimeZoneService, NullLogger<GraphTodoService>.Instance);
+
+        // Act
+        await service.SetTaskDueDateAsync(ListId, TaskId, newDueDate, "user-1");
+
+        // Assert: recurrence startDate is updated
+        Assert.NotNull(patchedTask);
+        Assert.NotNull(patchedTask.Recurrence?.Range);
+        Assert.Equal(new Date(2026, 4, 10), patchedTask.Recurrence!.Range!.StartDate);
+        // Assert: reminder is rescheduled to same time on the new due date
+        Assert.True(patchedTask.IsReminderOn);
+        Assert.Equal("2026-04-10T09:00:00", patchedTask.ReminderDateTime?.DateTime);
+    }
+
+    /// <summary>
+    /// When the task is not recurring (Recurrence is null), the patch must not include a recurrence.
+    /// </summary>
+    [Fact]
+    public async Task SetTaskDueDateAsync_NonRecurringTask_DoesNotAddRecurrence()
+    {
+        // Arrange
+        var userZone = TimeZoneInfo.Utc;
+
+        var existingTask = new GraphTodoTask
+        {
+            IsReminderOn = false,
+            ReminderDateTime = null,
+            Recurrence = null,
+        };
+
+        var graphClient = Substitute.For<IGraphTodoClient>();
+        graphClient.GetTaskAsync(ListId, TaskId).Returns(existingTask);
+
+        GraphTodoTask? patchedTask = null;
+        graphClient
+            .When(c => c.PatchTaskAsync(ListId, TaskId, Arg.Any<GraphTodoTask>()))
+            .Do(ci => patchedTask = ci.Arg<GraphTodoTask>());
+
+        var userTimeZoneService = Substitute.For<IUserTimeZoneService>();
+        userTimeZoneService.GetCurrentUserTimeZoneAsync().Returns(userZone);
+
+        var service = new GraphTodoService(graphClient, userTimeZoneService, NullLogger<GraphTodoService>.Instance);
+
+        // Act
+        await service.SetTaskDueDateAsync(ListId, TaskId, new DateOnly(2026, 4, 10), "user-1");
+
+        // Assert: no recurrence fields set on the patch
+        Assert.NotNull(patchedTask);
+        Assert.Null(patchedTask.Recurrence);
+    }
+
+    /// <summary>
+    /// When the existing recurring task's RecurrencePattern has null AdditionalData
+    /// (as can happen with certain Graph SDK / Kiota versions), rescheduling must not throw.
+    /// Regression test for: "Failed to reschedule task: AdditionalData can not be null".
+    /// </summary>
+    [Fact]
+    public async Task SetTaskDueDateAsync_RecurringTaskWithNullAdditionalData_DoesNotThrow()
+    {
+        // Arrange
+        var userZone = TimeZoneInfo.Utc;
+        var newDueDate = new DateOnly(2026, 4, 10);
+
+        var pattern = new GraphRecurrencePattern
+        {
+            Type = Microsoft.Graph.Models.RecurrencePatternType.Daily,
+            Interval = 1,
+        };
+        // Simulate Kiota deserialization leaving AdditionalData null
+        pattern.AdditionalData = null!;
+
+        var existingTask = new GraphTodoTask
+        {
+            IsReminderOn = false,
+            ReminderDateTime = null,
+            Recurrence = new GraphPatternedRecurrence
+            {
+                Pattern = pattern,
+                Range = new GraphRecurrenceRange
+                {
+                    Type = Microsoft.Graph.Models.RecurrenceRangeType.NoEnd,
+                    StartDate = new Date(2026, 3, 1),
+                },
+            },
+        };
+
+        var graphClient = Substitute.For<IGraphTodoClient>();
+        graphClient.GetTaskAsync(ListId, TaskId).Returns(existingTask);
+
+        GraphTodoTask? patchedTask = null;
+        graphClient
+            .When(c => c.PatchTaskAsync(ListId, TaskId, Arg.Any<GraphTodoTask>()))
+            .Do(ci => patchedTask = ci.Arg<GraphTodoTask>());
+
+        var userTimeZoneService = Substitute.For<IUserTimeZoneService>();
+        userTimeZoneService.GetCurrentUserTimeZoneAsync().Returns(userZone);
+
+        var service = new GraphTodoService(graphClient, userTimeZoneService, NullLogger<GraphTodoService>.Instance);
+
+        // Act — must not throw
+        await service.SetTaskDueDateAsync(ListId, TaskId, newDueDate, "user-1");
+
+        // Assert: recurrence is included with updated startDate and AdditionalData is initialized
+        Assert.NotNull(patchedTask);
+        Assert.NotNull(patchedTask.Recurrence?.Pattern);
+        Assert.NotNull(patchedTask.Recurrence!.Pattern!.AdditionalData);
+        Assert.Equal(new Date(2026, 4, 10), patchedTask.Recurrence.Range!.StartDate);
     }
 }

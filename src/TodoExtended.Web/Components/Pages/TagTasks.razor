@@ -33,27 +33,42 @@ else
                   @bind-RescheduleMode="_rescheduleMode" />
 
     <div class="card dark:bg-slate-800 dark:border-slate-700 overflow-hidden">
-        @foreach (var task in _tasks)
+        @{
+            var visibleTasks = _hideCompleted ? _tasks.Where(t => !t.IsCompleted).ToList() : _tasks.ToList();
+        }
+
+        @if (visibleTasks.Count == 0)
         {
-            @if (_hideCompleted && task.IsCompleted) { continue; }
-            <div @key="task.Id" class="task-row @(task.IsCompleted ? "opacity-50" : "") gap-3">
-                <TaskStatusCheckbox TaskId="@task.Id"
-                                    ListId="@task.ListId"
-                                    IsCompleted="@task.IsCompleted"
-                                    TaskTitle="@task.Title"
-                                    OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
-                                    OnError="(msg) => Notifications.Add(msg, NotifySeverity.Warning)" />
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-medium text-slate-800 dark:text-slate-200 @(task.IsCompleted ? "line-through text-slate-400 dark:text-slate-500" : "") truncate">
-                        @task.Title
-                    </p>
-                    <a href="/tasks/@task.ListId" class="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-500 truncate">@task.ListName</a>
-                </div>
-                @if (task.DueDate.HasValue)
-                {
-                    <span class="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">@task.DueDate.Value.ToString("MMM d")</span>
-                }
+            <div class="flex flex-col items-center justify-center py-12 text-center">
+                <div class="text-4xl mb-3">✅</div>
+                <p class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">All tasks completed!</p>
+                <button @onclick="() => _hideCompleted = false" class="text-xs text-brand-600 dark:text-brand-400 hover:underline">Show completed tasks</button>
             </div>
+        }
+        else
+        {
+            @foreach (var task in visibleTasks)
+            {
+                <div @key="task.Id" class="task-row @(task.IsCompleted ? "opacity-50" : "") gap-3">
+                    <TaskStatusCheckbox TaskId="@task.Id"
+                                        ListId="@task.ListId"
+                                        IsCompleted="@task.IsCompleted"
+                                        TaskTitle="@task.Title"
+                                        OnStatusChanged="(newStatus) => HandleTaskStatusChanged(task.Id, newStatus)"
+                                        OnError="(msg) => Notifications.Add(msg, NotifySeverity.Warning)" />
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-slate-800 dark:text-slate-200 @(task.IsCompleted ? "line-through text-slate-400 dark:text-slate-500" : "") truncate">
+                            @task.Title
+                        </p>
+                        <a href="/tasks/@task.ListId" class="text-xs text-slate-400 dark:text-slate-500 hover:text-brand-500 truncate">@task.ListName</a>
+                    </div>
+                    @if (task.DueDate.HasValue)
+                    {
+                        <span class="text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">@task.DueDate.Value.ToString("MMM d")</span>
+                    }
+                    <TaskIndicators HasReminder="@task.HasReminder" IsRecurring="@task.IsRecurring" />
+                </div>
+            }
         }
     </div>
 }
@@ -67,9 +82,10 @@ else
     private IReadOnlyList<TodoTaskWithList> _tasks = [];
     private bool _loading = true;
     private string? _error;
-    private bool _hideCompleted;
+    private bool _hideCompleted = true;
     private bool _rescheduleMode;
     private string? _userId;
+    private long _loadVersion;
 
     private async Task<string> GetUserIdAsync()
     {
@@ -79,35 +95,48 @@ else
         return _userId;
     }
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadTasksAsync();
-    }
-
     protected override async Task OnParametersSetAsync()
     {
-        if (!_loading)
-        {
-            _loading = true;
-            _error = null;
-            await LoadTasksAsync();
-        }
+        _loading = true;
+        _error = null;
+        _tasks = [];
+        _hideCompleted = true;
+        _rescheduleMode = false;
+
+        var loadVersion = Interlocked.Increment(ref _loadVersion);
+        await LoadTasksAsync(Tag, loadVersion);
     }
 
-    private async Task LoadTasksAsync()
+    private async Task LoadTasksAsync(string tag, long loadVersion)
     {
         try
         {
             var userId = await GetUserIdAsync();
-            _tasks = await TagService.GetTasksByTagAsync(Tag, userId);
+            var tasks = await TagService.GetTasksByTagAsync(tag, userId);
+
+            if (loadVersion != _loadVersion)
+            {
+                return;
+            }
+
+            _tasks = tasks;
         }
         catch (Exception ex) when (!AuthExceptionHelper.IsAuthException(ex))
         {
+            if (loadVersion != _loadVersion)
+            {
+                return;
+            }
+
             _error = $"Failed to load tasks: {ex.Message}";
+            _tasks = [];
         }
         finally
         {
-            _loading = false;
+            if (loadVersion == _loadVersion)
+            {
+                _loading = false;
+            }
         }
     }
 
