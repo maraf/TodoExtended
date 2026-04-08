@@ -467,6 +467,146 @@ public class ChatServiceTests
 
     #endregion
 
+    #region CreateTask with Reminder Tests
+
+    [Fact]
+    public async Task ExecuteActionsAsync_CreateTask_WithValidReminderTime_PassesReminderToService()
+    {
+        // Arrange
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.CreateTask, "Create task \"Buy milk\" with reminder at 09:00", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["title"] = "Buy milk",
+                ["reminderTime"] = "09:00"
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        todoService.CreateTaskAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<string>(), Arg.Any<TimeOnly?>())
+            .Returns(new TodoTask("task-456", "Buy milk", null, false, null, "normal", true));
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        Assert.True(results[0].Success);
+        await todoService.Received(1).CreateTaskAsync(
+            "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+            "Buy milk",
+            Arg.Any<DateOnly?>(),
+            Arg.Any<string>(),
+            new TimeOnly(9, 0));
+    }
+
+    [Fact]
+    public async Task ExecuteActionsAsync_CreateTask_WithInvalidReminderTime_ReturnsFailureResult()
+    {
+        // Arrange
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.CreateTask, "Create task \"Buy milk\" with reminder at not-a-time", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["title"] = "Buy milk",
+                ["reminderTime"] = "not-a-time"
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        Assert.False(results[0].Success);
+        Assert.Contains("reminderTime", results[0].Message);
+        await todoService.DidNotReceive().CreateTaskAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<string>(), Arg.Any<TimeOnly?>());
+    }
+
+    [Fact]
+    public async Task ExecuteActionsAsync_CreateTask_WithSingleDigitHourReminderTime_PassesReminderToService()
+    {
+        // Arrange
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.CreateTask, "Create task \"Buy milk\" with reminder at 9:00", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["title"] = "Buy milk",
+                ["reminderTime"] = "9:00"
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        todoService.CreateTaskAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<string>(), Arg.Any<TimeOnly?>())
+            .Returns(new TodoTask("task-456", "Buy milk", null, false, null, "normal", true));
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        Assert.True(results[0].Success);
+        await todoService.Received(1).CreateTaskAsync(
+            "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+            "Buy milk",
+            Arg.Any<DateOnly?>(),
+            Arg.Any<string>(),
+            new TimeOnly(9, 0));
+    }
+
+    [Fact]
+    public async Task ExecuteActionsAsync_CreateTask_WithoutReminderTime_PassesNullReminderToService()
+    {
+        // Arrange
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.CreateTask, "Create task \"Buy milk\"", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["title"] = "Buy milk"
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        todoService.CreateTaskAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly?>(), Arg.Any<string>(), Arg.Any<TimeOnly?>())
+            .Returns(new TodoTask("task-456", "Buy milk", null, false, null, "normal"));
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        Assert.True(results[0].Success);
+        await todoService.Received(1).CreateTaskAsync(
+            "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+            "Buy milk",
+            Arg.Any<DateOnly?>(),
+            Arg.Any<string>(),
+            null);
+    }
+
+    #endregion
+
     #region SetReminder Tests
 
     [Fact]
