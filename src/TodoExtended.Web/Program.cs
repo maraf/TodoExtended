@@ -447,14 +447,14 @@ api.MapGet("/tags/pinned", async (HttpContext context, ITagService tagService) =
 // Uncompleted tasks for a specific tag
 api.MapGet("/tags/{tagName}/tasks", async (string tagName, HttpContext context, ITagService tagService) =>
 {
-    if (string.IsNullOrWhiteSpace(tagName) || !System.Text.RegularExpressions.Regex.IsMatch(tagName, @"^\w+$"))
+    if (string.IsNullOrWhiteSpace(tagName) ||
+        tagName.Length > 128 ||
+        !System.Text.RegularExpressions.Regex.IsMatch(tagName, @"^\w+$"))
         return Results.BadRequest(new { error = "Invalid tag name." });
 
     var userId = context.User.GetUserId();
-    var tasks = await tagService.GetTasksByTagAsync(tagName, userId);
-    return Results.Ok(tasks
-        .Where(t => !t.IsCompleted)
-        .Select(t => new ApiTodoTaskWithList(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance, t.ListId, t.ListName)));
+    var tasks = await tagService.GetTasksByTagAsync(tagName, userId, onlyUncompleted: true);
+    return Results.Ok(tasks.Select(t => new ApiTodoTaskWithList(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance, t.ListId, t.ListName)));
 });
 
 app.Run();

@@ -73,10 +73,17 @@ class TagItem extends WatchUi.CustomMenuItem {
         var numberOfSkippedChars = 0;
         var label = _label;
         var labelWidth = dc.getTextWidthInPixels(label, font);
-        while (labelWidth > labelAvailableWidth) {
+        while (labelWidth > labelAvailableWidth && numberOfSkippedChars < _label.length() - 2) {
             numberOfSkippedChars++;
             label = _label.substring(0, _label.length() - numberOfSkippedChars) + "..";
             labelWidth = dc.getTextWidthInPixels(label, font);
+        }
+
+        if (labelWidth > labelAvailableWidth) {
+            label = "..";
+            if (dc.getTextWidthInPixels(label, font) > labelAvailableWidth) {
+                label = "";
+            }
         }
 
         dc.drawText(labelX, labelY, font, label, Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);

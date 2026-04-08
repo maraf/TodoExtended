@@ -40,10 +40,18 @@ class TagTasksMenuTitle extends WatchUi.Drawable {
         var numberOfSkippedChars = 0;
         var label = _title;
         var labelWidth = dc.getTextWidthInPixels(label, font);
-        while (labelWidth > maxWidth) {
+        while (labelWidth > maxWidth && numberOfSkippedChars < _title.length() - 2) {
             numberOfSkippedChars++;
             label = _title.substring(0, _title.length() - numberOfSkippedChars) + "..";
             labelWidth = dc.getTextWidthInPixels(label, font);
+        }
+
+        if (labelWidth > maxWidth) {
+            label = "..";
+            labelWidth = dc.getTextWidthInPixels(label, font);
+            if (labelWidth > maxWidth) {
+                label = "";
+            }
         }
 
         dc.drawText(dc.getWidth() / 2, dc.getHeight() / 2, font, label,
