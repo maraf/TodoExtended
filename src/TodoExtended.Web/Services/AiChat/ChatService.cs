@@ -60,7 +60,8 @@ public class ChatService(
         - Use search_task_lists to find lists matching a name keyword.
         - Use get_task to load full details (including description) for a specific task only when needed.
         - Use get_templates to view available templates.
-        - When setting a reminder, use get_tasks or search_tasks first to obtain the task ID. Ask the user for the reminder date and time if not specified; default the date to today if omitted.
+        - When setting a reminder on a new task, prefer passing reminderTime directly to create_task instead of calling set_task_reminder separately.
+        - When setting a reminder on an existing task, use set_task_reminder with the task's Id. Ask the user for the reminder date and time if not specified; default the date to today if omitted.
         - When creating tasks or templates, always confirm which list to add them to.
         - Be concise and helpful.
         - Format task and template information clearly.
@@ -451,6 +452,7 @@ public class ChatService(
         [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
         string title,
         string? dueDate = null,
+        [Description("Reminder time in HH:mm format (e.g. 09:00). If provided, a reminder will be set on the task at this time.")] string? reminderTime = null,
         [Description("The display name of the task list from get_task_lists")] string? listName = null) => "proposed";
     private static string CompleteTaskTool(
         [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
@@ -516,7 +518,9 @@ public class ChatService(
         var (type, description) = call.Name switch
         {
             "create_task" => (TaskActionType.CreateTask,
-                $"Create task \"{GetArg(call, "title")}\""),
+                GetArg(call, "reminderTime") is { Length: > 0 } rt
+                    ? $"Create task \"{GetArg(call, "title")}\" with reminder at {rt}"
+                    : $"Create task \"{GetArg(call, "title")}\""),
             "complete_task" => (TaskActionType.CompleteTask,
                 $"Complete task {GetArg(call, "taskId")}"),
             "uncomplete_task" => (TaskActionType.UncompleteTask,
@@ -572,11 +576,17 @@ public class ChatService(
                     && DateOnly.TryParse(dueDateStr, out var parsed)
                     ? parsed
                     : null;
+                TimeOnly? createReminderTime = action.Parameters.TryGetValue("reminderTime", out var createReminderStr)
+                    && !string.IsNullOrEmpty(createReminderStr)
+                    && TimeOnly.TryParseExact(createReminderStr, ["HH:mm", "H:mm"], System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var parsedCreateReminder)
+                    ? parsedCreateReminder
+                    : null;
                 await todoService.CreateTaskAsync(
                     action.Parameters["listId"],
                     action.Parameters["title"],
                     dueDate,
-                    userId);
+                    userId,
+                    createReminderTime);
                 break;
 
             case TaskActionType.CompleteTask:
