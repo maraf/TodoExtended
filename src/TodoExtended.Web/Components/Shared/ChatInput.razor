@@ -1,4 +1,6 @@
-@* ChatInput.razor — Chat text input with send button *@
+@* ChatInput.razor — Chat text input with send button and speech-to-text *@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <div class="flex items-end gap-2">
     <div class="flex-1 relative">
@@ -11,6 +13,27 @@
                   rows="1"
                   class="input block resize-none min-h-[44px] max-h-32 pr-3 !rounded-2xl" />
     </div>
+    @if (_speechSupported)
+    {
+        <button @onclick="ToggleListening"
+                disabled="@IsDisabled"
+                class="@MicButtonClasses() !rounded-2xl !px-4 h-[44px] flex-shrink-0"
+                aria-label="@(_isListening ? "Stop recording" : "Start recording")">
+            @if (_isListening)
+            {
+                <span class="relative flex h-5 w-5 items-center justify-center">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </span>
+            }
+            else
+            {
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+            }
+        </button>
+    }
     <button @onclick="Send"
             disabled="@(IsDisabled || string.IsNullOrWhiteSpace(_text))"
             class="btn-primary !rounded-2xl !px-4 h-[44px] flex-shrink-0"
@@ -37,12 +60,28 @@
 
     private ElementReference _inputRef;
     private string _text = "";
+    private bool _isListening;
+    private bool _speechSupported;
+    private IJSObjectReference? _jsModule;
+    private DotNetObjectReference<ChatInput>? _dotNetRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             await _inputRef.FocusAsync();
+
+            try
+            {
+                _jsModule = await JS.InvokeAsync<IJSObjectReference>(
+                    "import", "./_content/TodoExtended.Web/Components/Shared/ChatInput.razor.js");
+                _speechSupported = await _jsModule.InvokeAsync<bool>("isSupported");
+                StateHasChanged();
+            }
+            catch
+            {
+                // JS interop may fail during prerender or if module fails to load
+            }
         }
     }
 
@@ -63,5 +102,61 @@
 
         _text = "";
         await OnSend.InvokeAsync(message);
+    }
+
+    private async Task ToggleListening()
+    {
+        if (_jsModule is null || IsDisabled) return;
+
+        if (_isListening)
+        {
+            await _jsModule.InvokeVoidAsync("stopListening");
+            _isListening = false;
+        }
+        else
+        {
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+            _isListening = true;
+            await _jsModule.InvokeVoidAsync("startListening", _dotNetRef);
+        }
+    }
+
+    [JSInvokable]
+    public void OnSpeechResult(string transcript)
+    {
+        if (string.IsNullOrWhiteSpace(transcript)) return;
+
+        _text = string.IsNullOrEmpty(_text)
+            ? transcript
+            : _text + " " + transcript;
+
+        _isListening = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public void OnSpeechEnded()
+    {
+        _isListening = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string MicButtonClasses() => _isListening
+        ? "btn-ghost !rounded-2xl !px-4 h-[44px] flex-shrink-0 ring-2 ring-red-500"
+        : "btn-ghost !rounded-2xl !px-4 h-[44px] flex-shrink-0";
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_jsModule is not null)
+        {
+            try
+            {
+                await _jsModule.InvokeVoidAsync("stopListening");
+                await _jsModule.DisposeAsync();
+            }
+            catch { /* circuit may already be closed */ }
+        }
+
+        _dotNetRef?.Dispose();
     }
 }
