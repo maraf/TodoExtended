@@ -15,10 +15,55 @@ function switchToTagTasksMenu(tagName as String, tasks as Array<Models.TodoTask>
 
     for (var i = 0; i < tasks.size(); i++) {
         var task = tasks[i];
-        customMenu.addItem(new TodayItem(task.id, task.listId, task.title, task.isCompleted));
+        customMenu.addItem(new TodayItem(task.id, task.listId, getTagTaskTitle(tagName, task.title), task.isCompleted));
     }
 
     WatchUi.switchToView(customMenu, new TodayDelegate(), WatchUi.SLIDE_UP);
+}
+
+function getTagTaskTitle(tagName as String, title as String) as String {
+    if (tagName.length() == 0 || title.length() == 0) {
+        return title;
+    }
+
+    var titleLower = title.toLower();
+    var tagPrefix = "#" + tagName;
+    var tagPrefixLower = tagPrefix.toLower();
+    var trimStart = getTagPrefixTrimStart(title, titleLower, tagPrefix, tagPrefixLower);
+
+    if (trimStart == -1) {
+        var tagNameLower = tagName.toLower();
+        trimStart = getTagPrefixTrimStart(title, titleLower, tagName, tagNameLower);
+    }
+
+    if (trimStart == -1) {
+        return title;
+    }
+
+    while (trimStart < title.length() && title.substring(trimStart, trimStart + 1).equals(" ")) {
+        trimStart++;
+    }
+
+    var trimmedTitle = title.substring(trimStart, title.length());
+    return trimmedTitle.length() > 0 ? trimmedTitle : title;
+}
+
+function getTagPrefixTrimStart(title as String, titleLower as String, prefix as String, prefixLower as String) as Number {
+    if (titleLower.length() < prefixLower.length() ||
+        !titleLower.substring(0, prefixLower.length()).equals(prefixLower)) {
+        return -1;
+    }
+
+    if (title.length() == prefix.length()) {
+        return prefix.length();
+    }
+
+    var nextChar = title.substring(prefix.length(), prefix.length() + 1);
+    if (nextChar.equals(" ") || nextChar.equals("-") || nextChar.equals(":")) {
+        return prefix.length();
+    }
+
+    return -1;
 }
 
 class TagTasksMenuTitle extends WatchUi.Drawable {

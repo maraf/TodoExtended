@@ -1,0 +1,14 @@
+squad: Merge tag trimming & MSAL decisions; archive inbox
+
+- Merged 3 decision inbox files into decisions.md (deduplicated)
+  - Garmin Tag Task Title Trimming (Frontend) — Task titles strip leading selected tag case-insensitively
+  - Garmin Tag Prefix Trimming Guard (Backend) — Validation logic for prefix matching (duplicate handoff)
+  - MsalServiceException Handling — Sign-out on irrecoverable auth failures (Backend)
+- Deleted inbox files post-merge
+- Appended orchestration notes to Frontend and Backend agent history
+- Created orchestration logs for both agents (2026-04-09T11-21-47Z)
+- Created session log for orchestration & documentation sync
+
+No functional changes. Decision records consolidated and team coordination documented.
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
