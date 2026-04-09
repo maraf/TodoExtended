@@ -2,6 +2,21 @@
 
 ## Active Decisions
 
+### Garmin Tag Task Title Trimming
+
+**Date:** 2026-04-09  
+**Author:** Architect / Copilot directive  
+**Status:** Implemented
+
+Tag-task title compaction in `garmin/TodoExtended.Watch/source/TagTasksMenu.mc` now only removes a leading `#tag` prefix, matched case-insensitively. Bare `tag` prefixes remain part of the visible title.
+
+**Rationale:**
+- The selected Garmin tag is always represented as `#tag` in task titles (visible hashtag form)
+- Stripping plain `tag` removes legitimate title text and over-compacts unrelated tasks
+- Existing safeguards remain: only trim true prefixes, keep original title if trimming would empty it
+
+**Impact:** Focused change in Garmin watch app only; no behavioral change outside tag tasks menu.
+
 ### Task Sorting Order
 
 **Date:** 2025-07-18  

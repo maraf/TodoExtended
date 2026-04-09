@@ -42,6 +42,10 @@
 - **Design stored:** `.squad/decisions/decisions.md` merged from inbox.
 - **Orchestration logged:** `.squad/orchestration-log/20260312T100300Z-architect.md`
 
+## Learnings
+
+- 2026-04-09 — Garmin tag-task title compaction in `garmin/TodoExtended.Watch/source/TagTasksMenu.mc` must only strip a leading `#tag` token, case-insensitively. Preserve the existing true-prefix checks (`space`, `-`, `:` separators only) and the guard that keeps the original title when trimming would leave it empty.
+
 ## Core Context
 
 **Established Patterns & Key Decisions (pre-2026-03-12):**
@@ -101,4 +105,3 @@ Created shared interfaces, models, and DI scaffold for AI chat feature:
 - **Backward compat:** EF Core migration assigns orphaned data to first user; demo mode assigns to "demo-user".
 - **Design stored:** `.squad/decisions/decisions.md` merged from inbox.
 - **Orchestration logged:** `.squad/orchestration-log/20260312T100300Z-architect.md`
-

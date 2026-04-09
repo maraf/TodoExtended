@@ -32,11 +32,6 @@ function getTagTaskTitle(tagName as String, title as String) as String {
     var trimStart = getTagPrefixTrimStart(title, titleLower, tagPrefix, tagPrefixLower);
 
     if (trimStart == -1) {
-        var tagNameLower = tagName.toLower();
-        trimStart = getTagPrefixTrimStart(title, titleLower, tagName, tagNameLower);
-    }
-
-    if (trimStart == -1) {
         return title;
     }
 
