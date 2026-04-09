@@ -141,9 +141,11 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private const string MicButtonBase = "btn-ghost !rounded-2xl !px-4 h-[44px] flex-shrink-0";
+
     private string MicButtonClasses() => _isListening
-        ? "btn-ghost !rounded-2xl !px-4 h-[44px] flex-shrink-0 ring-2 ring-red-500"
-        : "btn-ghost !rounded-2xl !px-4 h-[44px] flex-shrink-0";
+        ? $"{MicButtonBase} ring-2 ring-red-500"
+        : MicButtonBase;
 
     public async ValueTask DisposeAsync()
     {

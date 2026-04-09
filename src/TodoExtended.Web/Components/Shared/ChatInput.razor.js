@@ -23,7 +23,11 @@ export function startListening(dotNetRef) {
         dotNetRef.invokeMethodAsync('OnSpeechResult', transcript);
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
+        // 'no-speech' and 'aborted' are expected user-driven events; don't log them.
+        if (event.error && event.error !== 'no-speech' && event.error !== 'aborted') {
+            console.warn('SpeechRecognition error:', event.error);
+        }
         recognition = null;
         dotNetRef.invokeMethodAsync('OnSpeechEnded');
     };
