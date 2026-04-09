@@ -641,3 +641,26 @@ Updated `ProposedActionCard.razor` to handle 4 new template action types being a
 
 **Tailwind CSS:** Rebuilt via `npm run build:css` to ensure new color classes are compiled
 **Build:** Verified clean (0 errors, 0 warnings)
+
+## 2026-04-09: Garmin Watch Tag Title Rendering — PR Review Implementation
+
+**Session:** Garmin Watch Tag Trimming & Orchestration (2026-04-09T11:21:47Z)
+
+### Completed Tasks
+
+- ✅ **Tag title trimming** — Task titles in tag task view strip a leading selected tag case-insensitively
+- ✅ **Decision merged** — Garmin Tag Task Title Trimming decision added to decisions.md
+- ✅ **Orchestration logged** — Parallel Frontend/Backend agent work documented
+
+### Implementation Details
+
+Modified garmin/TodoExtended.Watch/source/TagTasksMenu.mc to:
+1. Accept both #tag and plain 	ag prefixes (API stores without #, titles may include hashtag)
+2. Match case-insensitively
+3. Preserve original title if trimming would create empty row
+4. Limit change to tag tasks view only
+
+### Outcome
+
+✅ **COMPLETED** — Task titles in tag task view now properly strip leading selected tags, improving readability on small watch screens.
+

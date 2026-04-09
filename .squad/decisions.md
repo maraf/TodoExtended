@@ -2,6 +2,21 @@
 
 ## Active Decisions
 
+### Garmin Tag Task Title Trimming
+
+**Date:** 2026-04-09  
+**Author:** Architect / Copilot directive  
+**Status:** Implemented
+
+Tag-task title compaction in `garmin/TodoExtended.Watch/source/TagTasksMenu.mc` now only removes a leading `#tag` prefix, matched case-insensitively. Bare `tag` prefixes remain part of the visible title.
+
+**Rationale:**
+- The selected Garmin tag is always represented as `#tag` in task titles (visible hashtag form)
+- Stripping plain `tag` removes legitimate title text and over-compacts unrelated tasks
+- Existing safeguards remain: only trim true prefixes, keep original title if trimming would empty it
+
+**Impact:** Focused change in Garmin watch app only; no behavioral change outside tag tasks menu.
+
 ### Task Sorting Order
 
 **Date:** 2025-07-18  
@@ -288,6 +303,48 @@ Extracted two shared Blazor components from duplicated markup in Today.razor and
 - Default parameter values match Tasks.razor usage (the more common page), Today.razor overrides as needed
 
 **Impact:** ~70 lines of duplicated markup eliminated. Both pages build clean with `-warnaserror`.
+
+### Garmin Tag Task Title Trimming
+
+**Date:** 2026-04-09  
+**Author:** Frontend  
+**Status:** Implemented
+
+In the Garmin tag tasks view, task titles now drop a leading selected tag when it appears at the start of the title, matching case-insensitively. The trimming handles both `#tag` and plain `tag` prefixes, then removes any following spaces so more of the real task text fits on the watch.
+
+**Key Decisions:**
+
+1. **Accept both `#tag` and plain `tag` prefixes** — the API-selected tag name is stored without `#`, but task titles may include the visible hashtag token at the start.
+2. **Keep the original title if trimming would blank it out** — this avoids empty rows on the watch for titles that are only the tag.
+3. **Limit the change to the tag tasks view** — existing task rendering elsewhere stays unchanged.
+
+### MsalServiceException Handling — Sign Out on Irrecoverable Auth Failures
+
+**Date:** 2026-03-13  
+**Author:** Backend  
+**Status:** Implemented
+
+When MSAL token acquisition fails with an irrecoverable `MsalServiceException` (e.g. `invalid_client`, expired secrets, revoked consent, 401 status), the user is now signed out and redirected to the landing page — instead of being left on a broken page with console warnings.
+
+**Key Decisions:**
+
+1. **Two-tier auth error handling in Blazor pages:**
+   - `MicrosoftIdentityWebChallengeUserException` → redirect to `MicrosoftIdentity/Account/SignIn` (re-consent, existing behavior)
+   - `MsalServiceException` (irrecoverable) → redirect to `MicrosoftIdentity/Account/SignOut` (clear broken session)
+   - MSAL catch is evaluated first via exception filter ordering
+
+2. **Helper: `AuthExceptionHelper.IsIrrecoverableMsalError(Exception)`** — Walks the full exception chain (including `AggregateException` inner exceptions) checking for `MsalServiceException` with `ErrorCode == "invalid_client"` or `StatusCode == 401`. This handles cases where MSAL errors are wrapped by Graph SDK or other middleware.
+
+3. **CachedTodoService: explicit `MsalServiceException` catches** — Added before existing `ObjectDisposedException` and generic catches in all sync methods. These log at Warning level and re-throw (not swallow), so the error propagates to the Blazor page for sign-out redirect. This prevents the `ShouldRebuildCache` logic from running on auth failures (which would just fail again).
+
+4. **Demo mode unaffected** — Demo mode doesn't use MSAL, so `MsalServiceException` is never thrown. The new catch blocks are inert in demo mode.
+
+**Files Changed:**
+- `Services/AuthExceptionHelper.cs` (new) — Static helper for MSAL error detection
+- `Services/CachedTodoService.cs` — 8 new `MsalServiceException` catch blocks
+- 8 Razor files — 19 new MSAL catch blocks (NavMenu, Tasks, Today, Home, Templates, ApiKeys, SyncSettings, TaskStatusCheckbox)
+
+**Impact:** No interface changes. Build clean with `-warnaserror`. All 75 tests pass (21 unit + 54 component).
 
 ## Governance
 

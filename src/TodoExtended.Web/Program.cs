@@ -436,4 +436,25 @@ api.MapGet("/tasklists/{listId}/tasks", async (string listId, HttpContext contex
     return Results.Ok(tasks.Where(t => !t.IsCompleted).Select(t => new ApiTodoTask(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance)));
 });
 
+// Favorite (pinned) tags
+api.MapGet("/tags/pinned", async (HttpContext context, ITagService tagService) =>
+{
+    var userId = context.User.GetUserId();
+    var tags = await tagService.GetPinnedTagsAsync(userId);
+    return Results.Ok(tags);
+});
+
+// Uncompleted tasks for a specific tag
+api.MapGet("/tags/{tagName}/tasks", async (string tagName, HttpContext context, ITagService tagService) =>
+{
+    if (string.IsNullOrWhiteSpace(tagName) ||
+        tagName.Length > 128 ||
+        !System.Text.RegularExpressions.Regex.IsMatch(tagName, @"^\w+$"))
+        return Results.BadRequest(new { error = "Invalid tag name." });
+
+    var userId = context.User.GetUserId();
+    var tasks = await tagService.GetTasksByTagAsync(tagName, userId, onlyUncompleted: true);
+    return Results.Ok(tasks.Select(t => new ApiTodoTaskWithList(t.Id, t.Title, t.IsCompleted, t.DueDate, t.Importance, t.ListId, t.ListName)));
+});
+
 app.Run();

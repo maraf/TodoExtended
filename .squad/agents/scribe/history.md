@@ -12,7 +12,8 @@ Agent Scribe — documentation specialist maintaining orchestration logs, sessio
 📌 Team initialized on 2026-03-05  
 📌 Orchestration logs written for Backend and Frontend agent outcomes (2026-03-05)  
 📌 Session log created for Today view feature  
-📌 Agent histories updated with cross-team context
+📌 Agent histories updated with cross-team context  
+📌 **Architect post-work orchestration:** Merged 2 inbox decisions (tag-prefix fix + directive). Garmin tag tasks now only trim `#tag` prefix, bare `tag` preserved (2026-04-09)
 
 ## Learnings
 

@@ -115,7 +115,7 @@ public class TagTasksTests : TestContext
         public Task<IReadOnlyList<TagWithCount>> GetTagsAsync(string userId) =>
             Task.FromResult<IReadOnlyList<TagWithCount>>([]);
 
-        public Task<IReadOnlyList<TodoTaskWithList>> GetTasksByTagAsync(string tag, string userId) =>
+        public Task<IReadOnlyList<TodoTaskWithList>> GetTasksByTagAsync(string tag, string userId, bool onlyUncompleted = false) =>
             Task.FromResult(tasks);
 
         public Task<IReadOnlyList<string>> GetPinnedTagsAsync(string userId) =>
@@ -133,7 +133,7 @@ public class TagTasksTests : TestContext
         public Task<IReadOnlyList<TagWithCount>> GetTagsAsync(string userId) =>
             Task.FromResult<IReadOnlyList<TagWithCount>>([]);
 
-        public Task<IReadOnlyList<TodoTaskWithList>> GetTasksByTagAsync(string tag, string userId)
+        public Task<IReadOnlyList<TodoTaskWithList>> GetTasksByTagAsync(string tag, string userId, bool onlyUncompleted = false)
         {
             _calls.Enqueue(tag);
             return _pending.GetOrAdd(tag, static _ => new(TaskCreationOptions.RunContinuationsAsynchronously)).Task;

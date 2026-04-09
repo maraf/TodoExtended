@@ -26,7 +26,7 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
             .ToList();
     }
 
-    public async Task<IReadOnlyList<TodoTaskWithList>> GetTasksByTagAsync(string tag, string userId)
+    public async Task<IReadOnlyList<TodoTaskWithList>> GetTasksByTagAsync(string tag, string userId, bool onlyUncompleted = false)
     {
         if (string.IsNullOrWhiteSpace(tag))
             return [];
@@ -35,10 +35,15 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
 
         var normalizedTag = tag.ToLowerInvariant();
 
-        var tasks = await db.CachedTasks
+        var query = db.CachedTasks
             .AsNoTracking()
             .Where(task => task.UserId == userId && !task.IsDeleted && task.List!.IsSynced
-                && task.Tags.Any(t => t.Name == normalizedTag))
+                && task.Tags.Any(t => t.Name == normalizedTag));
+
+        if (onlyUncompleted)
+            query = query.Where(task => !task.IsCompleted);
+
+        var tasks = await query
             .Select(task => new TodoTaskWithList(
                 task.Id, task.Title, task.Body, task.IsCompleted,
                 task.DueDate, task.Importance, task.ListId, task.List!.DisplayName,
