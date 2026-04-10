@@ -1,6 +1,9 @@
 @* ChatInput.razor — Chat text input with send button and speech-to-text *@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
+@{
+    _moduleUrl = Assets["Components/Shared/ChatInput.razor.js"];
+}
 
 <div class="flex items-end gap-2">
     <div class="flex-1 relative">
@@ -60,6 +63,7 @@
 
     private ElementReference _inputRef;
     private string _text = "";
+    private string _moduleUrl = "";
     private bool _isListening;
     private bool _speechSupported;
     private IJSObjectReference? _jsModule;
@@ -74,7 +78,7 @@
             try
             {
                 _jsModule = await JS.InvokeAsync<IJSObjectReference>(
-                    "import", "./_content/TodoExtended.Web/Components/Shared/ChatInput.razor.js");
+                    "import", _moduleUrl);
                 _speechSupported = await _jsModule.InvokeAsync<bool>("isSupported");
                 StateHasChanged();
             }
