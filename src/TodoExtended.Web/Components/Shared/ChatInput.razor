@@ -1,8 +1,12 @@
 @* ChatInput.razor — Chat text input with send button and speech-to-text *@
 @inject IJSRuntime JS
+@inject ILogger<ChatInput> Log
 @implements IAsyncDisposable
 @{
-    _moduleUrl = Assets["Components/Shared/ChatInput.razor.js"];
+    var assetPath = Assets["Components/Shared/ChatInput.razor.js"];
+    _moduleUrl = assetPath.StartsWith("./", StringComparison.Ordinal) || assetPath.StartsWith("/", StringComparison.Ordinal)
+        ? assetPath
+        : $"./{assetPath}";
 }
 
 <div class="flex items-end gap-2">
@@ -21,20 +25,13 @@
         <button @onclick="ToggleListening"
                 disabled="@IsDisabled"
                 class="@MicButtonClasses() !rounded-2xl !px-4 h-[44px] flex-shrink-0"
-                aria-label="@(_isListening ? "Stop recording" : "Start recording")">
-            @if (_isListening)
-            {
-                <span class="relative flex h-5 w-5 items-center justify-center">
-                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                </span>
-            }
-            else
-            {
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                aria-label="@(_isListening ? "Stop recording" : "Start recording")"
+                aria-pressed="@_isListening">
+            <span class="flex h-5 w-5 items-center justify-center">
+                <svg class="@MicIconClasses()" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
-            }
+            </span>
         </button>
     }
     <button @onclick="Send"
@@ -82,9 +79,10 @@
                 _speechSupported = await _jsModule.InvokeAsync<bool>("isSupported");
                 StateHasChanged();
             }
-            catch
+            catch (Exception ex)
             {
                 // JS interop may fail during prerender or if module fails to load
+                Log.LogDebug(ex, "Speech recognition not supported or failed to load.");
             }
         }
     }
@@ -148,8 +146,12 @@
     private const string MicButtonBase = "btn-ghost !rounded-2xl !px-4 h-[44px] flex-shrink-0";
 
     private string MicButtonClasses() => _isListening
-        ? $"{MicButtonBase} ring-2 ring-red-500"
+        ? $"{MicButtonBase} bg-white text-brand-600 ring-2 ring-brand-400 shadow-sm hover:bg-white hover:text-brand-700 dark:bg-slate-800 dark:text-brand-400 dark:ring-brand-500/70 dark:hover:bg-slate-800"
         : MicButtonBase;
+
+    private string MicIconClasses() => _isListening
+        ? "w-5 h-5 text-brand-600 dark:text-brand-400"
+        : "w-5 h-5";
 
     public async ValueTask DisposeAsync()
     {
