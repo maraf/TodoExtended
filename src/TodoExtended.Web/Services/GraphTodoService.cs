@@ -237,19 +237,7 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
                         FirstDayOfWeek = src.FirstDayOfWeek,
                         Index = src.Index,
                     },
-                    Range = new Microsoft.Graph.Models.RecurrenceRange
-                    {
-                        Type = current.Recurrence.Range.Type,
-                        StartDate = new Microsoft.Kiota.Abstractions.Date(dueDate.Year, dueDate.Month, dueDate.Day),
-                        // Only copy EndDate when the range type is EndDate; for NoEnd/Numbered
-                        // ranges the Graph API returns a default 0001-01-01 value which is invalid
-                        // for OData serialization.
-                        EndDate = current.Recurrence.Range.Type == Microsoft.Graph.Models.RecurrenceRangeType.EndDate
-                            ? current.Recurrence.Range.EndDate
-                            : null,
-                        NumberOfOccurrences = current.Recurrence.Range.NumberOfOccurrences,
-                        RecurrenceTimeZone = current.Recurrence.Range.RecurrenceTimeZone,
-                    },
+                    Range = BuildRecurrenceRange(current.Recurrence.Range, dueDate),
                 };
                 logger.LogDebug("SetTaskDueDateAsync: Updating recurrence startDate to {StartDate} for recurring task {TaskId}", dueDate, taskId);
             }
@@ -354,6 +342,34 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             .Where(l => l.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
             .OrderBy(l => l.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    /// <summary>
+    /// Builds a fresh <see cref="Microsoft.Graph.Models.RecurrenceRange"/> for a PATCH request,
+    /// updating the startDate to <paramref name="newDueDate"/>.
+    /// EndDate is only set when the range type is <see cref="Microsoft.Graph.Models.RecurrenceRangeType.EndDate"/>;
+    /// for NoEnd/Numbered ranges the Graph API returns a default 0001-01-01 value and serializing
+    /// <c>null</c> for an OData Edm.Date property causes an "Invalid JSON" error.
+    /// </summary>
+    private static Microsoft.Graph.Models.RecurrenceRange BuildRecurrenceRange(
+        Microsoft.Graph.Models.RecurrenceRange source, DateOnly newDueDate)
+    {
+        var range = new Microsoft.Graph.Models.RecurrenceRange
+        {
+            Type = source.Type,
+            StartDate = new Microsoft.Kiota.Abstractions.Date(newDueDate.Year, newDueDate.Month, newDueDate.Day),
+            NumberOfOccurrences = source.NumberOfOccurrences,
+            RecurrenceTimeZone = source.RecurrenceTimeZone,
+        };
+
+        // Only copy EndDate when the range type is EndDate so the property is not
+        // touched on the Kiota backing store (avoiding null → "endDate": null in JSON).
+        if (source.Type == Microsoft.Graph.Models.RecurrenceRangeType.EndDate)
+        {
+            range.EndDate = source.EndDate;
+        }
+
+        return range;
     }
 
     /// <summary>
