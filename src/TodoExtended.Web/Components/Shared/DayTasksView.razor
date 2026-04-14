@@ -84,7 +84,7 @@ else
                         }
                         <TaskIndicators HasReminder="@task.HasReminder" IsRecurring="@task.IsRecurring" />
                     </div>
-                    <RescheduleDatePicker Visible="@(_rescheduleMode && !task.IsCompleted && !task.IsRecurring)"
+                    <RescheduleDatePicker Visible="@(_rescheduleMode && !task.IsCompleted)"
                                          IsMoving="@(_movingTaskId == task.Id)"
                                          IsDisabled="@(_movingTaskId is not null)"
                                          DateOptions="@_dateOptions"
