@@ -221,35 +221,17 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             // the dueDateTime is patched.
             if (current?.Recurrence?.Range != null)
             {
-                // Build a fresh RecurrencePattern instead of reusing the deserialized one.
-                // The Kiota backing store on the GET response object may have null AdditionalData,
-                // which causes "AdditionalData can not be null" during PATCH serialization.
-                var src = current.Recurrence.Pattern;
+                // Build fresh Pattern/Range objects instead of reusing deserialized ones.
+                // The Kiota BackingStoreSerializationWriterProxyFactory serializes every
+                // explicitly-assigned property — including null values — so we must avoid
+                // setting nullable properties (DaysOfWeek, EndDate) to null, otherwise the
+                // Graph API rejects the payload with "Invalid JSON" / OData type errors.
                 patch.Recurrence = new Microsoft.Graph.Models.PatternedRecurrence
                 {
-                    Pattern = src == null ? null : new Microsoft.Graph.Models.RecurrencePattern
-                    {
-                        Type = src.Type,
-                        Interval = src.Interval,
-                        Month = src.Month,
-                        DayOfMonth = src.DayOfMonth,
-                        DaysOfWeek = src.DaysOfWeek,
-                        FirstDayOfWeek = src.FirstDayOfWeek,
-                        Index = src.Index,
-                    },
-                    Range = new Microsoft.Graph.Models.RecurrenceRange
-                    {
-                        Type = current.Recurrence.Range.Type,
-                        StartDate = new Microsoft.Kiota.Abstractions.Date(dueDate.Year, dueDate.Month, dueDate.Day),
-                        // Only copy EndDate when the range type is EndDate; for NoEnd/Numbered
-                        // ranges the Graph API returns a default 0001-01-01 value which is invalid
-                        // for OData serialization.
-                        EndDate = current.Recurrence.Range.Type == Microsoft.Graph.Models.RecurrenceRangeType.EndDate
-                            ? current.Recurrence.Range.EndDate
-                            : null,
-                        NumberOfOccurrences = current.Recurrence.Range.NumberOfOccurrences,
-                        RecurrenceTimeZone = current.Recurrence.Range.RecurrenceTimeZone,
-                    },
+                    Pattern = current.Recurrence.Pattern == null
+                        ? null
+                        : BuildRecurrencePattern(current.Recurrence.Pattern),
+                    Range = BuildRecurrenceRange(current.Recurrence.Range, dueDate),
                 };
                 logger.LogDebug("SetTaskDueDateAsync: Updating recurrence startDate to {StartDate} for recurring task {TaskId}", dueDate, taskId);
             }
@@ -354,6 +336,88 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             .Where(l => l.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
             .OrderBy(l => l.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    /// <summary>
+    /// Builds a fresh <see cref="Microsoft.Graph.Models.RecurrencePattern"/> for a PATCH request.
+    /// Nullable properties are only set when non-null to prevent the Kiota backing store proxy
+    /// from serializing them as explicit nulls (e.g. <c>"daysOfWeek":null</c>).
+    /// </summary>
+    private static Microsoft.Graph.Models.RecurrencePattern BuildRecurrencePattern(
+        Microsoft.Graph.Models.RecurrencePattern source)
+    {
+        var pattern = new Microsoft.Graph.Models.RecurrencePattern
+        {
+            Type = source.Type,
+            Interval = source.Interval,
+        };
+
+        if (source.Month is not null)
+        {
+            pattern.Month = source.Month;
+        }
+
+        if (source.DayOfMonth is not null)
+        {
+            pattern.DayOfMonth = source.DayOfMonth;
+        }
+
+        if (source.FirstDayOfWeek is not null)
+        {
+            pattern.FirstDayOfWeek = source.FirstDayOfWeek;
+        }
+
+        if (source.Index is not null)
+        {
+            pattern.Index = source.Index;
+        }
+
+        if (source.DaysOfWeek is not null)
+        {
+            pattern.DaysOfWeek = source.DaysOfWeek;
+        }
+
+        return pattern;
+    }
+
+    /// <summary>
+    /// Builds a fresh <see cref="Microsoft.Graph.Models.RecurrenceRange"/> for a PATCH request,
+    /// updating the startDate to <paramref name="newDueDate"/>.
+    /// EndDate is only set when the range type is <see cref="Microsoft.Graph.Models.RecurrenceRangeType.EndDate"/>;
+    /// for NoEnd/Numbered ranges the Graph API returns a default 0001-01-01 value and serializing
+    /// <c>null</c> for an OData Edm.Date property causes an "Invalid JSON" error.
+    /// </summary>
+    private static Microsoft.Graph.Models.RecurrenceRange BuildRecurrenceRange(
+        Microsoft.Graph.Models.RecurrenceRange source, DateOnly newDueDate)
+    {
+        var range = new Microsoft.Graph.Models.RecurrenceRange
+        {
+            Type = source.Type,
+            StartDate = new Microsoft.Kiota.Abstractions.Date(newDueDate.Year, newDueDate.Month, newDueDate.Day),
+        };
+
+        // Only copy NumberOfOccurrences for numbered ranges when a value is present so the
+        // property is not touched on the Kiota backing store for NoEnd/EndDate recurrences.
+        if (source.Type == Microsoft.Graph.Models.RecurrenceRangeType.Numbered &&
+            source.NumberOfOccurrences.HasValue)
+        {
+            range.NumberOfOccurrences = source.NumberOfOccurrences.Value;
+        }
+
+        // Only copy RecurrenceTimeZone when present so null is omitted from PATCH payloads.
+        if (!string.IsNullOrEmpty(source.RecurrenceTimeZone))
+        {
+            range.RecurrenceTimeZone = source.RecurrenceTimeZone;
+        }
+
+        // Only copy EndDate when the range type is EndDate so the property is not
+        // touched on the Kiota backing store (avoiding null → "endDate": null in JSON).
+        if (source.Type == Microsoft.Graph.Models.RecurrenceRangeType.EndDate)
+        {
+            range.EndDate = source.EndDate;
+        }
+
+        return range;
     }
 
     /// <summary>
