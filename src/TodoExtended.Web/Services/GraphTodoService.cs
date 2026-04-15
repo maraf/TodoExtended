@@ -340,8 +340,8 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
 
     /// <summary>
     /// Builds a fresh <see cref="Microsoft.Graph.Models.RecurrencePattern"/> for a PATCH request.
-    /// Nullable collection properties (DaysOfWeek) are only set when non-null to prevent the
-    /// Kiota backing store proxy from serializing them as <c>"daysOfWeek":null</c>.
+    /// Nullable properties are only set when non-null to prevent the Kiota backing store proxy
+    /// from serializing them as explicit nulls (e.g. <c>"daysOfWeek":null</c>).
     /// </summary>
     private static Microsoft.Graph.Models.RecurrencePattern BuildRecurrencePattern(
         Microsoft.Graph.Models.RecurrencePattern source)
@@ -350,11 +350,27 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
         {
             Type = source.Type,
             Interval = source.Interval,
-            Month = source.Month,
-            DayOfMonth = source.DayOfMonth,
-            FirstDayOfWeek = source.FirstDayOfWeek,
-            Index = source.Index,
         };
+
+        if (source.Month is not null)
+        {
+            pattern.Month = source.Month;
+        }
+
+        if (source.DayOfMonth is not null)
+        {
+            pattern.DayOfMonth = source.DayOfMonth;
+        }
+
+        if (source.FirstDayOfWeek is not null)
+        {
+            pattern.FirstDayOfWeek = source.FirstDayOfWeek;
+        }
+
+        if (source.Index is not null)
+        {
+            pattern.Index = source.Index;
+        }
 
         if (source.DaysOfWeek is not null)
         {
@@ -378,9 +394,21 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
         {
             Type = source.Type,
             StartDate = new Microsoft.Kiota.Abstractions.Date(newDueDate.Year, newDueDate.Month, newDueDate.Day),
-            NumberOfOccurrences = source.NumberOfOccurrences,
-            RecurrenceTimeZone = source.RecurrenceTimeZone,
         };
+
+        // Only copy NumberOfOccurrences for numbered ranges when a value is present so the
+        // property is not touched on the Kiota backing store for NoEnd/EndDate recurrences.
+        if (source.Type == Microsoft.Graph.Models.RecurrenceRangeType.Numbered &&
+            source.NumberOfOccurrences.HasValue)
+        {
+            range.NumberOfOccurrences = source.NumberOfOccurrences.Value;
+        }
+
+        // Only copy RecurrenceTimeZone when present so null is omitted from PATCH payloads.
+        if (!string.IsNullOrEmpty(source.RecurrenceTimeZone))
+        {
+            range.RecurrenceTimeZone = source.RecurrenceTimeZone;
+        }
 
         // Only copy EndDate when the range type is EndDate so the property is not
         // touched on the Kiota backing store (avoiding null → "endDate": null in JSON).
