@@ -221,22 +221,16 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             // the dueDateTime is patched.
             if (current?.Recurrence?.Range != null)
             {
-                // Build a fresh RecurrencePattern instead of reusing the deserialized one.
-                // The Kiota backing store on the GET response object may have null AdditionalData,
-                // which causes "AdditionalData can not be null" during PATCH serialization.
-                var src = current.Recurrence.Pattern;
+                // Build fresh Pattern/Range objects instead of reusing deserialized ones.
+                // The Kiota BackingStoreSerializationWriterProxyFactory serializes every
+                // explicitly-assigned property — including null values — so we must avoid
+                // setting nullable properties (DaysOfWeek, EndDate) to null, otherwise the
+                // Graph API rejects the payload with "Invalid JSON" / OData type errors.
                 patch.Recurrence = new Microsoft.Graph.Models.PatternedRecurrence
                 {
-                    Pattern = src == null ? null : new Microsoft.Graph.Models.RecurrencePattern
-                    {
-                        Type = src.Type,
-                        Interval = src.Interval,
-                        Month = src.Month,
-                        DayOfMonth = src.DayOfMonth,
-                        DaysOfWeek = src.DaysOfWeek,
-                        FirstDayOfWeek = src.FirstDayOfWeek,
-                        Index = src.Index,
-                    },
+                    Pattern = current.Recurrence.Pattern == null
+                        ? null
+                        : BuildRecurrencePattern(current.Recurrence.Pattern),
                     Range = BuildRecurrenceRange(current.Recurrence.Range, dueDate),
                 };
                 logger.LogDebug("SetTaskDueDateAsync: Updating recurrence startDate to {StartDate} for recurring task {TaskId}", dueDate, taskId);
@@ -342,6 +336,32 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
             .Where(l => l.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
             .OrderBy(l => l.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    }
+
+    /// <summary>
+    /// Builds a fresh <see cref="Microsoft.Graph.Models.RecurrencePattern"/> for a PATCH request.
+    /// Nullable collection properties (DaysOfWeek) are only set when non-null to prevent the
+    /// Kiota backing store proxy from serializing them as <c>"daysOfWeek":null</c>.
+    /// </summary>
+    private static Microsoft.Graph.Models.RecurrencePattern BuildRecurrencePattern(
+        Microsoft.Graph.Models.RecurrencePattern source)
+    {
+        var pattern = new Microsoft.Graph.Models.RecurrencePattern
+        {
+            Type = source.Type,
+            Interval = source.Interval,
+            Month = source.Month,
+            DayOfMonth = source.DayOfMonth,
+            FirstDayOfWeek = source.FirstDayOfWeek,
+            Index = source.Index,
+        };
+
+        if (source.DaysOfWeek is not null)
+        {
+            pattern.DaysOfWeek = source.DaysOfWeek;
+        }
+
+        return pattern;
     }
 
     /// <summary>
