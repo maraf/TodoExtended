@@ -4,6 +4,22 @@
 
 ## Recent Work
 
+### 2026-04-17 — Push Sync Rollout Completed Behind Allowlist
+
+Implemented the actual push-sync rollout path behind `PushSync.Enabled` + `PushSync.AllowedUsers`.
+
+**What landed:**
+- Normalized allowlist matching now uses sign-in email / `preferred_username`, not display name.
+- Added persisted push-sync state in `SyncMetadata` (subscription IDs, pending refresh state, webhook activity).
+- Added a background hosted service that provisions/renews Graph subscriptions and refreshes cache off the request path.
+- Added `/api/pushsync/webhook` for Graph validation + notification handling.
+- Request-time reads now skip delta sync only when push sync is truly healthy; otherwise they automatically fall back to the existing delta-sync-on-read behavior.
+
+**Validation:**
+- `dotnet test tests/TodoExtended.Tests/TodoExtended.Tests.csproj` ✅
+- `dotnet test tests/TodoExtended.Components.Tests/TodoExtended.Components.Tests.csproj` ✅
+- App startup + webhook validation token endpoint verified locally (`/api/pushsync/webhook?validationToken=ping`) ✅
+
 ### 2026-04-17 — MSAL Error Handling Decision & Push Sync Allowlist Ready
 
 **Status: Backend is ready for Push Sync Allowlist implementation**
@@ -452,3 +468,73 @@ Refactored `ITodoService` and all implementations/callers to accept explicit `st
 
 **Build:** ✅ `dotnet build -warnaserror` — 0 errors, 0 warnings
 **Tests:** ✅ 21/21 passing
+
+## Push Sync Allowlist Rollout with Health-Based Fallback (2026-04-17)
+
+**Status:** Complete  
+**Files Added:** 7 service files + webhook endpoint  
+**Files Modified:** 6 core files  
+**Tests:** All passing
+
+### Learnings
+
+#### Configuration-Gated Features
+
+- **Pattern: Opt-in by default** — Feature flags should disable all new behavior until admin explicitly enables. Use `IOptions<T>` for immutable configuration binding.
+- **Email-based allowlist** — Normalize via `StringComparison.OrdinalIgnoreCase` to handle case-insensitive email matching. Store in `appsettings.json` as JSON array.
+- **Middleware re-sync** — Update `User.Email` on every OIDC sign-in to catch email changes (e.g., account recovery).
+
+#### State Management Without Schema Changes
+
+- **Pattern: Leverage existing metadata tables** — Store per-user state in `SyncMetadata` table using JSON keys like `PushSync:State:{userId}`. Avoids EF migrations and schema risk late in cycle.
+- **SemaphoreSlim for concurrency** — Use `ConcurrentDictionary<string, SemaphoreSlim>` keyed by userId to prevent simultaneous background refreshes on same subscription.
+- **Transient failure resilience** — Background service catches all exceptions and records `LastBackgroundHealth` timestamp even on failure (unhealthy state still triggers fallback).
+
+#### Health-Based Fallback Pattern
+
+- **Non-blocking health checks** — Don't throw on health determination. Unhealthy → silently fall back to delta sync (safety-first).
+- **Health determination criteria:**
+  1. Feature enabled in config
+  2. User allowlisted (normalized email match)
+  3. Graph subscription exists and not expired
+  4. NotificationUrl configured in appsettings
+  5. Background service ran recently (< 24h ago)
+  6. Last background health = success
+- **Fallback trigger:** Any one condition fails → use delta sync on read (existing, proven path).
+
+#### Webhook Integration (Graph API)
+
+- **Validation tokens** — Graph sends validation token in `Notification-Type: subscriptionCreated`. Echo back via `POST /api/pushsync/webhook` with token in response body to complete subscription handshake.
+- **Webhook modeling** — Create specific request/response POCO classes for webhook (ChangeNotificationCollection, ResourceData, etc.) to avoid tight coupling to domain models.
+- **Mark-for-refresh pattern** — On incoming notification, set `PushSync:Refresh:{userId}` in metadata and let background service handle the actual refresh (decouples webhook latency from user request).
+
+#### Service Registration & DI
+
+- **Hosted services for background work** — Register `PushSyncBackgroundService` as `AddHostedService<T>()` so it auto-starts with the app lifetime.
+- **Singleton health service** — Both background service and `CachedTodoService` need `IPushSyncHealthService` — register as singleton so both see same state.
+- **Test isolation** — Mock `IHostApplicationLifetime` in tests to avoid actual background service start during test runs.
+
+### Key Implementation Details
+
+**Service Lifecycle:**
+1. `Program.cs` binds `PushSync` config section to `PushSyncOptions`
+2. Registers `PushSyncGate`, `PushSyncStateStore`, `PushSyncHealthService` as singletons
+3. Registers `PushSyncBackgroundService` as hosted service
+4. Background service starts on app launch, manages subscription bootstrap/renewal loop
+
+**Health Check Flow:**
+1. `CachedTodoService.RefreshCacheAsync()` calls `healthService.IsHealthyAsync(userId)`
+2. Health service checks all 6 criteria in parallel
+3. If healthy → skip delta sync (push notifications are current)
+4. If unhealthy → do delta sync (safe fallback)
+
+**Webhook Flow:**
+1. Graph POST `/api/pushsync/webhook` with subscription change notification
+2. Endpoint validates Graph signature + returns validation token
+3. Sets `PushSync:Refresh:{userId}` flag in state store
+4. Background service picks up flag on next loop, refreshes subscription state
+
+### Build & Test
+
+- **Build:** ✅ `dotnet build -warnaserror` — 0 errors, 0 warnings
+- **Tests:** ✅ 2 new test files (PushSyncGateTests: 4 scenarios, PushSyncHealthServiceTests: 8 scenarios) + updated CachedTodoServiceTests — all passing

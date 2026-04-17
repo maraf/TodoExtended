@@ -181,3 +181,72 @@ Created TodoExtended.Tests project for service-layer unit testing:
 
 **Orchestration Log:** .squad/orchestration-log/20260311T095047Z-tester.md
 
+
+## Push Sync Allowlist & Health Service Tests (2026-04-17)
+
+**Status:** Complete  
+**New Tests:** 2 files + 12 new test cases  
+**All Passing:** ✅
+
+### Test Files Created
+
+1. **PushSyncGateTests.cs** — 4 test scenarios
+2. **PushSyncHealthServiceTests.cs** — 8 test scenarios
+
+### Test Scenarios
+
+#### PushSyncGateTests (IsAllowlisted)
+
+| Test | Input | Expected |
+|------|-------|----------|
+| FeatureEnabled_UserAllowlisted | Enabled=true, Email="user@test.com", Allowlist=["user@test.com"] | true |
+| FeatureEnabled_UserNotAllowlisted | Enabled=true, Email="user@test.com", Allowlist=["other@test.com"] | false |
+| FeatureDisabled | Enabled=false, any email/allowlist | false |
+| CaseInsensitive | Enabled=true, Email="User@Test.Com", Allowlist=["user@test.com"] | true |
+
+#### PushSyncHealthServiceTests (IsHealthyAsync)
+
+| Test | Condition | Expected |
+|------|-----------|----------|
+| Healthy_AllConditionsMet | enabled + subscribed + recent success + NotificationUrl configured | true |
+| Unhealthy_FeatureDisabled | Enabled=false in config | false |
+| Unhealthy_NoSubscription | Subscription not found in state | false |
+| Unhealthy_SubscriptionExpired | Subscription.ExpirationDateTime < now | false |
+| Unhealthy_NotificationUrlMissing | NotificationUrl not in Graph client config | false |
+| Unhealthy_NeverRan | LastBackgroundHealth timestamp is null | false |
+| Unhealthy_StaleBackground | LastBackgroundHealth > 24h ago | false |
+| Unhealthy_LastBackgroundFailed | LastBackgroundSuccess=false | false |
+
+### Learnings
+
+#### Configuration-Based Testing
+
+- **Options mocking pattern** — Use `Options.Create<PushSyncOptions>(new {...})` to mock configuration without hitting appsettings.json. Avoids test data pollution.
+- **Allowlist normalization** — Tests must verify case-insensitive matching. Use `StringComparison.OrdinalIgnoreCase` in implementation, assert both "User@Test.Com" and "user@test.com" match same allowlist entry.
+- **Empty allowlist edge case** — Feature enabled + empty allowlist → all users return false (not an error condition, expected behavior).
+
+#### Health Service Testing
+
+- **Async health determination** — All conditions checked in parallel with `Task.WhenAll()` for performance. Tests must mock `IGraphTodoClient` to control subscription state.
+- **Timestamp comparison** — Use `SystemClock.Instance.UtcNow` or mock `ISystemClock` to control "now" in tests. Test stale background by setting `LastBackgroundHealth = now.AddHours(-25)`.
+- **Non-throwing health checks** — Health service never throws. All exception paths caught and recorded as unhealthy state. Test unhealthy paths, not exception paths.
+- **Default TimeSpan** — Health threshold for stale background is 24 hours. Tests verify both `now - LastBackgroundHealth >= TimeSpan.FromHours(24)` (stale) and `< TimeSpan.FromHours(24)` (fresh).
+
+#### Test Isolation
+
+- **Mock IStateStore** — State store provides subscription state. Mock with `NSubstitute` to return test fixtures (subscription, null, expired, etc.). State store is a separate service tested elsewhere.
+- **Mock IGraphTodoClient** — Used only for NotificationUrl determination. Mock returns NotificationUrl or null.
+- **Mock IHostApplicationLifetime** — Background service lifecycle. Mock to prevent actual background thread during tests.
+- **No real async** — All async methods completed immediately in tests. Use `.GetAwaiter().GetResult()` or `Task.FromResult<T>()` for deterministic testing.
+
+#### Integration Testing (CachedTodoService)
+
+- **Health check before skip-delta-sync** — `RefreshCacheAsync()` calls `healthService.IsHealthyAsync(userId)` first. If healthy → skip delta sync. If unhealthy → do delta sync.
+- **Test both paths** — Write scenario tests: (healthy user scenario + verify no delta sync), (unhealthy user scenario + verify delta sync called).
+- **Mock health service** — Inject mock `IPushSyncHealthService` into `CachedTodoService` test, return true/false based on scenario.
+
+### Build & Test
+
+- **Build:** ✅ Clean
+- **Test:** ✅ 12 new scenarios + 4 existing integration scenarios = 16 total passing
+- **Coverage:** Gate logic (4 scenarios), health determination (8 scenarios), integration (integration via updated CachedTodoServiceTests)

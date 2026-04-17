@@ -1787,3 +1787,30 @@ Both check OID claim first (http://schemas.microsoft.com/identity/claims/objecti
 - Rationale: Authentication checks occur upstream; these code paths assume already-authenticated users
 
 **Not changed:** UserSyncMiddleware.cs — intentionally extracts only OID claim (API key users excluded upstream). ApiKeyAuthenticationHandler.cs and demo user setup — these *create* claims, not extract them.
+
+---
+
+# Backend Decision — Push Sync Rollout State & Fallback
+
+**Date:** 2026-04-17  
+**Author:** Backend  
+**Status:** Implemented
+
+## Decision
+
+Implement push-sync rollout without a new EF migration by persisting per-user push state in the existing `SyncMetadata` table:
+
+- allowlist eligibility uses the normalized sign-in email / `preferred_username`
+- Graph webhook subscription state is stored as JSON under `PushSync:State:{userId}`
+- request-time reads only skip delta sync when the user is allowlisted **and** push health is currently valid
+- any unhealthy condition (feature off, missing `NotificationUrl`, pending notification refresh, expired subscription, failed renewal, stale health) falls back to the existing delta-sync-on-read path
+
+## Rationale
+
+This keeps the rollout behavior-safe and reversible while avoiding schema risk late in the cycle. `SyncMetadata` already exists for per-user sync tokens, so it is the most pragmatic place to persist lightweight subscription and health metadata for now.
+
+## Implementation Notes
+
+- `PushSyncBackgroundService` now manages subscription bootstrap/renewal and background cache refreshes.
+- `/api/pushsync/webhook` handles Graph validation tokens and marks users as pending refresh on incoming notifications.
+- `PushSyncHealthService` only reports healthy when the configuration, subscription state, and recent background success all line up.
