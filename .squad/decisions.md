@@ -289,6 +289,102 @@ Extracted two shared Blazor components from duplicated markup in Today.razor and
 
 **Impact:** ~70 lines of duplicated markup eliminated. Both pages build clean with `-warnaserror`.
 
+### Push Sync Allowlist Configuration
+
+**Date:** 2026-04-17  
+**Author:** Architect  
+**Status:** Proposed
+
+Push synchronization (background cache warming, and later Graph webhooks) needs to be gated behind a user allowlist during rollout. The app uses Microsoft Entra ID (consumer tenant) and stores four identity fields per user: `Id` (OID), `Email`, `DisplayName`, and `HomeAccountId`.
+
+**Key Decisions:**
+
+1. **Match on `Email` (preferred_username / UPN)**
+   - Recommended identifier: `Email` — the `User.Email` field, sourced from the `ClaimTypes.Email` or `preferred_username` claim
+   - Human-readable for admins editing config
+   - Stable for Microsoft consumer accounts (personal MSA)
+   - Already synced on every OIDC sign-in by `UserSyncMiddleware`
+   - Mitigated edge case: if user changes their MSA email, old config entry stops matching; new one must be added. This is acceptable and provides an implicit "off switch."
+
+2. **Configuration shape**
+   ```json
+   {
+     "PushSync": {
+       "Enabled": false,
+       "AllowedUsers": []
+     }
+   }
+   ```
+   - `Enabled: false` — global kill switch; when false, push sync is off for everyone regardless of the list
+   - `AllowedUsers: []` — empty list means nobody gets push sync even if Enabled is true. Populated with email addresses.
+   - The list is case-insensitive (use `StringComparer.OrdinalIgnoreCase`)
+
+3. **Options class**
+   ```csharp
+   namespace TodoExtended.Web.Services;
+
+   public class PushSyncOptions
+   {
+       public const string SectionName = "PushSync";
+       public bool Enabled { get; set; }
+       public List<string> AllowedUsers { get; set; } = [];
+   }
+   ```
+   Bound in `Program.cs` via `builder.Services.Configure<PushSyncOptions>(builder.Configuration.GetSection(PushSyncOptions.SectionName));`
+
+4. **Gate service**
+   Create a small `IPushSyncGate` / `PushSyncGate` service that answers "should this user get push sync?":
+   ```csharp
+   public interface IPushSyncGate
+   {
+       bool IsEligible(string userEmail);
+   }
+   ```
+   Implementation checks `PushSyncOptions.Enabled && AllowedUsers contains email (case-insensitive)`. Injected where push sync is triggered.
+
+5. **Files to change**
+   - `appsettings.json` — Add `PushSync` section
+   - `Services/PushSyncOptions.cs` — New — options POCO
+   - `Services/IPushSyncGate.cs` — New — interface
+   - `Services/PushSyncGate.cs` — New — implementation
+   - `Program.cs` — Bind options, register gate as singleton
+   - Background sync service (future) — Inject `IPushSyncGate`, check before syncing for a user
+   - `CachedTodoService.cs` — If soft-stale async refresh is added, gate it behind `IPushSyncGate`
+
+**Testing:**
+- Unit test `PushSyncGate` with: enabled+listed, enabled+not-listed, disabled+listed, empty list, case mismatch
+- No DB or Graph dependency — pure config-based logic
+
+**Impact:** Zero behavior change at merge (Enabled defaults to false). Clean gate for all future push sync features (background warmer, webhooks, SignalR notifications). Easy to promote to a DB-backed allowlist later if needed (replace `PushSyncGate` implementation, keep interface).
+
+### MsalServiceException Handling — Sign Out on Irrecoverable Auth Failures
+
+**Date:** 2026-03-13  
+**Author:** Backend  
+**Status:** Implemented
+
+When MSAL token acquisition fails with an irrecoverable `MsalServiceException` (e.g. `invalid_client`, expired secrets, revoked consent, 401 status), the user is now signed out and redirected to the landing page — instead of being left on a broken page with console warnings.
+
+**Key Decisions:**
+
+1. **Two-tier auth error handling in Blazor pages:**
+   - `MicrosoftIdentityWebChallengeUserException` → redirect to `MicrosoftIdentity/Account/SignIn` (re-consent, existing behavior)
+   - `MsalServiceException` (irrecoverable) → redirect to `MicrosoftIdentity/Account/SignOut` (clear broken session)
+   - MSAL catch is evaluated first via exception filter ordering
+
+2. **Helper: `AuthExceptionHelper.IsIrrecoverableMsalError(Exception)`** — Walks the full exception chain (including `AggregateException` inner exceptions) checking for `MsalServiceException` with `ErrorCode == "invalid_client"` or `StatusCode == 401`. This handles cases where MSAL errors are wrapped by Graph SDK or other middleware.
+
+3. **CachedTodoService: explicit `MsalServiceException` catches** — Added before existing `ObjectDisposedException` and generic catches in all sync methods. These log at Warning level and re-throw (not swallow), so the error propagates to the Blazor page for sign-out redirect. This prevents the `ShouldRebuildCache` logic from running on auth failures (which would just fail again).
+
+4. **Demo mode unaffected** — Demo mode doesn't use MSAL, so `MsalServiceException` is never thrown. The new catch blocks are inert in demo mode.
+
+**Files Changed:**
+- `Services/AuthExceptionHelper.cs` (new) — Static helper for MSAL error detection
+- `Services/CachedTodoService.cs` — 8 new `MsalServiceException` catch blocks
+- 8 Razor files — 19 new MSAL catch blocks (NavMenu, Tasks, Today, Home, Templates, ApiKeys, SyncSettings, TaskStatusCheckbox)
+
+**Impact:** No interface changes. Build clean with `-warnaserror`. All 75 tests pass (21 unit + 54 component).
+
 ## Governance
 
 - All meaningful changes require team consensus

@@ -2,6 +2,24 @@
 
 <!-- Session logs appended by Scribe -->
 
+## Learnings
+
+### 2026-04-17 — Push Sync Allowlist Rollout Plan Completed
+
+**Scribe finalized:**
+- Decision merged into `.squad/decisions.md` (deduped with Backend's MSAL SignOut decision)
+- Orchestration log: `.squad/orchestration-log/20260417-203438-architect.md`
+- Session log: `.squad/log/20260417-203438-push-sync-allowlist-plan.md`
+- Ready for Backend implementation
+
+**Original 2026-03-13 — Push Sync Allowlist Design:**
+
+- **Identifier choice:** Recommended matching on `User.Email` for the push sync allowlist. OID is immutable but opaque; Email is human-readable and stable enough for consumer MSA accounts. Case-insensitive comparison required.
+- **Config pattern:** `PushSync:Enabled` (global kill switch) + `PushSync:AllowedUsers` (email list). Follows existing `TodoCache` / `AiChat` / `Demo` options pattern.
+- **Gate pattern:** `IPushSyncGate` / `PushSyncGate` — small injectable service that answers eligibility. Keeps push-sync gating out of business logic. Can be swapped to DB-backed later.
+- **Key files for push sync integration:** `CachedTodoService.cs` (cache warming gate), `Program.cs` (DI registration), future background sync hosted service.
+- **Decision document:** `.squad/decisions.md` (merged from inbox)
+
 ## Recent Work
 
 ### 2026-03-12 — Explicit userId Parameter Refactoring (Service Layer)

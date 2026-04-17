@@ -4,6 +4,33 @@
 
 ## Recent Work
 
+### 2026-04-17 — MSAL Error Handling Decision & Push Sync Allowlist Ready
+
+**Status: Backend is ready for Push Sync Allowlist implementation**
+
+Decision finalized and merged in `.squad/decisions.md`:
+- Config: `PushSync.Enabled` (bool, default false) + `PushSync.AllowedUsers` (email list, case-insensitive)
+- Service layer: `IPushSyncGate` injectable gate pattern
+- Files to create: `PushSyncOptions.cs`, `IPushSyncGate.cs`, `PushSyncGate.cs`, unit tests
+- Files to modify: `appsettings.json`, `Program.cs`
+- Injection points: `CachedTodoService` (cache warming gate), future background sync service
+
+**Earlier: MSAL Service Exception Handling (2026-03-13, Status: Implemented)**
+
+When MSAL token acquisition fails with irrecoverable errors (`invalid_client`, expired secrets, revoked consent, 401), users are signed out and redirected to landing page.
+
+**Key Decisions:**
+- Two-tier auth error handling in Blazor pages: `MicrosoftIdentityWebChallengeUserException` (re-consent) vs `MsalServiceException` (sign out)
+- Helper: `AuthExceptionHelper.IsIrrecoverableMsalError(Exception)` walks full exception chain
+- CachedTodoService: explicit `MsalServiceException` catches before ObjectDisposedException
+
+**Files Changed:**
+- `Services/AuthExceptionHelper.cs` (new)
+- `Services/CachedTodoService.cs` (8 new catches)
+- 8 Razor files (19 new catches)
+
+**Impact:** No interface changes. Build clean with `-warnaserror`. All 75 tests pass.
+
 ### 2026-03-12 — Explicit userId Parameter Refactoring
 
 Refactored `ITodoService` interface to require explicit `string userId` parameters on all 8 methods, eliminating `IHttpContextAccessor` dependency from `CachedTodoService`.
