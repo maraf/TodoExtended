@@ -21,4 +21,18 @@ public interface IGraphTodoClient
     /// </summary>
     Task<IReadOnlyDictionary<string, GraphDeltaPage<Microsoft.Graph.Models.TodoTask>>> GetTasksDeltaBatchAsync(
         IReadOnlyList<(string ListId, string? DeltaOrNextLink)> requests);
+
+    Task<Microsoft.Graph.Models.Subscription> CreateSubscriptionAsync(
+        string resource,
+        string notificationUrl,
+        string clientState,
+        DateTimeOffset expirationDateTime,
+        CancellationToken cancellationToken = default);
+
+    Task<Microsoft.Graph.Models.Subscription?> RenewSubscriptionAsync(
+        string subscriptionId,
+        DateTimeOffset expirationDateTime,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteSubscriptionAsync(string subscriptionId, CancellationToken cancellationToken = default);
 }
