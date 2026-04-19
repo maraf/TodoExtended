@@ -76,4 +76,5 @@ public interface ITodoService
     Task SetTaskReminderAsync(string taskListId, string taskId, DateOnly reminderDate, TimeOnly reminderTime, string userId);
     Task SetTaskListSyncedAsync(string taskListId, bool isSynced, string userId);
     Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync(string userId);
+    Task EnsureAllListsSyncedAsync(string userId);
 }

@@ -45,6 +45,12 @@ public class CachedTodoService(
             .ToListAsync();
     }
 
+    public async Task EnsureAllListsSyncedAsync(string userId)
+    {
+        await using var db = await dbContextFactory.CreateDbContextAsync();
+        await EnsureCacheValidAsync(db, userId);
+    }
+
     public async Task SetTaskListSyncedAsync(string taskListId, bool isSynced, string userId)
     {
         await using var db = await dbContextFactory.CreateDbContextAsync();

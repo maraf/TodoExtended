@@ -197,6 +197,8 @@ public class TagTasksTests : TestContext
 
         public Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync(string userId) =>
             Task.FromResult<IReadOnlyList<TodoTaskList>>([]);
+
+        public Task EnsureAllListsSyncedAsync(string userId) => Task.CompletedTask;
     }
 
     private sealed class StubNotificationService : INotificationService
