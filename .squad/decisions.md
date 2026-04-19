@@ -2,6 +2,21 @@
 
 ## Active Decisions
 
+### Garmin Tag Task Title Trimming
+
+**Date:** 2026-04-09  
+**Author:** Architect / Copilot directive  
+**Status:** Implemented
+
+Tag-task title compaction in `garmin/TodoExtended.Watch/source/TagTasksMenu.mc` now only removes a leading `#tag` prefix, matched case-insensitively. Bare `tag` prefixes remain part of the visible title.
+
+**Rationale:**
+- The selected Garmin tag is always represented as `#tag` in task titles (visible hashtag form)
+- Stripping plain `tag` removes legitimate title text and over-compacts unrelated tasks
+- Existing safeguards remain: only trim true prefixes, keep original title if trimming would empty it
+
+**Impact:** Focused change in Garmin watch app only; no behavioral change outside tag tasks menu.
+
 ### Task Sorting Order
 
 **Date:** 2025-07-18  
@@ -356,6 +371,19 @@ Push synchronization (background cache warming, and later Graph webhooks) needs 
 - No DB or Graph dependency — pure config-based logic
 
 **Impact:** Zero behavior change at merge (Enabled defaults to false). Clean gate for all future push sync features (background warmer, webhooks, SignalR notifications). Easy to promote to a DB-backed allowlist later if needed (replace `PushSyncGate` implementation, keep interface).
+### Garmin Tag Task Title Trimming
+
+**Date:** 2026-04-09  
+**Author:** Frontend  
+**Status:** Implemented
+
+In the Garmin tag tasks view, task titles now drop a leading selected tag when it appears at the start of the title, matching case-insensitively. The trimming handles both `#tag` and plain `tag` prefixes, then removes any following spaces so more of the real task text fits on the watch.
+
+**Key Decisions:**
+
+1. **Accept both `#tag` and plain `tag` prefixes** — the API-selected tag name is stored without `#`, but task titles may include the visible hashtag token at the start.
+2. **Keep the original title if trimming would blank it out** — this avoids empty rows on the watch for titles that are only the tag.
+3. **Limit the change to the tag tasks view** — existing task rendering elsewhere stays unchanged.
 
 ### MsalServiceException Handling — Sign Out on Irrecoverable Auth Failures
 

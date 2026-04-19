@@ -104,4 +104,12 @@ module Models {
         }
         return templates;
     }
+
+    function parseFavoriteTags(data as Array) as Array<String> {
+        var tags = new Array<String>[data.size()];
+        for (var i = 0; i < data.size(); i++) {
+            tags[i] = data[i] as String;
+        }
+        return tags;
+    }
 }

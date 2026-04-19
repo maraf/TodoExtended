@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
     <VersionPrefix>0.0.0</VersionPrefix>
+    <DefaultItemExcludes>$(DefaultItemExcludes);artifacts\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <PropertyGroup>

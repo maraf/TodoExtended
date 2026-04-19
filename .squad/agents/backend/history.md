@@ -229,6 +229,7 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
 - **UI pattern:** `WatchUi.Menu2` with `Menu2InputDelegate` for scrollable lists (auto-scrolls, memory-efficient). Views extend `WatchUi.View`, delegates extend `WatchUi.BehaviorDelegate`.
 - **Memory:** 28-128 KB budget depending on device; keep response payloads under 8-16 KB.
 - **Launcher icon:** Referenced in `drawables.xml` as `<bitmap id="LauncherIcon">`, must match `launcherIcon="@Drawables.LauncherIcon"` in manifest.
+- **Tag task titles:** `garmin/TodoExtended.Watch/source/TagTasksMenu.mc` trims a leading selected tag from task titles for watch display, but only when the tag is a true prefix (`#tag` or `tag`, case-insensitive) followed by end-of-title or a separator like space, `-`, or `:`. This avoids mangling unrelated titles such as longer words that merely start with the same letters.
 
 ### DbContext Lifetime in Blazor Server (2026-03-xx)
 
@@ -538,3 +539,26 @@ Refactored `ITodoService` and all implementations/callers to accept explicit `st
 
 - **Build:** ✅ `dotnet build -warnaserror` — 0 errors, 0 warnings
 - **Tests:** ✅ 2 new test files (PushSyncGateTests: 4 scenarios, PushSyncHealthServiceTests: 8 scenarios) + updated CachedTodoServiceTests — all passing
+## 2026-04-09: Garmin Watch Tag Trimming — Validation & Duplicate Handoff
+
+**Session:** Garmin Watch Tag Trimming & Orchestration (2026-04-09T11:21:47Z)
+
+### Work Summary
+
+- ✅ **Tag prefix validation** — Completed implementation and validation of Garmin tag trimming feature
+- ✅ **Decision merged** — Both Garmin tag trimming and MSAL auth decisions added to decisions.md
+- ✅ **Orchestration logged** — Parallel Frontend/Backend agent work documented
+
+### Implementation Context
+
+Parallel implementation with Frontend agent on Garmin TagTasksMenu.mc tag title trimming feature. Backend provided validation and prefix-matching guard logic ensuring:
+1. Both #tag and plain 	ag prefixes accepted case-insensitively
+2. Prefix must end at title boundary or be followed by lightweight separators ( , -, :)
+3. Preserves unrelated words that happen to start with tag text
+
+Final code on disk matches Frontend implementation; no separate artifact produced.
+
+### Outcome
+
+⚠️ **INCONCLUSIVE** — Feature completed via Frontend agent. Backend validation confirms correct implementation.
+

@@ -3,10 +3,12 @@ using TodoExtended.Web.Data;
 
 namespace TodoExtended.Web.Services;
 
-public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITagService
+public class TagService(IDbContextFactory<AppDbContext> dbContextFactory, ITodoService todoService) : ITagService
 {
     public async Task<IReadOnlyList<TagWithCount>> GetTagsAsync(string userId)
     {
+        await todoService.EnsureAllListsSyncedAsync(userId);
+
         await using var db = await dbContextFactory.CreateDbContextAsync();
 
         var tagCounts = await db.CachedTags
@@ -26,19 +28,26 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
             .ToList();
     }
 
-    public async Task<IReadOnlyList<TodoTaskWithList>> GetTasksByTagAsync(string tag, string userId)
+    public async Task<IReadOnlyList<TodoTaskWithList>> GetTasksByTagAsync(string tag, string userId, bool onlyUncompleted = false)
     {
         if (string.IsNullOrWhiteSpace(tag))
             return [];
+
+        await todoService.EnsureAllListsSyncedAsync(userId);
 
         await using var db = await dbContextFactory.CreateDbContextAsync();
 
         var normalizedTag = tag.ToLowerInvariant();
 
-        var tasks = await db.CachedTasks
+        var query = db.CachedTasks
             .AsNoTracking()
             .Where(task => task.UserId == userId && !task.IsDeleted && task.List!.IsSynced
-                && task.Tags.Any(t => t.Name == normalizedTag))
+                && task.Tags.Any(t => t.Name == normalizedTag));
+
+        if (onlyUncompleted)
+            query = query.Where(task => !task.IsCompleted);
+
+        var tasks = await query
             .Select(task => new TodoTaskWithList(
                 task.Id, task.Title, task.Body, task.IsCompleted,
                 task.DueDate, task.Importance, task.ListId, task.List!.DisplayName,

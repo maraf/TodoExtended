@@ -22,6 +22,9 @@ class MainMenuDelegate extends WatchUi.Menu2InputDelegate {
         } else if (id == :taskLists) {
             WatchUi.pushView(new WatchUi.ProgressBar("Loading...", null), new WatchUi.BehaviorDelegate(), WatchUi.SLIDE_UP);
             ApiClient.getTaskLists(method(:onTaskListsReceived));
+        } else if (id == :tags) {
+            WatchUi.pushView(new WatchUi.ProgressBar("Loading...", null), new WatchUi.BehaviorDelegate(), WatchUi.SLIDE_UP);
+            ApiClient.getFavoriteTags(method(:onFavoriteTagsReceived));
         }
     }
 
@@ -68,6 +71,19 @@ class MainMenuDelegate extends WatchUi.Menu2InputDelegate {
         if (responseCode == 200 && data != null) {
             var lists = Models.parseTaskLists(data as Array);
             switchToTaskListsMenu(lists);
+        } else {
+            WatchUi.popView(WatchUi.SLIDE_DOWN);
+            var message = ApiClient.getErrorMessage(responseCode);
+            WatchUi.showToast(message, {});
+        }
+    }
+
+    function onFavoriteTagsReceived(responseCode as Number, data as Dictionary or String or Null) as Void {
+        _vibrateIfLoadingWasSlow();
+        Attention.backlight(true);
+        if (responseCode == 200 && data != null) {
+            var tags = Models.parseFavoriteTags(data as Array);
+            switchToTagsMenu(tags);
         } else {
             WatchUi.popView(WatchUi.SLIDE_DOWN);
             var message = ApiClient.getErrorMessage(responseCode);
