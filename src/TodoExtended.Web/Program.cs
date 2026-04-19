@@ -159,23 +159,56 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // AI Chat
 builder.Services.Configure<AiChatOptions>(builder.Configuration.GetSection(AiChatOptions.SectionName));
-var aiChatApiKey = builder.Configuration.GetValue<string>("AiChat:ApiKey");
+
+var aiChatSection = builder.Configuration.GetSection(AiChatOptions.SectionName);
+var gitHubModelsApiKey = aiChatSection.GetValue<string>("GitHubModels:ApiKey");
+var azureOpenAIApiKey = aiChatSection.GetValue<string>("AzureOpenAI:ApiKey");
+var azureOpenAIEndpoint = aiChatSection.GetValue<string>("AzureOpenAI:Endpoint");
+var hasGitHubModels = !string.IsNullOrEmpty(gitHubModelsApiKey);
+var hasAzureOpenAI = !string.IsNullOrEmpty(azureOpenAIApiKey) && !string.IsNullOrEmpty(azureOpenAIEndpoint);
 
 if (isDemoMode)
 {
     builder.Services.AddScoped<IChatService, DemoChatService>();
 }
-else if (!string.IsNullOrEmpty(aiChatApiKey))
+else if (hasGitHubModels || hasAzureOpenAI)
 {
-    var aiChatEndpoint = builder.Configuration.GetValue<string>("AiChat:Endpoint") ?? "https://models.github.ai/inference";
-    var aiChatModel = builder.Configuration.GetValue<string>("AiChat:Model") ?? "openai/gpt-4.1-mini";
-
-    builder.Services.AddSingleton<Microsoft.Extensions.AI.IChatClient>(_ =>
+    // Resolve the chat client per-scope so we can route individual users to Azure OpenAI
+    // while the default is GitHub Models.
+    builder.Services.AddScoped<Microsoft.Extensions.AI.IChatClient>(sp =>
     {
+        var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AiChatOptions>>().Value;
+        var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
+
+        var user = httpContextAccessor.HttpContext?.User;
+        var username = user?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+            ?? user?.FindFirst("preferred_username")?.Value
+            ?? user?.FindFirst(System.Security.Claims.ClaimTypes.Upn)?.Value;
+
+        var useAzure = !string.IsNullOrEmpty(username)
+            && opts.AzureOpenAIUsers.Any(u => string.Equals(u, username, StringComparison.OrdinalIgnoreCase))
+            && !string.IsNullOrEmpty(opts.AzureOpenAI.Endpoint)
+            && !string.IsNullOrEmpty(opts.AzureOpenAI.ApiKey)
+            && !string.IsNullOrEmpty(opts.AzureOpenAI.DeploymentName);
+
+        if (useAzure)
+        {
+            var azureClient = new Azure.AI.OpenAI.AzureOpenAIClient(
+                new Uri(opts.AzureOpenAI.Endpoint!),
+                new System.ClientModel.ApiKeyCredential(opts.AzureOpenAI.ApiKey!));
+            return azureClient.GetChatClient(opts.AzureOpenAI.DeploymentName!).AsIChatClient();
+        }
+
+        if (string.IsNullOrEmpty(opts.GitHubModels.ApiKey))
+        {
+            throw new InvalidOperationException(
+                "AiChat:GitHubModels:ApiKey is not configured and the current user is not mapped to Azure OpenAI.");
+        }
+
         var openAiClient = new OpenAI.Chat.ChatClient(
-            aiChatModel,
-            new System.ClientModel.ApiKeyCredential(aiChatApiKey),
-            new OpenAI.OpenAIClientOptions { Endpoint = new Uri(aiChatEndpoint) });
+            opts.GitHubModels.Model,
+            new System.ClientModel.ApiKeyCredential(opts.GitHubModels.ApiKey!),
+            new OpenAI.OpenAIClientOptions { Endpoint = new Uri(opts.GitHubModels.Endpoint) });
         return openAiClient.AsIChatClient();
     });
     builder.Services.AddScoped<IChatService, ChatService>();

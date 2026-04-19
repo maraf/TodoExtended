@@ -12,7 +12,7 @@ public class StubChatService : IChatService
         CancellationToken ct = default)
     {
         var response = new ChatResponse(
-            Text: "AI chat is not configured. Set AiChat:ApiKey to enable this feature.",
+            Text: "AI chat is not configured. Set AiChat:GitHubModels:ApiKey (or configure AiChat:AzureOpenAI) to enable this feature.",
             ProposedActions: []);
 
         return Task.FromResult(response);
