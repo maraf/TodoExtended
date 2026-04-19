@@ -7,6 +7,8 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory, ITodoS
 {
     public async Task<IReadOnlyList<TagWithCount>> GetTagsAsync(string userId)
     {
+        await todoService.EnsureAllListsSyncedAsync(userId);
+
         await using var db = await dbContextFactory.CreateDbContextAsync();
 
         var tagCounts = await db.CachedTags
