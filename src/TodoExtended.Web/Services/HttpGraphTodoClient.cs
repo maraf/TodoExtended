@@ -107,4 +107,36 @@ public class HttpGraphTodoClient(GraphServiceClient graphClient) : IGraphTodoCli
 
         return results;
     }
+
+    public async Task<Microsoft.Graph.Models.Subscription> CreateSubscriptionAsync(
+        string resource,
+        string notificationUrl,
+        string clientState,
+        DateTimeOffset expirationDateTime,
+        CancellationToken cancellationToken = default)
+    {
+        return await graphClient.Subscriptions.PostAsync(new Microsoft.Graph.Models.Subscription
+        {
+            ChangeType = "created,updated,deleted",
+            Resource = resource,
+            NotificationUrl = notificationUrl,
+            ClientState = clientState,
+            ExpirationDateTime = expirationDateTime,
+        }, cancellationToken: cancellationToken)
+        ?? throw new InvalidOperationException($"Graph returned null when creating a subscription for resource '{resource}'.");
+    }
+
+    public Task<Microsoft.Graph.Models.Subscription?> RenewSubscriptionAsync(
+        string subscriptionId,
+        DateTimeOffset expirationDateTime,
+        CancellationToken cancellationToken = default) =>
+        graphClient.Subscriptions[subscriptionId].PatchAsync(
+            new Microsoft.Graph.Models.Subscription
+            {
+                ExpirationDateTime = expirationDateTime,
+            },
+            cancellationToken: cancellationToken);
+
+    public Task DeleteSubscriptionAsync(string subscriptionId, CancellationToken cancellationToken = default) =>
+        graphClient.Subscriptions[subscriptionId].DeleteAsync(cancellationToken: cancellationToken);
 }

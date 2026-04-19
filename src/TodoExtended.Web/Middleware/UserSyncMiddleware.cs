@@ -24,8 +24,9 @@ public class UserSyncMiddleware(RequestDelegate next, ILogger<UserSyncMiddleware
             {
                 var oid = context.User.FindFirst("http://schemas.microsoft.com/identity/claims/objectidentifier")?.Value;
                 var tid = context.User.FindFirst("http://schemas.microsoft.com/identity/claims/tenantid")?.Value;
-                var email = context.User.FindFirst(ClaimTypes.Email)?.Value 
-                    ?? context.User.FindFirst("preferred_username")?.Value 
+                var preferredUsername = NormalizeIdentifier(context.User.FindFirst("preferred_username")?.Value);
+                var email = NormalizeIdentifier(context.User.FindFirst(ClaimTypes.Email)?.Value)
+                    ?? preferredUsername
                     ?? "unknown@unknown.com";
                 var displayName = context.User.FindFirst(ClaimTypes.Name)?.Value 
                     ?? context.User.FindFirst("name")?.Value 
@@ -62,6 +63,28 @@ public class UserSyncMiddleware(RequestDelegate next, ILogger<UserSyncMiddleware
                         user.LastSeenUtc = now;
                     }
 
+                    if (!string.IsNullOrWhiteSpace(preferredUsername))
+                    {
+                        var key = PushSyncMetadataKeys.PreferredUsername(user.Id);
+                        var entry = await dbContext.SyncMetadata.FindAsync(key);
+                        if (entry == null)
+                        {
+                            dbContext.SyncMetadata.Add(new SyncMetadata
+                            {
+                                Key = key,
+                                Value = preferredUsername,
+                                UpdatedUtc = now,
+                                UserId = user.Id,
+                            });
+                        }
+                        else if (!string.Equals(entry.Value, preferredUsername, StringComparison.Ordinal))
+                        {
+                            entry.Value = preferredUsername;
+                            entry.UpdatedUtc = now;
+                            entry.UserId = user.Id;
+                        }
+                    }
+
                     // ITokenAcquisition is only available when OIDC auth is registered (non-demo mode).
                     var tokenAcquisition = context.RequestServices.GetService<ITokenAcquisition>();
                     if (tokenAcquisition != null && string.IsNullOrEmpty(user.TimeZone))
@@ -94,4 +117,7 @@ public class UserSyncMiddleware(RequestDelegate next, ILogger<UserSyncMiddleware
 
         await next(context);
     }
+
+    private static string? NormalizeIdentifier(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToLowerInvariant();
 }

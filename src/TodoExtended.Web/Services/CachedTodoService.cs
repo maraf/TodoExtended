@@ -13,6 +13,8 @@ public class CachedTodoService(
     IDbContextFactory<AppDbContext> dbContextFactory,
     IOptions<TodoCacheOptions> options,
     IUserTimeZoneService userTimeZoneService,
+    IPushSyncGate pushSyncGate,
+    IPushSyncHealthService pushSyncHealthService,
     ILogger<CachedTodoService> logger) : ITodoService
 {
     private readonly TodoCacheOptions _options = options.Value;
@@ -263,11 +265,17 @@ public class CachedTodoService(
         if (!await IsCacheStaleAsync(db, userId))
             return;
 
+        if (await ShouldSkipRequestTimeSyncAsync(db, userId))
+            return;
+
         var syncLock = GetSyncLock(userId);
         await syncLock.WaitAsync();
         try
         {
             if (!await IsCacheStaleAsync(db, userId))
+                return;
+
+            if (await ShouldSkipRequestTimeSyncAsync(db, userId))
                 return;
 
             await SyncAsync(db, userId);
@@ -292,11 +300,17 @@ public class CachedTodoService(
         if (!await IsCacheStaleAsync(db, userId))
             return;
 
+        if (await ShouldSkipRequestTimeSyncAsync(db, userId))
+            return;
+
         var syncLock = GetSyncLock(userId);
         await syncLock.WaitAsync();
         try
         {
             if (!await IsCacheStaleAsync(db, userId))
+                return;
+
+            if (await ShouldSkipRequestTimeSyncAsync(db, userId))
                 return;
 
             await SyncListsOnlyAsync(db, userId);
@@ -321,11 +335,17 @@ public class CachedTodoService(
         if (!await IsListCacheStaleAsync(db, taskListId))
             return;
 
+        if (await ShouldSkipRequestTimeSyncAsync(db, userId))
+            return;
+
         var syncLock = GetSyncLock(userId);
         await syncLock.WaitAsync();
         try
         {
             if (!await IsListCacheStaleAsync(db, taskListId))
+                return;
+
+            if (await ShouldSkipRequestTimeSyncAsync(db, userId))
                 return;
 
             var list = await db.CachedTaskLists.FirstOrDefaultAsync(l => l.Id == taskListId && l.UserId == userId);
@@ -363,6 +383,21 @@ public class CachedTodoService(
         }
     }
 
+    public async Task RunPushSyncAsync(string userId, CancellationToken cancellationToken = default)
+    {
+        await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var syncLock = GetSyncLock(userId);
+        await syncLock.WaitAsync(cancellationToken);
+        try
+        {
+            await SyncAsync(db, userId);
+        }
+        finally
+        {
+            syncLock.Release();
+        }
+    }
+
     private async Task<bool> IsListCacheStaleAsync(AppDbContext db, string taskListId)
     {
         var cacheMaxAge = TimeSpan.FromMinutes(_options.StalenessThresholdMinutes);
@@ -375,6 +410,31 @@ public class CachedTodoService(
             return true;
 
         return (DateTime.UtcNow - lastSync.Value) > cacheMaxAge;
+    }
+
+    private async Task<bool> ShouldSkipRequestTimeSyncAsync(AppDbContext db, string userId)
+    {
+        var userEmail = await db.Users
+            .Where(u => u.Id == userId)
+            .Select(u => u.Email)
+            .FirstOrDefaultAsync();
+
+        var preferredUsername = await db.SyncMetadata
+            .Where(m => m.Key == PushSyncMetadataKeys.PreferredUsername(userId))
+            .Select(m => m.Value)
+            .FirstOrDefaultAsync();
+
+        if (!pushSyncGate.IsEligible(userEmail, preferredUsername))
+            return false;
+
+        if (!await pushSyncHealthService.IsHealthyAsync(userId))
+            return false;
+
+        logger.LogDebug(
+            "Skipping request-time sync for allowlisted user {UserId} because push sync is healthy",
+            userId);
+
+        return true;
     }
 
     private async Task<bool> IsCacheStaleAsync(AppDbContext db, string userId)

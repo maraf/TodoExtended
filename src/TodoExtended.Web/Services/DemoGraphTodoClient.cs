@@ -98,6 +98,35 @@ public class DemoGraphTodoClient(DemoDataStore store) : IGraphTodoClient
         return results;
     }
 
+    public Task<Microsoft.Graph.Models.Subscription> CreateSubscriptionAsync(
+        string resource,
+        string notificationUrl,
+        string clientState,
+        DateTimeOffset expirationDateTime,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(new Microsoft.Graph.Models.Subscription
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Resource = resource,
+            NotificationUrl = notificationUrl,
+            ClientState = clientState,
+            ExpirationDateTime = expirationDateTime,
+            ChangeType = "created,updated,deleted",
+        });
+
+    public Task<Microsoft.Graph.Models.Subscription?> RenewSubscriptionAsync(
+        string subscriptionId,
+        DateTimeOffset expirationDateTime,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult<Microsoft.Graph.Models.Subscription?>(new Microsoft.Graph.Models.Subscription
+        {
+            Id = subscriptionId,
+            ExpirationDateTime = expirationDateTime,
+        });
+
+    public Task DeleteSubscriptionAsync(string subscriptionId, CancellationToken cancellationToken = default) =>
+        Task.CompletedTask;
+
     private static Microsoft.Graph.Models.TodoTask ToGraphTask(DemoTaskItem t)
     {
         var task = new Microsoft.Graph.Models.TodoTask

@@ -148,6 +148,14 @@ builder.Services.AddSingleton<IDbContextFactory<AppDbContext>>(provider =>
     new SimpleDbContextFactory(connectionString, provider.GetRequiredService<EnableForeignKeysInterceptor>()));
 
 builder.Services.Configure<TodoCacheOptions>(builder.Configuration.GetSection("TodoCache"));
+builder.Services.Configure<PushSyncOptions>(builder.Configuration.GetSection(PushSyncOptions.SectionName));
+builder.Services.AddSingleton<IPushSyncGate, PushSyncGate>();
+builder.Services.AddSingleton<PushSyncStateStore>();
+builder.Services.AddSingleton<IPushSyncHealthService, PushSyncHealthService>();
+if (!isDemoMode)
+{
+    builder.Services.AddHostedService<PushSyncBackgroundService>();
+}
 builder.Services.AddScoped<ITemplateService, TemplateService>();
 builder.Services.AddScoped<IUserTimeZoneService, UserTimeZoneService>();
 builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
@@ -341,6 +349,65 @@ app.MapStaticAssets();
 app.MapControllers();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+app.MapMethods("/api/pushsync/webhook", ["GET", "POST"], async (
+    HttpContext context,
+    IDbContextFactory<AppDbContext> dbContextFactory,
+    IPushSyncGate pushSyncGate,
+    PushSyncStateStore pushSyncStateStore,
+    ILoggerFactory loggerFactory,
+    CancellationToken cancellationToken) =>
+{
+    var validationToken = context.Request.Query["validationToken"].FirstOrDefault();
+    if (!string.IsNullOrWhiteSpace(validationToken))
+        return Results.Text(validationToken, "text/plain");
+
+    var payload = await context.Request.ReadFromJsonAsync<PushSyncNotificationEnvelope>(cancellationToken);
+    if (payload?.Value is not { Count: > 0 })
+        return Results.Accepted();
+
+    var logger = loggerFactory.CreateLogger("PushSyncWebhook");
+
+    await using var db = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+    foreach (var notification in payload.Value)
+    {
+        if (!PushSyncStateStore.TryParseUserId(notification.ClientState, out var userId) ||
+            string.IsNullOrWhiteSpace(userId))
+        {
+            logger.LogDebug("Ignoring push-sync notification with unknown client state");
+            continue;
+        }
+
+        var userEmail = await db.Users
+            .Where(u => u.Id == userId)
+            .Select(u => u.Email)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var preferredUsername = await db.SyncMetadata
+            .Where(m => m.Key == PushSyncMetadataKeys.PreferredUsername(userId))
+            .Select(m => m.Value)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (!pushSyncGate.IsEligible(userEmail, preferredUsername))
+            continue;
+
+        var recorded = await pushSyncStateStore.TryRecordNotificationAsync(
+            userId,
+            notification.SubscriptionId,
+            notification.ClientState,
+            notification.Resource,
+            cancellationToken);
+
+        if (!recorded)
+        {
+            logger.LogWarning(
+                "Ignoring push-sync notification for user {UserId}: no matching subscription was found",
+                userId);
+        }
+    }
+
+    return Results.Accepted();
+}).AllowAnonymous().DisableAntiforgery();
 
 // Demo auth endpoints (only active in demo mode)
 if (isDemoMode)

@@ -41,7 +41,11 @@ public class CachedTodoServiceTests : IDisposable
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    private CachedTodoService CreateService(IGraphTodoClient graphClient, IUserTimeZoneService userTimeZone)
+    private CachedTodoService CreateService(
+        IGraphTodoClient graphClient,
+        IUserTimeZoneService userTimeZone,
+        IPushSyncGate? pushSyncGate = null,
+        IPushSyncHealthService? pushSyncHealthService = null)
     {
         var graphService = new GraphTodoService(graphClient, userTimeZone, NullLogger<GraphTodoService>.Instance);
         var options = Options.Create(new TodoCacheOptions
@@ -49,6 +53,13 @@ public class CachedTodoServiceTests : IDisposable
             StalenessThresholdMinutes = 0, // always stale so tests trigger a sync
             MaxParallelListSync = 4,
         });
+        var resolvedPushSyncHealthService = pushSyncHealthService ?? Substitute.For<IPushSyncHealthService>();
+        if (pushSyncHealthService == null)
+        {
+            resolvedPushSyncHealthService
+                .IsHealthyAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult(false));
+        }
 
         return new CachedTodoService(
             graphService,
@@ -56,7 +67,51 @@ public class CachedTodoServiceTests : IDisposable
             _factory,
             options,
             userTimeZone,
+            pushSyncGate ?? Substitute.For<IPushSyncGate>(),
+            resolvedPushSyncHealthService,
             NullLogger<CachedTodoService>.Instance);
+    }
+
+    private async Task SeedWarmCacheAsync(string userId, string email, string listId, string taskId, string title)
+    {
+        var now = DateTime.UtcNow;
+
+        await using var db = await _factory.CreateDbContextAsync();
+        db.Users.Add(new User
+        {
+            Id = userId,
+            Email = email,
+            DisplayName = email,
+            CreatedUtc = now,
+            LastSeenUtc = now,
+        });
+
+        db.CachedTaskLists.Add(new CachedTaskList
+        {
+            Id = listId,
+            DisplayName = "Push Sync List",
+            IsSynced = true,
+            DeltaToken = "delta:existing",
+            LastSyncUtc = DateTime.MinValue,
+            CreatedUtc = now,
+            UpdatedUtc = now,
+            UserId = userId,
+        });
+
+        db.CachedTasks.Add(new CachedTask
+        {
+            Id = taskId,
+            ListId = listId,
+            Title = title,
+            IsCompleted = false,
+            IsDeleted = false,
+            LastSyncUtc = now,
+            CreatedUtc = now,
+            UpdatedUtc = now,
+            UserId = userId,
+        });
+
+        await db.SaveChangesAsync();
     }
 
     /// <summary>
@@ -336,5 +391,63 @@ public class CachedTodoServiceTests : IDisposable
 
         Assert.NotNull(existingTag);
         Assert.True(existingTag!.IsPinned, "Pre-existing pinned tag should not have been replaced");
+    }
+
+    [Fact]
+    public async Task SearchTasksAsync_WhenPushSyncIsHealthyForAllowlistedUser_SkipsRequestTimeDeltaSync()
+    {
+        // Arrange
+        const string userId = "push-user-1";
+        const string listId = "push-list-1";
+        const string email = "Allowed.User@Example.com";
+        var graphClient = EmptyDeltaGraphClient();
+        var userTimeZone = Substitute.For<IUserTimeZoneService>();
+        var pushSyncGate = Substitute.For<IPushSyncGate>();
+        var pushSyncHealthService = Substitute.For<IPushSyncHealthService>();
+
+        pushSyncGate.IsEligible(email, Arg.Any<string?>()).Returns(true);
+        pushSyncHealthService.IsHealthyAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(true));
+
+        await SeedWarmCacheAsync(userId, email, listId, "task-healthy", "Push rollout cached task");
+        var service = CreateService(graphClient, userTimeZone, pushSyncGate, pushSyncHealthService);
+
+        // Act
+        var results = await service.SearchTasksAsync("rollout", userId);
+
+        // Assert
+        var task = Assert.Single(results);
+        Assert.Equal("task-healthy", task.Id);
+        await graphClient.Received(0).GetListsDeltaPageAsync(Arg.Any<string?>());
+        await graphClient.Received(0).GetTasksDeltaBatchAsync(Arg.Any<IReadOnlyList<(string, string?)>>());
+    }
+
+    [Fact]
+    public async Task SearchTasksAsync_WhenPushSyncIsUnhealthyForAllowlistedUser_FallsBackToDeltaSync()
+    {
+        // Arrange
+        const string userId = "push-user-2";
+        const string listId = "push-list-2";
+        const string email = "allowed.user@example.com";
+        var graphClient = EmptyDeltaGraphClient();
+        var userTimeZone = Substitute.For<IUserTimeZoneService>();
+        var pushSyncGate = Substitute.For<IPushSyncGate>();
+        var pushSyncHealthService = Substitute.For<IPushSyncHealthService>();
+
+        pushSyncGate.IsEligible(email, Arg.Any<string?>()).Returns(true);
+        pushSyncHealthService.IsHealthyAsync(userId, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(false));
+
+        await SeedWarmCacheAsync(userId, email, listId, "task-unhealthy", "Fallback delta task");
+        var service = CreateService(graphClient, userTimeZone, pushSyncGate, pushSyncHealthService);
+
+        // Act
+        var results = await service.SearchTasksAsync("Fallback", userId);
+
+        // Assert
+        var task = Assert.Single(results);
+        Assert.Equal("task-unhealthy", task.Id);
+        await graphClient.Received(1).GetListsDeltaPageAsync(Arg.Any<string?>());
+        await graphClient.Received(1).GetTasksDeltaBatchAsync(Arg.Any<IReadOnlyList<(string, string?)>>());
     }
 }
