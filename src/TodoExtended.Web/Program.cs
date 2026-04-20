@@ -161,15 +161,9 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.Configure<AiChatOptions>(builder.Configuration.GetSection(AiChatOptions.SectionName));
 
 var aiChatSection = builder.Configuration.GetSection(AiChatOptions.SectionName);
-var gitHubModelsApiKey = aiChatSection.GetValue<string>("GitHubModels:ApiKey");
-var azureOpenAIApiKey = aiChatSection.GetValue<string>("AzureOpenAI:ApiKey");
-var azureOpenAIEndpoint = aiChatSection.GetValue<string>("AzureOpenAI:Endpoint");
-var azureOpenAIDeploymentName = aiChatSection.GetValue<string>("AzureOpenAI:DeploymentName");
-var hasGitHubModels = !string.IsNullOrWhiteSpace(gitHubModelsApiKey);
-var hasAzureOpenAI =
-    !string.IsNullOrWhiteSpace(azureOpenAIApiKey) &&
-    !string.IsNullOrWhiteSpace(azureOpenAIEndpoint) &&
-    !string.IsNullOrWhiteSpace(azureOpenAIDeploymentName);
+var aiChatOptions = aiChatSection.Get<AiChatOptions>() ?? new AiChatOptions();
+var hasGitHubModels = AiChatProviderSelection.HasGitHubModels(aiChatOptions.GitHubModels.ApiKey);
+var hasAzureOpenAI = AiChatProviderSelection.HasAzureOpenAI(aiChatOptions.AzureOpenAI);
 
 if (isDemoMode)
 {
@@ -210,38 +204,15 @@ else if (hasGitHubModels || hasAzureOpenAI)
     {
         var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AiChatOptions>>().Value;
         var httpContextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
+        var provider = AiChatProviderSelection.ResolveProvider(opts, httpContextAccessor.HttpContext?.User);
 
-        var user = httpContextAccessor.HttpContext?.User;
-        var username = user?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
-            ?? user?.FindFirst("preferred_username")?.Value
-            ?? user?.FindFirst(System.Security.Claims.ClaimTypes.Upn)?.Value;
-
-        var azureConfigured = !string.IsNullOrWhiteSpace(opts.AzureOpenAI.Endpoint)
-            && !string.IsNullOrWhiteSpace(opts.AzureOpenAI.ApiKey)
-            && !string.IsNullOrWhiteSpace(opts.AzureOpenAI.DeploymentName);
-
-        var useAzure = azureConfigured
-            && !string.IsNullOrWhiteSpace(username)
-            && opts.AzureOpenAIUsers.Any(u => string.Equals(u, username, StringComparison.OrdinalIgnoreCase));
-
-        if (useAzure)
+        return provider switch
         {
-            return sp.GetRequiredKeyedService<Microsoft.Extensions.AI.IChatClient>("AzureOpenAI");
-        }
-
-        if (!string.IsNullOrWhiteSpace(opts.GitHubModels.ApiKey))
-        {
-            return sp.GetRequiredKeyedService<Microsoft.Extensions.AI.IChatClient>("GitHubModels");
-        }
-
-        // Fall back to Azure for non-allowlisted users when GitHub Models is unconfigured.
-        if (azureConfigured)
-        {
-            return sp.GetRequiredKeyedService<Microsoft.Extensions.AI.IChatClient>("AzureOpenAI");
-        }
-
-        throw new InvalidOperationException(
-            "No AI provider is available. Configure AiChat:GitHubModels:ApiKey or AiChat:AzureOpenAI (Endpoint + ApiKey + DeploymentName).");
+            AiChatProvider.AzureOpenAI => sp.GetRequiredKeyedService<Microsoft.Extensions.AI.IChatClient>("AzureOpenAI"),
+            AiChatProvider.GitHubModels => sp.GetRequiredKeyedService<Microsoft.Extensions.AI.IChatClient>("GitHubModels"),
+            _ => throw new InvalidOperationException(
+                "No AI provider is available. Configure AiChat:GitHubModels:ApiKey or AiChat:AzureOpenAI (Endpoint + ApiKey + DeploymentName).")
+        };
     });
     builder.Services.AddScoped<IChatService, ChatService>();
 }

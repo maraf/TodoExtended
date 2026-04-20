@@ -164,6 +164,20 @@ Full project build blocked by running TodoExtended.Web process. Focused ChatInpu
 - **README:** Created comprehensive test documentation at `tests/TodoExtended.Components.Tests/README.md` with expected parameters and test coverage
 - **Integration notes:** Tests focus on component contracts (parameters → output) not exact CSS classes, may need minor adjustments when Frontend finalizes APIs
 
+### PR 118 AI Provider Selection Feedback (2026-04-20)
+
+- **Regression coverage:** `tests/TodoExtended.Tests/Services/AiChat/AiChatProviderSelectionTests.cs` now covers incomplete Azure config (`DeploymentName` missing), Azure-only fallback for non-allowlisted or claimless users, and UPN-based allowlist routing.
+- **Shared routing pattern:** `src/TodoExtended.Web/Services/AiChat/AiChatProviderSelection.cs` is the single place to validate provider completeness and choose Azure vs. GitHub Models; `Program.cs` now consumes that helper for both startup enablement and per-request routing.
+- **Key file paths:** `src/TodoExtended.Web/Program.cs`, `src/TodoExtended.Web/Services/AiChat/AiChatProviderSelection.cs`, `src/TodoExtended.Web/Services/AiChat/AiChatOptions.cs`, `tests/TodoExtended.Tests/Services/AiChat/AiChatProviderSelectionTests.cs`.
+- **Validation:** `dotnet test tests\\TodoExtended.Tests\\TodoExtended.Tests.csproj --filter "FullyQualifiedName~TodoExtended.Tests.Services.AiChat"` passed with 39/39 AI chat tests green.
+
+### PR 118 AI Provider Selection Coverage Refresh (2026-04-20)
+
+- **Expanded routing regression:** Added `ResolveProvider_PreferredUsernameAllowlistedCaseInsensitive_ReturnsAzureOpenAI` so the allowlist contract now covers `preferred_username` claims and case-insensitive matching in addition to UPN/email paths.
+- **Architecture pattern:** Keep startup provider wiring in `src/TodoExtended.Web/Program.cs`, but unit-test routing rules only through `src/TodoExtended.Web/Services/AiChat/AiChatProviderSelection.cs` so Azure/GitHub fallback behavior stays deterministic without booting the app.
+- **Key file paths:** `src/TodoExtended.Web/Program.cs`, `src/TodoExtended.Web/Services/AiChat/AiChatProviderSelection.cs`, `src/TodoExtended.Web/Services/AiChat/AiChatOptions.cs`, `tests/TodoExtended.Tests/Services/AiChat/AiChatProviderSelectionTests.cs`, `.squad/decisions/inbox/tester-pr118-feedback.md`.
+- **User-facing QA contract:** Related AI chat regressions must stay at `39/39` passing via `dotnet test tests\\TodoExtended.Tests\\TodoExtended.Tests.csproj --filter "FullyQualifiedName~TodoExtended.Tests.Services.AiChat"`.
+
 ## Session: bUnit Test Suite for Shared Components (2026-03-11T08:33Z)
 
 **Outcome 39 bUnit tests written; all passing:** 
