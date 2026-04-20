@@ -4,6 +4,21 @@
 
 ## Recent Work
 
+### 2026-04-20 — PR #118 Review Feedback Triage (AI Chat Provider Routing)
+
+**Triage of 3 review comments** from `copilot-pull-request-reviewer` on PR #118 (Support routing between GitHub Models and Azure OpenAI per user):
+
+| # | File | Issue | Decision | Status |
+|---|------|-------|----------|--------|
+| 1 | `Program.cs` | `hasAzureOpenAI` only checked ApiKey + Endpoint; missed DeploymentName → incomplete config enters ChatService path | **Accept** — real bug, startup enablement must mirror runtime routing | Fixed in d6b836f |
+| 2 | `Program.cs` | Azure-only config throws for non-allowlisted users when GitHub Models unconfigured | **Accept** — `AzureOpenAIUsers` is preferred-routing, not gating; fall back to Azure for everyone | Fixed in d6b836f |
+| 3 | `AiChatOptions.cs` | XML doc missing UPN claim in `AzureOpenAIUsers` description | **Accept** — doc must match code; UPN is checked alongside email + preferred_username | Fixed in d6b836f |
+
+**All 3 accepted, implemented immediately, threads resolved.** No pushback needed — all were valid catches.
+
+**Decision doc:** `.squad/decisions/inbox/architect-pr118-feedback.md`  
+**Commit:** d6b836f255b8ea208b5ca9c9807d48479741d9e3
+
 ### 2026-03-12 — Explicit userId Parameter Refactoring (Service Layer)
 
 **Architect guidance on explicit userId pattern confirmed in production:**
@@ -45,6 +60,8 @@
 ## Learnings
 
 - 2026-04-09 — Garmin tag-task title compaction in `garmin/TodoExtended.Watch/source/TagTasksMenu.mc` must only strip a leading `#tag` token, case-insensitively. Preserve the existing true-prefix checks (`space`, `-`, `:` separators only) and the guard that keeps the original title when trimming would leave it empty.
+
+- 2026-04-20 — AI chat provider config: startup enablement checks (`hasAzureOpenAI`) must mirror runtime routing checks (`azureConfigured`) — include all required fields (Endpoint + ApiKey + DeploymentName). Use `IsNullOrWhiteSpace` consistently. When only Azure is configured, fall back to Azure for all users instead of throwing. Decision doc: `.squad/decisions/inbox/architect-pr118-feedback.md`.
 
 ## Core Context
 

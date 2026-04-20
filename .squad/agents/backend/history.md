@@ -484,3 +484,11 @@ Final code on disk matches Frontend implementation; no separate artifact produce
 
 ⚠️ **INCONCLUSIVE** — Feature completed via Frontend agent. Backend validation confirms correct implementation.
 
+## Learnings
+
+### AI Chat provider selection (PR 118 feedback)
+
+- `src\TodoExtended.Web\Program.cs` uses `AiChatProviderSelection` so provider routing stays testable instead of embedding all fallback logic in startup wiring.
+- `src\TodoExtended.Web\Services\AiChat\AiChatOptions.cs` should document Azure allowlist matching against `email`, `preferred_username`, and UPN because runtime selection checks all three claim shapes.
+- `tests\TodoExtended.Tests\Services\AiChat\AiChatProviderSelectionTests.cs` is the regression suite for Azure deployment-name gating, UPN allowlist routing, and Azure fallback when GitHub Models is absent.
+
