@@ -164,8 +164,12 @@ var aiChatSection = builder.Configuration.GetSection(AiChatOptions.SectionName);
 var gitHubModelsApiKey = aiChatSection.GetValue<string>("GitHubModels:ApiKey");
 var azureOpenAIApiKey = aiChatSection.GetValue<string>("AzureOpenAI:ApiKey");
 var azureOpenAIEndpoint = aiChatSection.GetValue<string>("AzureOpenAI:Endpoint");
-var hasGitHubModels = !string.IsNullOrEmpty(gitHubModelsApiKey);
-var hasAzureOpenAI = !string.IsNullOrEmpty(azureOpenAIApiKey) && !string.IsNullOrEmpty(azureOpenAIEndpoint);
+var azureOpenAIDeploymentName = aiChatSection.GetValue<string>("AzureOpenAI:DeploymentName");
+var hasGitHubModels = !string.IsNullOrWhiteSpace(gitHubModelsApiKey);
+var hasAzureOpenAI =
+    !string.IsNullOrWhiteSpace(azureOpenAIApiKey) &&
+    !string.IsNullOrWhiteSpace(azureOpenAIEndpoint) &&
+    !string.IsNullOrWhiteSpace(azureOpenAIDeploymentName);
 
 if (isDemoMode)
 {
@@ -212,12 +216,12 @@ else if (hasGitHubModels || hasAzureOpenAI)
             ?? user?.FindFirst("preferred_username")?.Value
             ?? user?.FindFirst(System.Security.Claims.ClaimTypes.Upn)?.Value;
 
-        var azureConfigured = !string.IsNullOrEmpty(opts.AzureOpenAI.Endpoint)
-            && !string.IsNullOrEmpty(opts.AzureOpenAI.ApiKey)
-            && !string.IsNullOrEmpty(opts.AzureOpenAI.DeploymentName);
+        var azureConfigured = !string.IsNullOrWhiteSpace(opts.AzureOpenAI.Endpoint)
+            && !string.IsNullOrWhiteSpace(opts.AzureOpenAI.ApiKey)
+            && !string.IsNullOrWhiteSpace(opts.AzureOpenAI.DeploymentName);
 
         var useAzure = azureConfigured
-            && !string.IsNullOrEmpty(username)
+            && !string.IsNullOrWhiteSpace(username)
             && opts.AzureOpenAIUsers.Any(u => string.Equals(u, username, StringComparison.OrdinalIgnoreCase));
 
         if (useAzure)
@@ -225,13 +229,19 @@ else if (hasGitHubModels || hasAzureOpenAI)
             return sp.GetRequiredKeyedService<Microsoft.Extensions.AI.IChatClient>("AzureOpenAI");
         }
 
-        if (string.IsNullOrEmpty(opts.GitHubModels.ApiKey))
+        if (!string.IsNullOrWhiteSpace(opts.GitHubModels.ApiKey))
         {
-            throw new InvalidOperationException(
-                "GitHub Models API key is not configured. Configure AiChat:GitHubModels:ApiKey or add the current user to AiChat:AzureOpenAIUsers with AiChat:AzureOpenAI configured.");
+            return sp.GetRequiredKeyedService<Microsoft.Extensions.AI.IChatClient>("GitHubModels");
         }
 
-        return sp.GetRequiredKeyedService<Microsoft.Extensions.AI.IChatClient>("GitHubModels");
+        // Fall back to Azure for non-allowlisted users when GitHub Models is unconfigured.
+        if (azureConfigured)
+        {
+            return sp.GetRequiredKeyedService<Microsoft.Extensions.AI.IChatClient>("AzureOpenAI");
+        }
+
+        throw new InvalidOperationException(
+            "No AI provider is available. Configure AiChat:GitHubModels:ApiKey or AiChat:AzureOpenAI (Endpoint + ApiKey + DeploymentName).");
     });
     builder.Services.AddScoped<IChatService, ChatService>();
 }

@@ -24,7 +24,7 @@ public class AiChatOptions
     public AzureOpenAIOptions AzureOpenAI { get; set; } = new();
 
     /// <summary>
-    /// List of usernames (email / preferred_username) whose chat requests should be
+    /// List of usernames (email / preferred_username / UPN) whose chat requests should be
     /// routed to Azure OpenAI instead of GitHub Models. Matching is case-insensitive.
     /// </summary>
     public List<string> AzureOpenAIUsers { get; set; } = new();
