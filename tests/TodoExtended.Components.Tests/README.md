@@ -106,6 +106,20 @@ This test project contains bUnit tests for 6 shared Blazor components that are b
 - ✅ Uses floating label pattern (CSS classes)
 - ✅ Input has placeholder attribute
 
+### 7. ChatInput.razor
+**Location:** `src/TodoExtended.Web/Components/Shared/ChatInput.razor`
+
+**Expected Behavior:**
+- Imports `ChatInput.razor.js` using a browser-resolvable module specifier
+- Shows the speech button only when JS reports speech recognition support
+- Switches the speech button into an active pressed state while STT is listening
+- Keeps the text input usable when speech support JS fails to load
+
+**Tests:**
+- ✅ Renders textarea + send button when speech support JS throws
+- ✅ Imports the JS module with a `./Components/...` specifier and shows the mic button when supported
+- ✅ Toggles the mic button to the active icon state and back when speech starts and ends
+
 ## Current Status
 
 ⚠️ **Tests are written but components don't exist yet.** This is expected — Frontend is creating the components in parallel.
