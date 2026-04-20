@@ -301,6 +301,8 @@ public class GraphTodoService(IGraphTodoClient graphClient, IUserTimeZoneService
     public Task<IReadOnlyList<TodoTaskList>> GetNotSyncedTaskListsAsync(string userId) =>
         Task.FromResult<IReadOnlyList<TodoTaskList>>([]);
 
+    public Task EnsureAllListsSyncedAsync(string userId) => Task.CompletedTask;
+
     public async Task<IReadOnlyList<TodoTaskWithList>> SearchTasksAsync(string query, string userId)
     {
         if (string.IsNullOrWhiteSpace(query) || query.Length > MaxSearchQueryLength)

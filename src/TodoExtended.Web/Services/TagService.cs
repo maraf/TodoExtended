@@ -3,10 +3,12 @@ using TodoExtended.Web.Data;
 
 namespace TodoExtended.Web.Services;
 
-public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITagService
+public class TagService(IDbContextFactory<AppDbContext> dbContextFactory, ITodoService todoService) : ITagService
 {
     public async Task<IReadOnlyList<TagWithCount>> GetTagsAsync(string userId)
     {
+        await todoService.EnsureAllListsSyncedAsync(userId);
+
         await using var db = await dbContextFactory.CreateDbContextAsync();
 
         var tagCounts = await db.CachedTags
@@ -30,6 +32,8 @@ public class TagService(IDbContextFactory<AppDbContext> dbContextFactory) : ITag
     {
         if (string.IsNullOrWhiteSpace(tag))
             return [];
+
+        await todoService.EnsureAllListsSyncedAsync(userId);
 
         await using var db = await dbContextFactory.CreateDbContextAsync();
 
