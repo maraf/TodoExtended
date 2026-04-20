@@ -2,349 +2,209 @@
 
 ## Active Decisions
 
-### Garmin Tag Task Title Trimming
+### Build Prevention: Exclude Project-Local Artifacts from SDK Default Items
 
-**Date:** 2026-04-09  
-**Author:** Architect / Copilot directive  
-**Status:** Implemented
-
-Tag-task title compaction in `garmin/TodoExtended.Watch/source/TagTasksMenu.mc` now only removes a leading `#tag` prefix, matched case-insensitively. Bare `tag` prefixes remain part of the visible title.
-
-**Rationale:**
-- The selected Garmin tag is always represented as `#tag` in task titles (visible hashtag form)
-- Stripping plain `tag` removes legitimate title text and over-compacts unrelated tasks
-- Existing safeguards remain: only trim true prefixes, keep original title if trimming would empty it
-
-**Impact:** Focused change in Garmin watch app only; no behavioral change outside tag tasks menu.
-
-### Task Sorting Order
-
-**Date:** 2025-07-18  
+**Date:** 2026-04-13  
 **Author:** Backend  
 **Status:** Implemented
 
-Tasks returned by `GetTodayTasksAsync` and `GetTasksAsync` now sort consistently:
-1. **Incomplete tasks first**, completed tasks at the bottom
-2. **By importance**: high → normal → low
-3. **Alphabetically by title** as a tiebreaker (case-insensitive)
+**Problem:** `dotnet run --project src\TodoExtended.Web\` failed during compilation with duplicate generated-source errors, including duplicate assembly attributes and `ValidatableTypeAttribute`.
 
-Sorting is done in-memory after mapping Graph API responses to DTOs using a shared `ImportanceSortOrder` helper. No DTO or interface changes—purely internal sorting.
+**Root Cause:** `src\TodoExtended.Web\artifacts\copilot-stt\obj\Debug\net10.0\` contained generated C# files that duplicated the project's normal `obj\Debug\net10.0\` outputs. Because `artifacts\` lives under the project directory and was not excluded from SDK default items, stale generated files were added to `Compile` and built alongside the real generated files.
 
-### Use DateOnly for To Do Due Dates
+**Decision:** Exclude the project-local `artifacts\` tree from default SDK item discovery via `DefaultItemExcludes` in `TodoExtended.Web.csproj`.
 
-**Author:** Backend  
-**Date:** 2025-07-15  
-**Status:** Implemented
+**Implementation:**
+```xml
+<DefaultItemExcludes>$(DefaultItemExcludes);artifacts\**</DefaultItemExcludes>
+```
+*Already in place at `src/TodoExtended.Web/TodoExtended.Web.csproj:9`*
 
-DTOs now use `DateOnly?` instead of `DateTimeOffset?` for `DueDate` (renamed from `DueDateTime`). Parsing uses `DateTimeStyles.RoundtripKind` via a `ParseDueDate` helper. This eliminates timezone-related date shifts and makes the API semantically correct, as due dates in Microsoft To Do are conceptually date-only.
+**Validation:**
+- ✅ `dotnet msbuild .\src\TodoExtended.Web\TodoExtended.Web.csproj -nologo -getItem:Compile` no longer includes `artifacts\...` files
+- ✅ `dotnet build .\src\TodoExtended.Web\TodoExtended.Web.csproj -nologo` succeeds
+- ✅ Clean builds resolve duplicate attribute errors
 
-### Use Server-Side OData Filtering for Graph To Do Tasks
+**Related Decision:** "Build: Duplicate Assembly Attribute & ValidatableTypeAttribute Errors" — documents the incident and operator cleanup actions that revealed this safeguard need.
 
-**Date:** 2025-07-15  
-**Author:** Backend  
-**Status:** Implemented
+---
 
-`GetTodayTasksAsync()` now uses the Graph API's `$filter` OData query parameter to filter tasks server-side by `dueDateTime/dateTime` using a date range, reducing payload size and network latency.
-
-### MSAL Consent Exception Handling in Blazor Server Pages
-
-**By:** Backend  
-**Date:** 2025-07-18  
-**Status:** Implemented
-
-All Blazor pages that call `ITodoService` methods now catch `MicrosoftIdentityWebChallengeUserException` and redirect to `MicrosoftIdentity/Account/SignIn` with `forceLoad: true` to handle token expiration and consent flows in the SignalR circuit.
-
-### TodoTaskWithList Record for Cross-List Task Views
-
-**Author:** Backend  
-**Date:** 2025-07-14  
-**Status:** Implemented
-
-Introduced a `TodoTaskWithList` record that mirrors `TodoTask` but adds `ListId` and `ListName` fields. `GetTodayTasksAsync()` returns `IReadOnlyList<TodoTaskWithList>` to support the Today view showing tasks from all lists with their parent list names.
-
-### Use PersistentComponentState for SSR-to-Interactive Data Transfer
-
-**Author:** Frontend  
-**Date:** 2025-07-14  
-**Status:** Implemented
-
-Use `PersistentComponentState` to serialize data fetched during prerendering into the HTML response and restore it when components become interactive. This eliminates redundant service calls. Applied to Tasks.razor (`taskLists` key) and Today.razor (`todayTasks` key).
-
-### Today Page Structure
-
-**By:** Frontend  
-**Date:** 2025-07-14  
-**Status:** Implemented
-
-Added a `/today` view showing tasks due today across all task lists. Uses `TodoTaskWithList` to display list names, placed "Today" nav link above "My Tasks" in sidebar with a sun icon (`bi-sun-fill`), and follows same auth/loading/error patterns as Tasks.razor.
-
-### Task Templates — Local Storage and Quick-Create
-
-**Author:** Architect, Backend, Frontend  
-**Date:** 2026-03-05  
-**Status:** Implemented
-
-Users can define task templates locally (SQLite + EF Core) with Title, TaskListId, TaskListName, DueDateToday flag, and SortOrder. Templates appear as quick-create buttons on Home page (ordered by SortOrder) and can be fully managed (CRUD) on a dedicated Templates page. Task creation flows through existing ITodoService.CreateTaskAsync → Graph API. No multi-user support (single-user local app assumption).
-
-**Key Components:**
-- Data: TaskTemplate entity, AppDbContext, auto-migration at startup
-- Services: ITemplateService + TemplateService (CRUD + ExecuteTemplateAsync)
-- UI: Templates.razor (full CRUD), Home.razor (quick-create buttons), NavMenu.razor (Templates link)
-- No breaking changes; database file (todoextended.db) excluded via .gitignore
-
-### Flowbite Blazor Infrastructure Setup
-
-**Author:** Backend  
-**Date:** 2025-07-17  
-**Status:** Implemented
-
-Migrated from Bootstrap to Flowbite Blazor component library with Tailwind CSS for the UI layer.
-
-**Key Decisions:**
-1. **Type ambiguity resolution:** Fully qualified `System.Diagnostics.Activity` in Error.razor rather than removing global `@using Flowbite.Components` import (benefits all other pages)
-2. **Tailwind CSS v4 via CDN:** Using `https://cdn.jsdelivr.net/npm/@@tailwindcss/browser@@4` (browser build) for development; must be replaced with build pipeline for production
-3. **Bootstrap removal is breaking:** All existing Bootstrap CSS classes stopped rendering; Frontend redesign must land alongside or after this change
-
-### Flowbite Blazor UI Redesign
-
-**Date:** 2025-07-22  
-**Author:** Frontend  
-**Status:** Implemented
-
-Migrated all UI from Bootstrap to Flowbite Blazor components + Tailwind CSS utility classes.
-
-**Key Decisions:**
-1. **Native HTML inputs over Flowbite form components** — Used native `<input>`, `<select>`, `<checkbox>` styled with Tailwind classes (matching Flowbite's visual design) instead of form components; provides more reliable `@bind` behavior
-2. **`@using static` for nested enums** — Added `@using static Flowbite.Components.Badge` and `@using static Flowbite.Components.Button` to _Imports.razor to bring nested enum types into scope
-3. **Card-styled divs for task lists** — Used raw Tailwind card styling for list containers rather than `<Card>` component; gives finer control over padding and item separation
-4. **All dark mode compatible** — Every custom Tailwind class includes `dark:` variants
-
-**Impact:** All 8 UI files redesigned, _Imports.razor updated with 4 new Flowbite imports, zero Bootstrap classes remain, build clean (zero errors, zero warnings)
-
-### Use IDbContextFactory Exclusively in CachedTodoService
-
-**Author:** Backend  
-**Date:** 2026-03-06  
-**Status:** Implemented  
-**Issue:** #7
-
-`CachedTodoService` held a constructor-injected `AppDbContext` as a primary constructor parameter. During Blazor Server prerendering, the DI scope that created this DbContext is disposed after the prerender HTTP response completes. When the SignalR circuit connects and Blazor components re-initialize, any code path touching the disposed `db` field throws `ObjectDisposedException`, killing the circuit.
-
-**Decision:** Remove the `AppDbContext db` primary constructor parameter from `CachedTodoService`. All database access now goes exclusively through `IDbContextFactory<AppDbContext>`:
-
-- Each **public method** creates a fresh, short-lived context via `await using var db = await dbContextFactory.CreateDbContextAsync();`
-- Each **private method** that needs database access receives `AppDbContext db` as an explicit parameter
-- `SyncTasksForListsInParallelAsync` and `SyncTasksForListAsync` were already using the factory pattern and were left unchanged
-
-**Rationale:** `IDbContextFactory` creates contexts that are not tied to any DI scope, so they survive scope disposal. Short-lived contexts per operation prevent stale tracking and reduce memory pressure. Explicit `db` parameter threading makes the data flow visible and testable. This is the recommended EF Core pattern for Blazor Server apps.
-
-**Impact:** Single file changed: `src/TodoExtended.Web/Services/CachedTodoService.cs`. No interface changes, no breaking changes to consumers. All 7 public methods and 11 private methods updated.
-
-### NavMenu Emoji Icon Rendering
-
-**Date:** 2026-03-07  
-**Author:** Frontend  
-**Status:** Implemented
-
-Task list names in Microsoft To Do can contain a leading Unicode emoji (e.g., "🐶Domeczech"). The nav menu extracts this emoji and displays it as a visual icon prefix, stripping it from the text to avoid duplication.
-
-**Decision:**
-
-- **Emoji extraction** uses `StringInfo.GetTextElementEnumerator()` for grapheme-cluster-safe parsing, with `Rune`-based Unicode range checks to identify emoji characters. This correctly handles multi-byte, surrogate pair, and ZWJ emoji sequences.
-- **Rendering approach:** Since MudBlazor's `MudNavLink.Icon` only accepts SVG path strings, the emoji is rendered as a styled `<span class="nav-emoji-icon">` inside the nav link's child content, with CSS isolation matching the Material icon slot dimensions (24×24px, 1.25rem font).
-- **URL preservation:** The original `DisplayName` (with emoji) is kept in the Href query string for downstream use.
-- **Graceful fallback:** If no leading emoji is detected, the nav link renders plain text with no icon prefix, matching previous behavior.
-
-**Impact:** Files: `NavMenu.razor`, `NavMenu.razor.css` (new). No breaking changes; lists without emoji display identically to before.
-
-### Garmin Connect IQ Watch App Scaffold
-
-**Date:** 2026-03-06  
-**Author:** Backend  
-**Status:** Implemented
-
-Scaffolded the complete Garmin Connect IQ project at `garmin/TodoExtended.Watch/` with full Monkey C source code, targeting Venu 3, Fenix 7, and Forerunner 265 devices.
-
-**Key Choices:**
-
-1. **App type `app` (not `widget`)** — Required for `Communications` permission (HTTP requests)
-2. **WatchUi.Menu2 for all list views** — More memory-efficient than custom drawing; auto-scrolls on device
-3. **Module-based architecture** — `ApiClient`, `Settings`, `Models` as Monkey C modules for clean separation. Views/Delegates as classes
-4. **Settings via properties.xml + settings.xml** — Users configure `apiBaseUrl` and `apiKey` through Garmin Connect Mobile app
-5. **Navigation: swipe up/down** — Today view ↔ Templates view via `onNextPage`/`onPreviousPage`. Tap to drill into task detail or execute template
-6. **Error handling** — Covers no-connection (-104), network errors, HTTP status codes, and unconfigured state
-7. **Placeholder launcher icon** — 1x1 PNG; needs real icon before Connect IQ Store submission
-8. **minSdkVersion 4.2.0** — Supports Menu2, Communications, Properties APIs on target devices
-
-**Files Created:**
-
-- `manifest.xml` — App metadata, permissions, device targets
-- `monkey.jungle` — Build configuration
-- `source/TodoExtendedApp.mc` — AppBase entry point
-- `source/TodayView.mc` + `TodayDelegate.mc` — Today's tasks view + input
-- `source/TemplatesView.mc` + `TemplatesDelegate.mc` — Template list + execution
-- `source/TaskDetailView.mc` — Task detail + completion (view + delegate in one file)
-- `source/ApiClient.mc` — HTTP client wrapper for all 4 API endpoints
-- `source/Settings.mc` — Properties accessor for API URL and key
-- `source/Models.mc` — TodoTask and Template data classes with JSON parsing
-- `resources/` — layouts, strings, drawables, settings (properties.xml + settings.xml)
-- `.gitignore` — Excludes bin/ output
-
-**API Endpoints Used:**
-
-- `GET /api/today` — Today's tasks
-- `GET /api/templates` — Template list
-- `POST /api/templates/{id}/execute` — Create task from template
-- `POST /api/tasks/{listId}/{taskId}/complete` — Mark task complete
-
-### TaskTemplate Id: Autoincrement Int → Guid
-
-**Date:** 2026-03-06  
-**Author:** Backend  
-**Status:** Implemented
-
-Replaced `TaskTemplate.Id` from autoincrement `int` to `Guid` (generated client-side via `Guid.NewGuid()`). The API, service layer, and UI all use Guid identifiers.
-
-**Rationale:**
-
-- Sequential integer IDs leak information (row count, insertion order) and are predictable
-- GUIDs are safe to expose publicly and don't reveal database internals
-- Aligns with the team preference to not expose autoincrement IDs in the API
-
-**Migration Strategy:**
-
-SQLite doesn't support `ALTER COLUMN`, so the EF Core migration uses a table-rebuild:
-1. Create new table with TEXT primary key
-2. Copy existing rows with SQLite-generated UUID v4 values (`randomblob`)
-3. Drop old table, rename new one
-
-**Impact:** Existing template IDs change. Since templates are local-only data and not referenced externally, this is safe.
-
-### Graceful ObjectDisposedException Handling in CachedTodoService
-
-**Date:** 2026-03-10  
-**Author:** Backend  
-**Status:** Implemented
-
-`CachedTodoService` performs background delta sync against the Microsoft Graph API via `GraphServiceClient`, which depends on `TokenAcquisition` from Microsoft.Identity.Web. Both are scoped to the Blazor Server circuit. When a circuit disconnects (user navigates away, browser closes, network drops), the circuit's DI scope is disposed. Any in-flight or subsequent sync operations that attempt token acquisition throw `ObjectDisposedException`.
-
-**Decision:** Catch `ObjectDisposedException` at multiple layers in `CachedTodoService` and gracefully abort the sync, serving stale cached data instead of crashing:
-
-1. **Ensure* methods** (outermost): Catch and return silently — the public API methods proceed with whatever cached data is available.
-2. **SyncAsync / SyncListsOnlyAsync**: Catch and return early — prevents triggering cache rebuild logic (`ClearCacheAndInitialSyncAsync`) on a disposed scope.
-3. **SyncTaskListsAsync / SyncTasksForListAsync**: Catch, log as Warning (not Error), re-throw — stops the sync chain cleanly while avoiding noisy error logs.
-4. **SyncTasksForListsBatchAsync parallel lambda**: Catch per-list — isolates failures so one disposed scope doesn't crash the entire `Task.WhenAll`.
-
-All catches log at Warning level since this is an expected Blazor Server lifecycle condition, not a bug.
-
-**Rationale:**
-- This is the standard pattern for Blazor Server apps with scoped auth services
-- The next active circuit will trigger a fresh sync, so no data is lost
-- Stale cache is preferable to a crashed circuit or unhandled exception
-- Warning-level logging avoids polluting error logs while maintaining observability
-
-**Impact:** Single file changed: `src/TodoExtended.Web/Services/CachedTodoService.cs`. No interface changes, no breaking changes.
-
-### Header Layout Restructure
-
-**Date:** 2026-03-10  
-**Author:** Frontend  
-**Status:** Implemented
-
-The application header has been restructured to use a split layout with fixed positioning and independent scroll areas. Page titles and icons are now rendered in the header bar instead of in page bodies.
-
-**Key Changes:**
-
-1. **Split Header Layout**
-   - Left section (w-64, desktop only): App logo "To Do (ex)" aligned above sidebar
-   - Right section (flex-1): Page icon + title, then user controls (user pill, dark mode, sign out)
-   - Full-width gradient background spans both sections
-
-2. **Fixed Header + Scrollable Content**
-   - Outer container: `h-screen overflow-hidden flex flex-col`
-   - Header: Fixed height (h-14), no scroll
-   - Sidebar: `overflow-y-auto` (independent scroll)
-   - Main content: `overflow-y-auto` (independent scroll)
-
-3. **Page Title Pattern**
-   - Use `SectionContent`/`SectionOutlet` to pass page headers from pages to layout
-   - Import required: `@using Microsoft.AspNetCore.Components.Sections` in `_Imports.razor`
-   - Each page defines: `<SectionContent SectionName="page-header">...</SectionContent>`
-   - Layout renders: `<SectionOutlet SectionName="page-header" />`
-
-4. **Responsive Design**
-   - Page icons: `hidden sm:flex` (hidden on mobile)
-   - Desktop: Sidebar section visible in header with logo
-   - Mobile: Hamburger + logo inline, sidebar as overlay
-
-**Rationale:**
-- **Better scroll experience:** Only content scrolls, not the entire page. Header and sidebar stay fixed.
-- **Visual consistency:** Page title in header bar matches design patterns seen in modern web apps
-- **Clean architecture:** SectionContent/SectionOutlet separates page content from layout chrome
-- **Mobile-friendly:** Icons hidden on narrow screens, simplified header layout
-
-**Impact:** All 6 pages (Tasks, Today, Templates, ApiKeys, SyncSettings, Home) updated to use the new pattern. MainLayout.razor also updated. No breaking changes to functionality. Build verified clean (zero errors).
-
-### Shared TaskListSkeleton and TaskStatsBar Components
-
-**Date:** 2026-03-11
-**Author:** Frontend
-**Status:** Implemented
-
-Extracted two shared Blazor components from duplicated markup in Today.razor and Tasks.razor:
-
-1. **TaskListSkeleton.razor** — Parameterized loading skeleton (row count, gradient, badge placeholder)
-2. **TaskStatsBar.razor** — Stats bar with open/done chips and hide-completed toggle using `@bind-HideCompleted` two-way binding
-
-**Key Decisions:**
-- TaskStatsBar includes the outer `@if (total > 0)` guard internally, so callers don't need wrapping conditionals
-- Callers pass pre-computed `OpenCount`/`CompletedCount` ints rather than the full task list, keeping the component decoupled from specific DTO types
-- Null-safe `?.Count() ?? 0` pattern used at call sites for nullable collections
-- Default parameter values match Tasks.razor usage (the more common page), Today.razor overrides as needed
-
-**Impact:** ~70 lines of duplicated markup eliminated. Both pages build clean with `-warnaserror`.
-
-### Garmin Tag Task Title Trimming
+### Garmin Tag Task Title Trimming (Final)
 
 **Date:** 2026-04-09  
 **Author:** Frontend  
 **Status:** Implemented
 
-In the Garmin tag tasks view, task titles now drop a leading selected tag when it appears at the start of the title, matching case-insensitively. The trimming handles both `#tag` and plain `tag` prefixes, then removes any following spaces so more of the real task text fits on the watch.
+In the Garmin tag tasks view, task titles now drop a leading selected tag when it appears at the start of the title, matching case-insensitively.
 
 **Key Decisions:**
+1. **Only strip `#tag` prefix** — Case-insensitive match for the hashtag form of the tag name
+2. **Keep original if trimming would blank it** — Avoids empty rows on the watch for titles that are only the tag
+3. **Limit to tag tasks view** — Other task rendering remains unchanged
 
-1. **Accept both `#tag` and plain `tag` prefixes** — the API-selected tag name is stored without `#`, but task titles may include the visible hashtag token at the start.
-2. **Keep the original title if trimming would blank it out** — this avoids empty rows on the watch for titles that are only the tag.
-3. **Limit the change to the tag tasks view** — existing task rendering elsewhere stays unchanged.
+### ChatInput.razor — Browser-Resolvable Module Specifier for Dynamic Import
 
-### MsalServiceException Handling — Sign Out on Irrecoverable Auth Failures
-
-**Date:** 2026-03-13  
-**Author:** Backend  
+**Date:** 2026-04-13  
+**Author:** Frontend / Tester / Hockney validation  
 **Status:** Implemented
 
-When MSAL token acquisition fails with an irrecoverable `MsalServiceException` (e.g. `invalid_client`, expired secrets, revoked consent, 401 status), the user is now signed out and redirected to the landing page — instead of being left on a broken page with console warnings.
+Dynamic import of fingerprinted `.razor.js` assets from Blazor components requires a browser-resolvable module specifier. The static asset path `Assets["Components/Shared/ChatInput.razor.js"]` returns `Components/Shared/ChatInput.{fingerprint}.razor.js`, which the browser rejects as a bare module specifier during `IJSRuntime.InvokeAsync("import", ...)`.
 
-**Key Decisions:**
+**Decision:** Normalize asset paths to include a leading `./` prefix, converting bare paths into relative URL specifiers that the browser can resolve:
 
-1. **Two-tier auth error handling in Blazor pages:**
-   - `MicrosoftIdentityWebChallengeUserException` → redirect to `MicrosoftIdentity/Account/SignIn` (re-consent, existing behavior)
-   - `MsalServiceException` (irrecoverable) → redirect to `MicrosoftIdentity/Account/SignOut` (clear broken session)
-   - MSAL catch is evaluated first via exception filter ordering
+```csharp
+var assetPath = Assets["Components/Shared/ChatInput.razor.js"];
+var moduleUrl = assetPath.StartsWith("./", StringComparison.Ordinal) || assetPath.StartsWith("/", StringComparison.Ordinal)
+    ? assetPath
+    : $"./{assetPath}";
+_jsModule = await JS.InvokeAsync<IJSObjectReference>("import", moduleUrl);
+```
 
-2. **Helper: `AuthExceptionHelper.IsIrrecoverableMsalError(Exception)`** — Walks the full exception chain (including `AggregateException` inner exceptions) checking for `MsalServiceException` with `ErrorCode == "invalid_client"` or `StatusCode == 401`. This handles cases where MSAL errors are wrapped by Graph SDK or other middleware.
+**Rationale:**
+- Fixes runtime failure: `Failed to resolve module specifier 'Components/Shared/ChatInput...razor.js'`
+- Preserves static asset fingerprinting pattern (works in `<script src>` attributes)
+- Aligns with browser URL resolution rules without breaking existing patterns
+- Maintains compatibility with debug logging for troubleshooting JS module load issues
 
-3. **CachedTodoService: explicit `MsalServiceException` catches** — Added before existing `ObjectDisposedException` and generic catches in all sync methods. These log at Warning level and re-throw (not swallow), so the error propagates to the Blazor page for sign-out redirect. This prevents the `ShouldRebuildCache` logic from running on auth failures (which would just fail again).
-
-4. **Demo mode unaffected** — Demo mode doesn't use MSAL, so `MsalServiceException` is never thrown. The new catch blocks are inert in demo mode.
+**Validation:**
+- ✅ Component renders textarea/button when JS init fails (fallback)
+- ✅ Component renders mic button when JS loads and speech support detected
+- ✅ `dotnet build src\TodoExtended.Web\TodoExtended.Web.csproj` passes clean
+- ✅ `dotnet test tests\TodoExtended.Components.Tests\TodoExtended.Components.Tests.csproj --filter ChatInput` passes
 
 **Files Changed:**
-- `Services/AuthExceptionHelper.cs` (new) — Static helper for MSAL error detection
-- `Services/CachedTodoService.cs` — 8 new `MsalServiceException` catch blocks
-- 8 Razor files — 19 new MSAL catch blocks (NavMenu, Tasks, Today, Home, Templates, ApiKeys, SyncSettings, TaskStatusCheckbox)
+- `src/TodoExtended.Web/Components/Shared/ChatInput.razor` — Module URL normalization
+- `tests/TodoExtended.Components.Tests/ChatInputTests.cs` — Regression coverage for module specifier
 
-**Impact:** No interface changes. Build clean with `-warnaserror`. All 75 tests pass (21 unit + 54 component).
+**Key Learnings:**
+- `IJSRuntime.InvokeAsync("import", ...)` must receive a browser-resolvable specifier; bare `Components/...` paths fail
+- bUnit `SetupModule(...)` pattern effective for testing dynamic import behavior
+- Relative path `./{assetPath}` variant preferred over absolute URL approach for static asset simplicity
+
+### Build: Duplicate Assembly Attribute & ValidatableTypeAttribute Errors (Resolved)
+
+**Date:** 2026-04-13  
+**Author:** Hockney (Runner/DevOps) / Backend (Architecture Investigation)  
+**Status:** Resolved
+
+**Problem:** `dotnet build` and `dotnet run --project src\TodoExtended.Web\` failed with:
+- `error CS0579: Duplicate 'global::System.Runtime.Versioning.TargetFrameworkAttribute'`
+- `error CS0579: Duplicate 'System.Reflection.AssemblyCompanyAttribute'`
+- `error CS0101: The namespace 'Microsoft.Extensions.Validation.Embedded' already contains a definition for 'ValidatableTypeAttribute'`
+
+**Root Cause:** Stale `.NET SDK` auto-generated assembly info files in `src\TodoExtended.Web\artifacts\copilot-stt\obj\Debug\net10.0\` conflicted with fresh copies in `obj\Debug\net10.0\`. The `artifacts/` directory is gitignored but contained stale build outputs that MSBuild processed, causing duplicate definitions.
+
+**Decision:** Remove orphaned artifact directories and perform a clean rebuild when duplicate attribute errors occur.
+
+**Actions Taken:**
+1. Removed `src\TodoExtended.Web\artifacts\copilot-stt\` directory (orphaned temporary build outputs)
+2. Removed `src\TodoExtended.Web\obj\` and `src\TodoExtended.Web\bin\` directories
+3. Killed `VBCSCompiler.exe` and `TodoExtended.Web.exe` processes (file locks)
+4. Ran clean `dotnet build src\TodoExtended.Web\` verification
+
+**Validation:**
+- ✅ `dotnet build src\TodoExtended.Web\TodoExtended.Web.csproj -nologo` → Success (0 errors, 0 warnings)
+- ✅ No duplicate attribute errors
+- ✅ Clean rebuild from scratch confirmed working
+
+**Prevention for future CI/CD:**
+- Ensure `artifacts/` is truly removed during clean builds (not just `obj/bin/`)
+- Consider using `git clean -fdx` in CI pipelines
+- Warn developers if stale `artifacts/` directories persist locally
+
+**Key Learning:** Gitignore is not cleanup. A directory in `.gitignore` is invisible to git but can still contain stale build outputs that interfere with compilation. SDK auto-generation conflicts occur when MSBuild finds duplicate generated files in multiple locations (e.g., `obj/` and sibling `artifacts/obj/`).
+
+---
+
+### ChatInput.razor — Active Speech-to-Text State Visibility
+
+**Date:** 2026-04-13  
+**Author:** Frontend / Tester  
+**Status:** Implemented
+
+When speech-to-text is active in `ChatInput`, keep the microphone icon visible and indicate the active state with brand-colored icon + outline styling instead of replacing the icon with a recording dot.
+
+**Decision:**
+1. **Icon remains visible** — No replacement with recording dot or other indicator
+2. **Visual active state** — Brand-colored icon + outline/border on the button
+3. **Semantic accessibility** — Full `aria-pressed` state + context-aware `aria-label` (`Start recording` / `Stop recording`)
+4. **Test contract** — bUnit coverage via DOM semantic assertions, not screenshot-only
+
+**Rationale:**
+- Matches the approved visual target in `Screenshot 2026-04-13 103959.png`
+- Preserves the send button layout and the mic button footprint
+- Makes the toggle state clearer without introducing warning/error-red semantics
+- Enables reliable testing via semantic markers (aria-pressed, aria-label, active classes)
+
+**Files Changed:**
+- `src/TodoExtended.Web/Components/Shared/ChatInput.razor` — Icon state styling + accessibility
+- `tests/TodoExtended.Components.Tests/ChatInputTests.cs` — Active state + reset-to-idle coverage
+
+**Key Learnings:**
+- Focused bUnit coverage is practical for component state testing without full browser rendering
+- Stable assertions: verify `aria-label`, `aria-pressed`, active CSS classes, and rendered icon rather than screenshot-perfect visuals
+- Test coverage validates state transitions (idle → recording → idle) independently of JS animation
+
+---
+
+### ChatMessageBubble.razor — Render AI Chat Messages as Markdown-Formatted HTML
+
+**Date:** 2026-04-20  
+**Authors:** Frontend / Tester / Hockney (Validation)  
+**Status:** Implemented
+
+Render assistant chat messages as sanitized markdown-derived HTML instead of plain text. User chat messages remain plain text to preserve exact input.
+
+**Problem:** OpenAI responses include markdown formatting (bold, italic, lists, task checkboxes). Rendering them as plain text exposes raw `**`, `_`, and `- [ ]` markers, degrading readability.
+
+**Decision:**
+1. **Assistant messages use Markdig markdown rendering** — Convert OpenAI text to HTML with `.DisableHtml()` for XSS protection
+2. **User messages remain plain text** — Preserve exact user input without auto-formatting
+3. **Task-list references injected as links** — Convert task list display names to `/tasks/{id}` links before markdown rendering
+4. **Markdown features enabled:** bold, italic, lists, checkboxes (read-only)
+
+**Implementation:**
+
+```csharp
+private static readonly MarkdownPipeline MarkdownPipeline = new MarkdownPipelineBuilder()
+    .UseAdvancedExtensions()
+    .DisableHtml()
+    .Build();
+```
+
+**Supported Markdown:**
+- Bold: `**text**` → `<strong>text</strong>`
+- Italic: `_text_` → `<em>text</em>`
+- Lists: `- item` → `<ul><li>item</li></ul>`
+- Checkboxes: `- [ ] item` → `<input type="checkbox" disabled>` (read-only)
+
+**Security Properties:**
+- ✅ **XSS Protection:** Raw HTML tags stripped via `.DisableHtml()`
+- ✅ **Injection Prevention:** Task list names URL-escaped in link hrefs
+- ✅ **Script Blocking:** No `<script>` execution possible via markdown
+- ✅ **External Resources:** No image/iframe loading by design
+
+**Test Coverage:**
+- `Render_AssistantMarkdown_RendersFormattedHtmlInsteadOfLiteralMarkers` — Validates markdown formatting and HTML safety
+- `Render_AssistantMarkdownWithTaskListReference_RendersLinkedFormattedContent` — Validates task list link injection
+- Full component test suite: 65/65 passing
+
+**Files Changed:**
+- `src/TodoExtended.Web/Components/Shared/ChatMessageBubble.razor` — Markdown-based HTML rendering for assistant messages
+- `tests/TodoExtended.Components.Tests/ChatMessageBubbleTests.cs` — Test coverage for markdown + task list linking
+
+**Validation:**
+- ✅ `dotnet build src\TodoExtended.Web\TodoExtended.Web.csproj` → Success (0 errors, 0 warnings)
+- ✅ ChatMessageBubble tests: 2/2 passed
+- ✅ Full component suite: 65/65 passed
+- ✅ Commit df020c1 pushed to `copilot/extend-web-configuration-support`
+
+**Key Learnings:**
+- Markdown rendering is the correct approach for OpenAI responses because they naturally include markdown formatting
+- Markdig is a battle-tested markdown library with built-in XSS protection
+- `.DisableHtml()` prevents HTML injection without breaking markdown features
+- Markdown pipeline is static (instantiated once), no per-message overhead
+- Task list link injection happens before markdown rendering (simpler logic)
 
 ## Governance
 

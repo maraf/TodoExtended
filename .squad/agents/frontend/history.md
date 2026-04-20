@@ -2,6 +2,72 @@
 
 <!-- Session logs appended by Scribe -->
 
+## Session: ChatInput STT Active State Indicator (2026-04-13T084728Z)
+
+**Status:** Complete  
+**Implementation:** Active speech-to-text state visibility with semantic accessibility
+
+### Work Summary
+- **File Modified:** `src/TodoExtended.Web/Components/Shared/ChatInput.razor`
+- **Change:** Updated to keep microphone icon visible when recording; applied brand-colored icon + outline for active state indication
+- **Problem Solved:** Need for clear visual + semantic indication of active recording state
+- **Solution:** Icon remains visible with color + outline styling; added full `aria-pressed` and context-aware `aria-label` support
+- **Visual Match:** Implementation aligns with approved design in `Screenshot 2026-04-13 103959.png`
+- **Validation:** Focused ChatInput test suite passes; component renders active state correctly
+
+### Key Patterns
+- Active state indicated via styling (color + outline) without replacing icon
+- Full semantic accessibility support for assistive technology
+- Layout preserved; button footprint unchanged
+- Test coverage via DOM semantic assertions (aria-pressed, aria-label, active classes)
+
+### Coordination Note
+Full project build blocked by running TodoExtended.Web process. Focused ChatInput test suite used as reliable alternative verification path.
+
+---
+
+## Session: ChatInput JS Module Import Fix (2026-04-13T102527Z)
+
+**Status:** Complete  
+**Implementation:** Module URL normalization for browser-safe dynamic import
+
+### Work Summary
+- **File Modified:** `src/TodoExtended.Web/Components/Shared/ChatInput.razor`
+- **Change:** Added module URL normalization to prefix asset paths with `./` when needed
+- **Problem Solved:** Runtime failure where `IJSRuntime.InvokeAsync("import", ...)` rejected bare module specifier `Components/Shared/ChatInput.{fingerprint}.razor.js`
+- **Solution:** Convert to browser-resolvable relative path by checking for existing `.` or `/` prefix, else prepend `./`
+- **Validation:** Build clean; all ChatInput tests passing; component renders with and without JS module
+
+### Key Patterns
+- Static asset path normalization preserves Blazor's fingerprinting while satisfying browser import semantics
+- Debug logging maintained for JS module load failure troubleshooting
+- No breaking changes to component API or other files
+
+---
+
+## Session: AI Chat Markdown Rendering Fix (2026-04-20T08-42-09Z)
+
+**Status:** Complete  
+**Implementation:** Markdown rendering for assistant messages in chat bubble
+
+### Work Summary
+- **File Modified:** `src/TodoExtended.Web/Components/Shared/ChatMessageBubble.razor`
+- **Root Cause:** Assistant messages rendered as plain text; emphasis markers (`**bold**`, `*italic*`) and task lists (`- [ ]`) displayed literally instead of being parsed
+- **Solution:** Added markdown processing pipeline using Markdig; user messages remain plain text; assistant messages parsed with task list references converted to functional `/tasks/{id}` links
+- **Dependencies Added:** Markdig to `src/TodoExtended.Web/TodoExtended.Web.csproj`
+- **Validation:** Regression tests pass; emphasis and task lists render as HTML elements; visual hierarchy correct
+
+### Key Changes
+- Assistant message flow: raw text → markdown parse → HTML task list injection → rendered output
+- User messages: unchanged (plain text display)
+- Task references: `#task-123` converted to `[task-123](/tasks/123)` before markdown parsing
+- HTML output verified through bUnit DOM assertions in regression suite
+
+### Coordination
+Tester team added comprehensive bUnit coverage verifying markdown rendering correctness and HTML sanitization.
+
+---
+
 ## Infrastructure
 
 ### Playwright Screenshot Capture Infrastructure (2026-03-10)
@@ -177,6 +243,12 @@ All 8 UI component files redesigned from Flowbite Blazor + Tailwind CSS to MudBl
 ## Learnings
 
 [Consolidated into ## Core Context section above]
+
+### ChatInput STT Active Button (2026-04-13)
+
+- **Visual pattern:** Keep the same microphone glyph for both idle and active STT states; switch the active state with brand-colored iconography and an outlined/ringed button instead of swapping to a red recording dot.
+- **Interaction pattern:** Use `aria-pressed` on the STT toggle so the active state is explicit while preserving the existing button footprint beside the send action.
+- **Key files:** `src/TodoExtended.Web/Components/Shared/ChatInput.razor`, `tests/TodoExtended.Components.Tests/ChatInputTests.cs`, `Screenshot 2026-04-13 103959.png`
 
 ### Golden Icon Integration (2026)
 
@@ -565,6 +637,9 @@ Analyzed all 12 shared components, 4 layout components, and 8 pages to produce a
 - ProposedActionCard uses RenderFragment-returning methods for action-type icons (same pattern as NavItem.GetIcon)
 - PageHeader component used with violet-to-fuchsia gradient for AI Chat branding
 - Tailwind CSS MUST be rebuilt (`npm run build:css`) after adding new utility classes to Razor files
+- OpenAI assistant text in `src/TodoExtended.Web/Components/Shared/ChatMessageBubble.razor` needs markdown-aware rendering; plain `AddContent` leaves emphasis and task lists visible as literal markers
+- Safe assistant rendering pattern: keep user messages as plain text, render assistant messages through a markdown pipeline with HTML disabled, then inject task-list links before conversion so `/tasks/{id}` anchors survive formatting
+- Regression coverage belongs in `tests/TodoExtended.Components.Tests/ChatMessageBubbleTests.cs` and should assert formatted elements (`strong`, `em`, `ul`, disabled task-list checkboxes, and task-list anchors), not raw markdown strings
 
 ## 2026-03-11: AI Chat UI & Components (Squad #22)
 
@@ -663,4 +738,6 @@ Modified garmin/TodoExtended.Watch/source/TagTasksMenu.mc to:
 ### Outcome
 
 ✅ **COMPLETED** — Task titles in tag task view now properly strip leading selected tags, improving readability on small watch screens.
-
+- Fingerprinted `.razor.js` assets from `Assets[...]` must be passed to `JS.InvokeAsync("import", ...)` as URL-like specifiers with a leading `./` or `/`; a bare `Components/...` path is treated as an unresolved module specifier.
+- Relevant import-path references: `src/TodoExtended.Web\Components\Shared\ChatInput.razor`, `src/TodoExtended.Web\Components\Layout\ReconnectModal.razor`, `src/TodoExtended.Web\Components\App.razor`.
+- `ChatInput` component coverage should assert the exact module specifier passed to `import()` so browser-only path regressions are caught in component tests before runtime.

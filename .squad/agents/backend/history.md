@@ -1,5 +1,33 @@
 # Backend History
 
+## Session: Duplicate Assembly Attribute Build Investigation (2026-04-13T115255Z)
+
+**Status:** Complete  
+**Outcome:** Investigated source-level cause; confirmed workspace safeguards prevent artifact pollution.
+
+### Investigation Findings
+
+1. **Workspace Safety:** Current `TodoExtended.Web.csproj` includes safeguards:
+   - `<Compile Remove="artifacts/**/*" />` — Prevents MSBuild from compiling stale generated files in `artifacts/` subdirectories
+   - `.gitignore` correctly excludes `artifacts/` from version control
+
+2. **SDK Auto-Generation Conflict:** The .NET SDK auto-generates assembly info files in `obj/Debug/net10.0/`:
+   - `.NETCoreApp,Version=v10.0.AssemblyAttributes.cs`
+   - `{ProjectName}.AssemblyInfo.cs`
+   - `ValidatableTypeAttribute.cs`
+   
+   When both `obj/Debug/net10.0/` and a sibling `artifacts/copilot-stt/obj/Debug/net10.0/` contained copies, MSBuild processed both, causing duplicate definitions.
+
+3. **Conclusion:** The csproj safeguard prevents the artifacts copy from being compiled, but stale `obj/` within `artifacts/` remained until manually cleaned by Hockney.
+
+### Status
+Source code is correctly structured. The issue required operator-level intervention (Hockney's cleanup), not code changes.
+
+### Decision Record
+Stored in `.squad/decisions/decisions.md` — "Build: Duplicate Assembly Attribute & ValidatableTypeAttribute Errors"
+
+---
+
 <!-- Session logs appended by Scribe -->
 
 ## Recent Work
@@ -218,6 +246,12 @@ Core: `CachedTaskList.cs`, `AppDbContext.cs`, `ITodoService.cs`, `CachedTodoServ
   - `src/TodoExtended.Web/Services/AiChat/DemoChatService. Demo mode canned responsescs` 
   - `src/TodoExtended.Web/Services/AiChat/IChatService. Interface contract (architect-owned)cs` 
   - `src/TodoExtended.Web/Services/AiChat/AiChatModels. DTOs (architect-owned)cs` 
+
+### Duplicate Assembly Attributes from Nested Artifacts (2026-04-13)
+
+- **Problem:** SDK-style default compile globs will include `.cs` files under any project-local folder that is not already excluded, even if that folder is just a temporary `artifacts\...\obj\...` tree.
+- **Symptom:** Duplicate generated-file errors such as `TargetFrameworkAttribute`, `AssemblyCompanyAttribute`, `EmbeddedAttribute`, and `ValidatableTypeAttribute` when stale generated sources exist both in the real `obj\` folder and in a nested artifacts directory.
+- **Fix pattern:** Add a project-level exclusion such as `<DefaultItemExcludes>$(DefaultItemExcludes);artifacts\**</DefaultItemExcludes>` to keep temporary artifact trees out of default SDK items instead of relying on manual cleanup.
   - `src/TodoExtended.Web/Services/AiChat/StubChatService. Fallback when not configuredcs` 
  StubChatService
 - **Microsoft.Extensions.AI API:** Use `AIFunctionFactory.Create(delegate, name, description)` for tool definitions. `FunctionCallContent` and `FunctionResultContent` for the manual tool loop. `OpenAI.Chat.ChatClient` + `AsIChatClient()` extension for creating IChatClient from OpenAI-compatible endpoints.
