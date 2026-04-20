@@ -22,18 +22,34 @@ public static class AiChatProviderSelection
     public static bool HasAzureOpenAI(AzureOpenAIOptions options) =>
         HasAzureOpenAI(options.ApiKey, options.Endpoint, options.DeploymentName);
 
-    public static string? GetUsername(ClaimsPrincipal? user) =>
-        user?.FindFirst(ClaimTypes.Email)?.Value
-        ?? user?.FindFirst("preferred_username")?.Value
-        ?? user?.FindFirst(ClaimTypes.Upn)?.Value;
+    public static IEnumerable<string> GetUsernames(ClaimsPrincipal? user)
+    {
+        if (user is null)
+        {
+            yield break;
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var claimType in new[] { ClaimTypes.Email, "preferred_username", ClaimTypes.Upn })
+        {
+            foreach (var claim in user.FindAll(claimType))
+            {
+                if (!string.IsNullOrWhiteSpace(claim.Value) && seen.Add(claim.Value))
+                {
+                    yield return claim.Value;
+                }
+            }
+        }
+    }
 
     public static AiChatProvider ResolveProvider(AiChatOptions options, ClaimsPrincipal? user)
     {
         var azureConfigured = HasAzureOpenAI(options.AzureOpenAI);
-        var username = GetUsername(user);
+        var usernames = GetUsernames(user);
         var useAzure = azureConfigured
-            && !string.IsNullOrWhiteSpace(username)
-            && options.AzureOpenAIUsers.Any(u => string.Equals(u, username, StringComparison.OrdinalIgnoreCase));
+            && usernames.Any(username =>
+                options.AzureOpenAIUsers.Any(u => string.Equals(u, username, StringComparison.OrdinalIgnoreCase)));
 
         if (useAzure)
         {

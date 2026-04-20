@@ -89,6 +89,27 @@ public class AiChatProviderSelectionTests
         Assert.Equal(AiChatProvider.GitHubModels, provider);
     }
 
+    [Fact]
+    public void ResolveProvider_AllowlistMatchesNonFirstClaim_ReturnsAzureOpenAI()
+    {
+        var options = CreateOptions();
+        options.GitHubModels.ApiKey = "github-key";
+        options.AzureOpenAI.ApiKey = "azure-key";
+        options.AzureOpenAI.Endpoint = "https://example.openai.azure.com/";
+        options.AzureOpenAI.DeploymentName = "gpt-4o";
+        options.AzureOpenAIUsers.Add("allowlisted@example.com");
+
+        var user = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(ClaimTypes.Email, "other@example.com"),
+            new Claim(ClaimTypes.Upn, "allowlisted@example.com")
+        ], "test"));
+
+        var provider = AiChatProviderSelection.ResolveProvider(options, user);
+
+        Assert.Equal(AiChatProvider.AzureOpenAI, provider);
+    }
+
     private static AiChatOptions CreateOptions() => new();
 
     private static ClaimsPrincipal CreateUser(string claimType, string claimValue) =>
