@@ -9,11 +9,11 @@ public enum TaskActionType
     CompleteTask,
     UncompleteTask,
     SetReminder,
-    SetDueDate,
     CreateTemplate,
     UpdateTemplate,
     DeleteTemplate,
-    ExecuteTemplate
+    ExecuteTemplate,
+    SetDueDate
 }
 
 /// <summary>
