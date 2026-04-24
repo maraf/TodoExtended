@@ -796,6 +796,129 @@ public class ChatServiceTests
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<TimeOnly>(), Arg.Any<string>());
     }
 
+    #endregion
+
+    #region SetDueDate Tests
+
+    [Fact]
+    public async Task ExecuteActionsAsync_SetDueDate_WithValidDate_CallsSetTaskDueDateAsync()
+    {
+        // Arrange
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var dueDate = new DateOnly(2026, 12, 31);
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.SetDueDate, $"Set due date of task \"Buy milk\" to {dueDate:yyyy-MM-dd}", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["taskId"] = "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+                ["dueDate"] = dueDate.ToString("yyyy-MM-dd")
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        Assert.True(results[0].Success);
+        await todoService.Received(1).SetTaskDueDateAsync(
+            "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+            "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+            dueDate,
+            Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task ExecuteActionsAsync_SetDueDate_WithMissingDueDate_ReturnsFailureResult()
+    {
+        // Arrange
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.SetDueDate, "Set due date", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["taskId"] = "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA=="
+                // dueDate intentionally omitted
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        Assert.False(results[0].Success);
+        Assert.Contains("dueDate", results[0].Message);
+        await todoService.DidNotReceive().SetTaskDueDateAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task ExecuteActionsAsync_SetDueDate_WithInvalidDueDate_ReturnsFailureResult()
+    {
+        // Arrange
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.SetDueDate, "Set due date", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["taskId"] = "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+                ["dueDate"] = "not-a-date"
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, true) }.AsReadOnly();
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Single(results);
+        Assert.False(results[0].Success);
+        Assert.Contains("dueDate", results[0].Message);
+        await todoService.DidNotReceive().SetTaskDueDateAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<string>());
+    }
+
+    [Fact]
+    public async Task ExecuteActionsAsync_SetDueDate_WithRejectedConfirmation_DoesNotCallService()
+    {
+        // Arrange
+        var (chatService, todoService, _) = CreateRealChatService();
+
+        var actions = new List<ProposedAction>
+        {
+            new(TaskActionType.SetDueDate, "Set due date of task \"Buy milk\" to 2026-12-31", new Dictionary<string, string>
+            {
+                ["listId"] = "AQMkADAAATM0MDAAMS1saXN0LTEyMwAAAA==",
+                ["taskId"] = "AQMkADAAATM0MDAAMS10YXNrLTQ1NgAAAA==",
+                ["dueDate"] = "2026-12-31"
+            })
+        }.AsReadOnly();
+
+        var confirmations = new List<ActionConfirmation> { new(0, false) }.AsReadOnly();
+
+        // Act
+        var results = await chatService.ExecuteActionsAsync(actions, confirmations);
+
+        // Assert
+        Assert.Empty(results);
+        await todoService.DidNotReceive().SetTaskDueDateAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<DateOnly>(), Arg.Any<string>());
+    }
+
+    #endregion
+
     /// <summary>
     /// Creates a real <see cref="ChatService"/> with mocked dependencies for testing.
     /// </summary>
@@ -851,8 +974,6 @@ public class ChatServiceTests
         public Task<DateOnly> GetTodayAsync() =>
             Task.FromResult(pinnedToday ?? DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timeZone)));
     }
-
-    #endregion
 
     #region Test Implementation Classes
 

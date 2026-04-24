@@ -27,7 +27,7 @@ public class ChatService(
     IOptions<AiChatOptions> options,
     ILogger<ChatService> logger) : IChatService
 {
-    private static readonly HashSet<string> WriteTools = ["create_task", "complete_task", "uncomplete_task", "set_task_reminder", "create_template", "update_template", "delete_template", "execute_template"];
+    private static readonly HashSet<string> WriteTools = ["create_task", "complete_task", "uncomplete_task", "set_task_reminder", "set_task_due_date", "create_template", "update_template", "delete_template", "execute_template"];
 
     private string GetCurrentUserId() =>
         httpContextAccessor.HttpContext?.User.GetUserIdOrNull()
@@ -46,6 +46,7 @@ public class ChatService(
         - Create new tasks in specific lists
         - Mark tasks as complete or incomplete
         - Set reminders on existing tasks
+        - Set or update due dates on existing tasks
         - View task templates
         - Create new templates (requires task list info and title)
         - Update existing templates
@@ -62,6 +63,7 @@ public class ChatService(
         - Use get_templates to view available templates.
         - When setting a reminder on a new task, prefer passing reminderTime directly to create_task instead of calling set_task_reminder separately.
         - When setting a reminder on an existing task, use set_task_reminder with the task's Id. Ask the user for the reminder date and time if not specified; default the date to today if omitted.
+        - When setting or changing the due date on an existing task, use set_task_due_date with the task's Id and a dueDate in yyyy-MM-dd format. Ask the user for the date if not specified.
         - When creating tasks or templates, always confirm which list to add them to.
         - Be concise and helpful.
         - Format task and template information clearly.
@@ -166,6 +168,8 @@ public class ChatService(
                     await EnrichListNameAsync(proposed, ct);
                     if (call.Name == "set_task_reminder")
                         await EnrichSetReminderActionAsync(proposed, ct);
+                    if (call.Name == "set_task_due_date")
+                        await EnrichTaskTitleAsync(proposed, ct);
                     proposedActions.Add(proposed);
                     // Return a result indicating the action is pending approval
                     messages.Add(new Microsoft.Extensions.AI.ChatMessage(
@@ -369,6 +373,7 @@ public class ChatService(
             AIFunctionFactory.Create(CompleteTaskTool, "complete_task", "Mark a task as completed."),
             AIFunctionFactory.Create(UncompleteTaskTool, "uncomplete_task", "Mark a task as not completed."),
             AIFunctionFactory.Create(SetTaskReminderTool, "set_task_reminder", "Set a reminder on an existing task."),
+            AIFunctionFactory.Create(SetTaskDueDateTool, "set_task_due_date", "Set or update the due date on an existing task."),
             AIFunctionFactory.Create(CreateTemplateTool, "create_template", "Create a new task template."),
             AIFunctionFactory.Create(UpdateTemplateTool, "update_template", "Update an existing task template."),
             AIFunctionFactory.Create(DeleteTemplateTool, "delete_template", "Delete a task template."),
@@ -471,6 +476,12 @@ public class ChatService(
         [Description("Reminder date in yyyy-MM-dd format; defaults to today if omitted")] string? reminderDate = null,
         [Description("The display title of the task from get_tasks or get_today_tasks")] string? taskTitle = null,
         [Description("The display name of the task list from get_task_lists")] string? listName = null) => "proposed";
+    private static string SetTaskDueDateTool(
+        [Description("The Id field of the task list (opaque API identifier from get_task_lists, not the display name)")] string listId,
+        [Description("The Id field of the task (opaque API identifier from get_tasks/get_today_tasks, not the task title)")] string taskId,
+        [Description("Due date in yyyy-MM-dd format (e.g. 2025-12-31)")] string dueDate,
+        [Description("The display title of the task from get_tasks or get_today_tasks")] string? taskTitle = null,
+        [Description("The display name of the task list from get_task_lists")] string? listName = null) => "proposed";
     private static string CreateTemplateTool(
         string title,
         [Description("The Id field of the task list (opaque API identifier from get_task_lists)")] string listId,
@@ -529,6 +540,10 @@ public class ChatService(
                 GetArg(call, "taskTitle") is { Length: > 0 } tt
                     ? $"Set reminder on task \"{tt}\" at {GetArg(call, "reminderTime")}"
                     : $"Set reminder on task {GetArg(call, "taskId")} at {GetArg(call, "reminderTime")}"),
+            "set_task_due_date" => (TaskActionType.SetDueDate,
+                GetArg(call, "taskTitle") is { Length: > 0 } tdt
+                    ? $"Set due date of task \"{tdt}\" to {GetArg(call, "dueDate")}"
+                    : $"Set due date of task {GetArg(call, "taskId")} to {GetArg(call, "dueDate")}"),
             "create_template" => (TaskActionType.CreateTemplate,
                 $"Create template \"{GetArg(call, "title")}\""),
             "update_template" => (TaskActionType.UpdateTemplate,
@@ -561,7 +576,7 @@ public class ChatService(
         if (!isTemplateAction && action.Parameters.ContainsKey("listId"))
             ValidateIdParameter(action, "listId");
         
-        if (action.Type is TaskActionType.CompleteTask or TaskActionType.UncompleteTask or TaskActionType.SetReminder)
+        if (action.Type is TaskActionType.CompleteTask or TaskActionType.UncompleteTask or TaskActionType.SetReminder or TaskActionType.SetDueDate)
             ValidateIdParameter(action, "taskId");
 
         logger.LogDebug("ExecuteAction: {Type}, parameters: {Parameters}",
@@ -635,6 +650,17 @@ public class ChatService(
                     action.Parameters["taskId"],
                     setReminderDate,
                     setReminderTime,
+                    userId);
+                break;
+
+            case TaskActionType.SetDueDate:
+                if (!action.Parameters.TryGetValue("dueDate", out var setDueDateStr)
+                    || !DateOnly.TryParseExact(setDueDateStr, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var setDueDate))
+                    throw new InvalidOperationException("Missing or invalid dueDate parameter (expected yyyy-MM-dd).");
+                await todoService.SetTaskDueDateAsync(
+                    action.Parameters["listId"],
+                    action.Parameters["taskId"],
+                    setDueDate,
                     userId);
                 break;
 
@@ -741,6 +767,31 @@ public class ChatService(
             var today = await userTimeZoneService.GetTodayAsync();
             action.Parameters["reminderDate"] = today.ToString("yyyy-MM-dd");
         }
+    }
+
+    /// <summary>
+    /// Enriches a SetDueDate proposed action with the task title resolved from cache
+    /// when the AI did not supply one.
+    /// </summary>
+    private async Task EnrichTaskTitleAsync(ProposedAction action, CancellationToken ct)
+    {
+        if (!string.IsNullOrEmpty(action.Parameters.GetValueOrDefault("taskTitle")))
+            return;
+
+        if (!action.Parameters.TryGetValue("listId", out var listId) || string.IsNullOrEmpty(listId))
+            return;
+
+        if (!action.Parameters.TryGetValue("taskId", out var taskId) || string.IsNullOrEmpty(taskId))
+            return;
+
+        var userId = GetCurrentUserId();
+        await using var db = await dbContextFactory.CreateDbContextAsync(ct);
+        var title = await db.CachedTasks
+            .Where(t => t.ListId == listId && t.Id == taskId && t.UserId == userId)
+            .Select(t => t.Title)
+            .FirstOrDefaultAsync(ct);
+        if (title is not null)
+            action.Parameters["taskTitle"] = title;
     }
 
     /// <summary>

@@ -12,7 +12,8 @@ public enum TaskActionType
     CreateTemplate,
     UpdateTemplate,
     DeleteTemplate,
-    ExecuteTemplate
+    ExecuteTemplate,
+    SetDueDate
 }
 
 /// <summary>
