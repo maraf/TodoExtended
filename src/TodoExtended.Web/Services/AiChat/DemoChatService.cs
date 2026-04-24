@@ -90,6 +90,28 @@ public class DemoChatService : IChatService
             return Task.FromResult(response);
         }
 
+        if ((lower.Contains("due date") || (lower.Contains("due") && lower.Contains("date")))
+            && (lower.Contains("set") || lower.Contains("change") || lower.Contains("update") || lower.Contains("move")))
+        {
+            var response = new ChatResponse(
+                Text: "I'll set the due date on that task for you. Please confirm below.",
+                ProposedActions:
+                [
+                    new ProposedAction(
+                        TaskActionType.SetDueDate,
+                        $"Set due date of task \"Buy groceries\" to {DateOnly.FromDateTime(DateTime.Today.AddDays(1)):yyyy-MM-dd}",
+                        new Dictionary<string, string>
+                        {
+                            ["listId"] = "demo-list-personal",
+                            ["listName"] = "🏠 Personal",
+                            ["taskId"] = "demo-task-1",
+                            ["taskTitle"] = "Buy groceries",
+                            ["dueDate"] = DateOnly.FromDateTime(DateTime.Today.AddDays(1)).ToString("yyyy-MM-dd")
+                        })
+                ]);
+            return Task.FromResult(response);
+        }
+
         if (lower.Contains("template") || lower.Contains("templates"))
         {
             if (lower.Contains("create") || lower.Contains("new"))
@@ -191,6 +213,7 @@ public class DemoChatService : IChatService
                   "• **Create** new tasks\n" +
                   "• **Complete** or uncomplete tasks\n" +
                   "• **Set reminders** on tasks\n" +
+                  "• **Set due dates** on tasks\n" +
                   "• Show **today's** tasks\n" +
                   "• **View** templates\n" +
                   "• **Create**, **update**, **delete**, or **execute** templates\n\n" +
