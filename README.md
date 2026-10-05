@@ -25,11 +25,17 @@ Stopping a request does not undo task changes that have already completed.
 
 ## Development
 
-Install the .NET 11 RC1 SDK pinned in `global.json`. The task chat uses the
-experimental `Microsoft.AspNetCore.Components.AI` components (`UIAgent`,
-`AgentBoundary`, `MessageList`, and custom action renderers). The existing
-speech-enabled input submits messages through `AgentContext`, retaining voice
-dictation and keyboard behavior.
+The devcontainer image currently provides .NET 10, while `global.json` pins
+.NET 11 RC1. Manually install the pinned .NET 11 RC1 SDK in the development
+environment before restoring or building. The devcontainer's automatic
+post-create restore runs before that manual setup and will fail with a
+compatible-SDK-not-found error; after installing the SDK, rerun
+`dotnet restore TodoExtended.sln` and `cd src/TodoExtended.Web && npm ci`.
+
+The task chat uses the experimental `Microsoft.AspNetCore.Components.AI`
+components (`UIAgent`, `AgentBoundary`, `MessageList`, and custom action
+renderers). The existing speech-enabled input submits messages through
+`AgentContext`, retaining voice dictation and keyboard behavior.
 The existing GitHub Models/Azure OpenAI configuration and demo mode still apply.
 
 The Interactive Server page uses the scoped `IChatClient` adapter in process,

@@ -129,6 +129,7 @@ public class TaskAgentChatClientTests
         using var agent = new UIAgent(client, options =>
         {
             options.Thread = thread;
+            options.AddBlockHandler(new ChatTimestampHandler(thread));
             options.RegisterUIAction(AIFunctionFactory.Create(client.ReviewActionAsync, TaskAgentChatClient.ReviewToolName));
         });
         using var context = new AgentContext(agent);
@@ -143,6 +144,9 @@ public class TaskAgentChatClientTests
         action.Call.Arguments!["approved"] = true;
         await action.InvokeAsync();
         await run;
+        var originalBlocks = context.Turns.Single().RequestBlocks
+            .Concat(context.Turns.Single().ResponseBlocks).OfType<RichContentBlock>().ToList();
+        var timestamps = originalBlocks.Select(thread.GetTimestamp).ToList();
 
         var restored = new BrowserConversationThread();
         restored.Load(thread.Serialize());
@@ -150,9 +154,14 @@ public class TaskAgentChatClientTests
             call => Assert.True(call.InformationalOnly));
         Assert.Contains(restored.GetUpdates().SelectMany(update => update.Contents).OfType<FunctionResultContent>(),
             result => TaskAgentChatClient.ReadResult(result.Result).Success);
-        using var restoredAgent = new UIAgent(client, options => options.Thread = restored);
+        using var restoredAgent = new UIAgent(client, options =>
+        {
+            options.Thread = restored;
+            options.AddBlockHandler(new ChatTimestampHandler(restored));
+        });
         var blocks = await restoredAgent.RestoreAsync();
         Assert.DoesNotContain(blocks, block => block is UIActionBlock);
+        Assert.Equal(timestamps, blocks.OfType<RichContentBlock>().Select(restored.GetTimestamp));
     }
 
     [Fact]

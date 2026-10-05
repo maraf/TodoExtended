@@ -35,7 +35,7 @@
                 <BlockRenderer TBlock="RichContentBlock">
                     <ChatMessageBubble Message="@(new Services.AiChat.ChatMessage(
                         context.Role == ChatRole.User ? "user" : "assistant",
-                        context.RawText, null, DateTimeOffset.Now))" />
+                        context.RawText, null, _thread.GetTimestamp(context)))" />
                 </BlockRenderer>
                 <BlockRenderer TBlock="UIActionBlock" Context="action">
                     <TaskActionReview Block="action" Client="_client" />
@@ -68,6 +68,7 @@
         _agent = new UIAgent(_client, options =>
         {
             options.Thread = _thread;
+            options.AddBlockHandler(new ChatTimestampHandler(_thread));
             options.RegisterUIAction(AIFunctionFactory.Create(
                 _client.ReviewActionAsync,
                 name: TaskAgentChatClient.ReviewToolName,
