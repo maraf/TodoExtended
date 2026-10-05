@@ -1,0 +1,46 @@
+@using Microsoft.AspNetCore.Components.AI
+@inject ILogger<TaskActionReview> Logger
+@implements IDisposable
+
+<ProposedActionCard @key="Block.Id" Action="@TaskAgentChatClient.ReadAction(Block.Call.Arguments)"
+                    OnConfirmation="ReviewAsync" Result="@Result" IsRestored="@(!CanReview)" />
+@if (_error is not null)
+{
+    <ErrorAlert Message="@_error" />
+}
+
+@code {
+    [Parameter, EditorRequired] public UIActionBlock Block { get; set; } = default!;
+    [Parameter, EditorRequired] public TaskAgentChatClient Client { get; set; } = default!;
+    [CascadingParameter] public AgentContext AgentContext { get; set; } = default!;
+    private string? _error;
+    private IDisposable? _statusSubscription;
+    private ActionResult? Result => Block.Result is { } result ? TaskAgentChatClient.ReadResult(result.Result) : null;
+    private bool CanReview => !Block.IsComplete &&
+        AgentContext.Status == ConversationStatus.AwaitingInput &&
+        Client.IsPending(Block.Call.CallId);
+
+    protected override void OnInitialized()
+    {
+        _statusSubscription = AgentContext.RegisterOnStatusChanged(status => _ = InvokeAsync(StateHasChanged));
+    }
+
+    private async Task ReviewAsync(ActionConfirmation confirmation)
+    {
+        if (!CanReview)
+            return;
+        try
+        {
+            Block.Call.Arguments!["approved"] = confirmation.Approved;
+            await Block.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to review task action");
+            _error = "The action could not be completed. Check your tasks before requesting it again.";
+        }
+
+    }
+
+    public void Dispose() => _statusSubscription?.Dispose();
+}

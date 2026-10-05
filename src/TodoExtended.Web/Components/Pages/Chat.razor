@@ -1,10 +1,11 @@
 @page "/chat"
 @attribute [Authorize]
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.Components.AI
+@using Microsoft.Extensions.AI
+@implements IDisposable
 @inject IChatService ChatService
-@inject ILogger<Chat> Logger
-@inject IJSRuntime JS
-@using System.Text.Json
+@inject ILoggerFactory LoggerFactory
 
 <PageTitle>AI Chat</PageTitle>
 
@@ -16,242 +17,74 @@
     </Icon>
 </PageHeader>
 
-<div class="flex flex-col min-h-[calc(100dvh-10rem)] sm:min-h-[calc(100dvh-10.5rem)] lg:min-h-[calc(100dvh-7rem)]">
-    @* Messages area — no inner scroll; scrollbar lives on <main> at the viewport edge *@
-    <div @ref="_messagesContainer" data-chat-scroll class="flex-1 space-y-4 pb-4">
-        @if (_messages.Count == 0)
-        {
-            <div class="flex flex-col items-center justify-center h-full text-center px-4">
-                <div class="w-16 h-16 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center mb-5">
-                    <svg class="w-8 h-8 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
+<AgentBoundary Agent="_agent" @key="_agent">
+    <TaskChatWorkspace Client="_client" Thread="_thread" OnReset="Reset">
+        <MessageList>
+            <Footer Context="agentContext">
+                @* The workspace renders status and retry controls. *@
+            </Footer>
+            <EmptyContent>
+                <div class="text-center py-12 px-4">
+                    <h2 class="text-lg font-bold text-slate-700 dark:text-slate-200 mb-2">Chat with your tasks</h2>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">
+                        Plan your day, find tasks, or ask for changes. Nothing changes until you approve it.
+                    </p>
                 </div>
-                <h2 class="text-lg font-bold text-slate-700 dark:text-slate-200 mb-1">Chat with your tasks</h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
-                    Ask me to create, complete, or reopen tasks. I'll propose actions for you to approve before making changes.
-                </p>
-            </div>
-        }
-        else
-        {
-            <div class="flex justify-end mb-1">
-                <button @onclick="StartNewConversation"
-                        class="btn-ghost btn-sm text-xs flex items-center gap-1.5">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    New conversation
-                </button>
-            </div>
-
-            @foreach (var entry in _messageEntries)
-            {
-                <ChatMessageBubble Message="@entry.Message"
-                                   OnActionConfirmation="(c) => HandleActionConfirmation(entry, c)"
-                                   ActionResults="@entry.Results"
-                                   IsRestored="@entry.IsRestored" />
-            }
-
-            @if (_isLoading)
-            {
-                <div class="flex justify-start animate-fade-in">
-                    <div class="bg-slate-100 dark:bg-slate-700 rounded-2xl rounded-bl-md px-4 py-3">
-                        <div class="flex items-center gap-1.5">
-                            <span class="w-2 h-2 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:0ms]"></span>
-                            <span class="w-2 h-2 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:150ms]"></span>
-                            <span class="w-2 h-2 bg-slate-400 dark:bg-slate-500 rounded-full animate-bounce [animation-delay:300ms]"></span>
-                        </div>
-                    </div>
-                </div>
-            }
-        }
-    </div>
-
-    @* Error alert *@
-    @if (_error is not null)
-    {
-        <div class="mb-2">
-            <ErrorAlert Message="@_error" />
-        </div>
-    }
-
-    @* Input area — sticky so it stays visible while <main> scrolls *@
-    <div class="chat-input-sticky sticky bottom-14 lg:bottom-0 bg-slate-50 dark:bg-slate-900 py-3 border-t border-slate-200 dark:border-slate-700">
-        <ChatInput @ref="_chatInput" OnSend="HandleSend" IsDisabled="_isLoading" />
-    </div>
-</div>
+            </EmptyContent>
+            <ChildContent>
+                <BlockRenderer TBlock="RichContentBlock">
+                    <ChatMessageBubble Message="@(new Services.AiChat.ChatMessage(
+                        context.Role == ChatRole.User ? "user" : "assistant",
+                        context.RawText, null, DateTimeOffset.Now))" />
+                </BlockRenderer>
+                <BlockRenderer TBlock="UIActionBlock" Context="action">
+                    <TaskActionReview Block="action" Client="_client" />
+                </BlockRenderer>
+                <BlockRenderer TBlock="FunctionInvocationContentBlock" Context="action"
+                               When="@(block => block.ToolName == TaskAgentChatClient.ReviewToolName)">
+                    <ProposedActionCard Action="@TaskAgentChatClient.ReadAction(action.Arguments)"
+                                        IsRestored="true"
+                                        Result="@(action.Result is { } result ? TaskAgentChatClient.ReadResult(result.Result) : null)" />
+                </BlockRenderer>
+            </ChildContent>
+        </MessageList>
+    </TaskChatWorkspace>
+</AgentBoundary>
 
 @code {
-    private readonly List<ChatMessage> _messages = new();
-    private readonly List<MessageEntry> _messageEntries = new();
-    private bool _isLoading;
-    private string? _error;
-    private ElementReference _messagesContainer;
-    private ChatInput? _chatInput;
+    private UIAgent _agent = default!;
+    private TaskAgentChatClient _client = default!;
+    private BrowserConversationThread _thread = default!;
 
-    private const string LocalStorageKey = "todoextended-chat-history";
-    private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNameCaseInsensitive = true };
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override void OnInitialized()
     {
-        if (firstRender)
-            await LoadConversationAsync();
+        _client = new TaskAgentChatClient(ChatService);
+        CreateAgent();
     }
 
-    private async Task LoadConversationAsync()
+    private void CreateAgent()
     {
-        try
+        _thread = new BrowserConversationThread();
+        _agent = new UIAgent(_client, options =>
         {
-            var json = await JS.InvokeAsync<string?>("localStorage.getItem", LocalStorageKey);
-            if (string.IsNullOrEmpty(json)) return;
-
-            var entries = JsonSerializer.Deserialize<List<PersistedEntry>>(json, JsonOpts);
-            if (entries is null || entries.Count == 0) return;
-
-            // Guard against unexpectedly large stored histories
-            const int maxEntriesToLoad = 200;
-            if (entries.Count > maxEntriesToLoad)
-                entries = entries.TakeLast(maxEntriesToLoad).ToList();
-
-            foreach (var entry in entries)
-            {
-                if (entry.Message is null) continue;
-                _messages.Add(entry.Message);
-                _messageEntries.Add(new MessageEntry(entry.Message) { Results = entry.Results, IsRestored = true });
-            }
-            StateHasChanged();
-            await ScrollToBottom();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Failed to load chat history from localStorage");
-        }
+            options.Thread = _thread;
+            options.RegisterUIAction(AIFunctionFactory.Create(
+                _client.ReviewActionAsync,
+                name: TaskAgentChatClient.ReviewToolName,
+                description: "Review a proposed task change. The user must explicitly approve or reject it."));
+        }, LoggerFactory);
     }
 
-    private async Task SaveConversationAsync()
+    private void Reset()
     {
-        try
-        {
-            var entries = _messageEntries.Select(e => new PersistedEntry(e.Message, e.Results)).ToList();
-            var json = JsonSerializer.Serialize(entries, JsonOpts);
-            await JS.InvokeVoidAsync("localStorage.setItem", LocalStorageKey, json);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Failed to save chat history to localStorage");
-        }
+        _agent.Dispose();
+        _client.ClearPending();
+        CreateAgent();
     }
 
-    private async Task StartNewConversation()
+    public void Dispose()
     {
-        _messages.Clear();
-        _messageEntries.Clear();
-        _error = null;
-        try
-        {
-            await JS.InvokeVoidAsync("localStorage.removeItem", LocalStorageKey);
-        }
-        catch { /* ignore */ }
-        StateHasChanged();
+        _agent.Dispose();
+        _client.Dispose();
     }
-
-    private async Task HandleSend(string text)
-    {
-        _error = null;
-
-        var userMessage = new ChatMessage("user", text, null, DateTimeOffset.Now);
-        _messages.Add(userMessage);
-        _messageEntries.Add(new MessageEntry(userMessage));
-
-        _isLoading = true;
-        StateHasChanged();
-        await ScrollToBottom();
-
-        try
-        {
-            var response = await ChatService.SendMessageAsync(text, _messages);
-
-            var assistantMessage = new ChatMessage(
-                "assistant",
-                response.Text,
-                response.ProposedActions.Count > 0 ? response.ProposedActions : null,
-                DateTimeOffset.Now,
-                response.TaskListReferences);
-
-            _messages.Add(assistantMessage);
-            _messageEntries.Add(new MessageEntry(assistantMessage));
-            await SaveConversationAsync();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to send chat message");
-            _error = "Failed to get a response. Please try again.";
-        }
-        finally
-        {
-            _isLoading = false;
-            StateHasChanged();
-            await ScrollToBottom();
-            if (_chatInput is not null)
-                await _chatInput.FocusAsync();
-        }
-    }
-
-    private async Task HandleActionConfirmation(MessageEntry entry, ActionConfirmation confirmation)
-    {
-        entry.Confirmations.Add(confirmation);
-
-        if (entry.Message.ProposedActions is null) return;
-
-        // Wait until all actions are decided
-        if (entry.Confirmations.Count < entry.Message.ProposedActions.Count) return;
-
-        // If no actions were approved, skip execution
-        if (!entry.Confirmations.Any(c => c.Approved)) return;
-
-        _isLoading = true;
-        StateHasChanged();
-
-        try
-        {
-            var results = await ChatService.ExecuteActionsAsync(
-                entry.Message.ProposedActions,
-                entry.Confirmations);
-
-            entry.Results = results.ToList();
-            await SaveConversationAsync();
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Failed to execute actions");
-            _error = "Failed to execute actions. Please try again.";
-        }
-        finally
-        {
-            _isLoading = false;
-            StateHasChanged();
-            await ScrollToBottom();
-        }
-    }
-
-    private async Task ScrollToBottom()
-    {
-        await Task.Yield();
-        try
-        {
-            await JS.InvokeVoidAsync("scrollToBottom");
-        }
-        catch { /* ignore during prerender */ }
-    }
-
-    private class MessageEntry(ChatMessage message)
-    {
-        public ChatMessage Message { get; } = message;
-        public List<ActionConfirmation> Confirmations { get; } = new();
-        public IReadOnlyList<ActionResult>? Results { get; set; }
-        public bool IsRestored { get; init; }
-    }
-
-    private record PersistedEntry(ChatMessage Message, IReadOnlyList<ActionResult>? Results);
 }

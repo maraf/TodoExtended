@@ -83,6 +83,7 @@ dlldata.c
 BenchmarkDotNet.Artifacts/
 
 # .NET Core
+.dotnet/
 project.lock.json
 project.fragment.lock.json
 artifacts/
@@ -148,6 +149,7 @@ ipch/
 
 # Visual Studio Trace Files
 *.e2e
+!tests/TodoExtended.E2E/
 
 # TFS 2012 Local Workspace
 $tf/

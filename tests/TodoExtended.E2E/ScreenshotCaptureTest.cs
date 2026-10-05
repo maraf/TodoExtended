@@ -13,7 +13,7 @@ namespace TodoExtended.E2E;
 public class ScreenshotCaptureTest : E2ETestBase
 {
 
-    // Repo root: test project is at tests/TodoExtended.E2E/ → go up 3 from bin/Debug/net10.0/
+    // Repo root: test project is at tests/TodoExtended.E2E/ → go up 3 from bin/Debug/net11.0/
     private static string RepoRoot => Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
     private static string ScreenshotsDir => Path.Combine(RepoRoot, "docs", "screenshots");
 
@@ -282,7 +282,7 @@ public class ScreenshotCaptureTest : E2ETestBase
 
                     // Clear any existing chat history so the empty state is shown
                     await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
-                    await Page.EvaluateAsync("() => localStorage.removeItem('todoextended-chat-history')");
+                    await Page.EvaluateAsync("() => { localStorage.removeItem('todoextended-chat-history'); localStorage.removeItem('todoextended-agent-chat-history'); }");
                     await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
 
                     // Wait for empty state placeholder
@@ -336,7 +336,7 @@ public class ScreenshotCaptureTest : E2ETestBase
 
                     // Seed localStorage before navigating so the page loads with the conversation
                     await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
-                    await Page.EvaluateAsync("value => localStorage.setItem('todoextended-chat-history', value)", chatHistory);
+                    await Page.EvaluateAsync("value => { localStorage.removeItem('todoextended-agent-chat-history'); localStorage.setItem('todoextended-chat-history', value); }", chatHistory);
 
                     // Reload so Blazor reads the seeded localStorage
                     await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
@@ -387,7 +387,7 @@ public class ScreenshotCaptureTest : E2ETestBase
 
                 // Seed localStorage before navigating so the page loads with the conversation
                 await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
-                await Page.EvaluateAsync("value => localStorage.setItem('todoextended-chat-history', value)", chatHistory);
+                await Page.EvaluateAsync("value => { localStorage.removeItem('todoextended-agent-chat-history'); localStorage.setItem('todoextended-chat-history', value); }", chatHistory);
 
                 // Reload so Blazor reads the seeded localStorage
                 await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
@@ -436,7 +436,7 @@ public class ScreenshotCaptureTest : E2ETestBase
                     await Page.SetViewportSizeAsync(vp.Width, vp.Height);
 
                     await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
-                    await Page.EvaluateAsync("value => localStorage.setItem('todoextended-chat-history', value)", chatHistory);
+                    await Page.EvaluateAsync("value => { localStorage.removeItem('todoextended-agent-chat-history'); localStorage.setItem('todoextended-chat-history', value); }", chatHistory);
 
                     await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
 
@@ -480,7 +480,7 @@ public class ScreenshotCaptureTest : E2ETestBase
                     await Page.SetViewportSizeAsync(vp.Width, vp.Height);
 
                     await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
-                    await Page.EvaluateAsync("value => localStorage.setItem('todoextended-chat-history', value)", chatHistory);
+                    await Page.EvaluateAsync("value => { localStorage.removeItem('todoextended-agent-chat-history'); localStorage.setItem('todoextended-chat-history', value); }", chatHistory);
 
                     await Page.GotoAsync($"{BaseUrl}/chat", new() { WaitUntil = WaitUntilState.NetworkIdle });
 

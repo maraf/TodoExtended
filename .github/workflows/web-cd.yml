@@ -22,7 +22,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.100-rc.1.26425.128'
 
       - name: Log in to ghcr.io
         uses: docker/login-action@v3

@@ -29,7 +29,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.100-rc.1.26425.128'
 
       - name: Publish web app
         run: dotnet publish src/TodoExtended.Web/TodoExtended.Web.csproj --configuration Release -o /tmp/todoextended-publish
@@ -38,7 +38,7 @@ jobs:
         run: dotnet build tests/TodoExtended.E2E/TodoExtended.E2E.csproj --configuration Debug
 
       - name: Install Playwright browsers
-        run: pwsh tests/TodoExtended.E2E/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+        run: pwsh tests/TodoExtended.E2E/bin/Debug/net11.0/playwright.ps1 install --with-deps chromium
 
       - name: Start app in demo mode
         run: |

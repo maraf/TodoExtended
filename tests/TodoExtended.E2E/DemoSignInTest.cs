@@ -37,7 +37,7 @@ public class DemoSignInTest : E2ETestBase
             .ToBeVisibleAsync(new() { Timeout = 30_000 });
 
         // Take and save the screenshot.
-        // AppContext.BaseDirectory is e.g. bin/Debug/net10.0/ — navigate up three levels
+        // AppContext.BaseDirectory is e.g. bin/Debug/net11.0/ — navigate up three levels
         // to reach the test project root so that CI can find the file at
         // tests/TodoExtended.E2E/screenshots/ as configured in the upload-artifact step.
         var screenshotsDir = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "screenshots"));
