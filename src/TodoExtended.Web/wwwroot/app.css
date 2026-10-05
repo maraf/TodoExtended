@@ -11,3 +11,35 @@ h1:focus { outline: none; }
     color: white;
 }
 .blazor-error-boundary::after { content: "An error has occurred." }
+
+.task-chat .sc-ai-message-list {
+    overflow: visible;
+    max-height: none;
+    padding: 0;
+}
+
+.task-chat {
+    --sc-ai-color-accent: #4338ca;
+    --sc-ai-color-accent-hover: #3730a3;
+    --sc-ai-color-text: #334155;
+    --sc-ai-max-width: none;
+}
+
+.task-chat textarea {
+    color: #334155;
+    background: white;
+    border-color: #cbd5e1;
+}
+
+.dark .task-chat {
+    --sc-ai-color-surface: #1e293b;
+    --sc-ai-color-text: #e2e8f0;
+    --sc-ai-color-text-secondary: #94a3b8;
+    --sc-ai-color-border: #475569;
+}
+
+.dark .task-chat textarea {
+    color: #e2e8f0;
+    background: #1e293b;
+    border-color: #475569;
+}

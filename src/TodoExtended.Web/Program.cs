@@ -15,6 +15,8 @@ using TodoExtended.Web.Middleware;
 using TodoExtended.Web.Services;
 using TodoExtended.Web.Services.AiChat;
 using TodoExtended.Web.Extensions;
+using AGUI.Abstractions;
+using AGUI.Server;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -159,6 +161,9 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 
 // AI Chat
 builder.Services.Configure<AiChatOptions>(builder.Configuration.GetSection(AiChatOptions.SectionName));
+builder.Services.AddScoped<TaskAgentChatClient>();
+builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
+    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AGUIJsonUtilities.DefaultTypeInfoResolver));
 
 var aiChatSection = builder.Configuration.GetSection(AiChatOptions.SectionName);
 var aiChatOptions = aiChatSection.Get<AiChatOptions>() ?? new AiChatOptions();
@@ -406,6 +411,18 @@ if (isDemoMode)
 
 // API Endpoints
 var api = app.MapGroup("/api").RequireAuthorization().DisableAntiforgery();
+
+api.MapPost("/chat", (
+    RunAgentInput input,
+    TaskAgentChatClient client,
+    Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Http.Json.JsonOptions> jsonOptions,
+    CancellationToken cancellationToken) =>
+{
+    var context = input.ToChatRequestContext(jsonOptions.Value.SerializerOptions);
+    var events = client.GetStreamingResponseAsync(context.Messages, context.ChatOptions, cancellationToken)
+        .AsAGUIEventStreamAsync(context, cancellationToken);
+    return TypedResults.ServerSentEvents(events);
+});
 
 
 // Template endpoints

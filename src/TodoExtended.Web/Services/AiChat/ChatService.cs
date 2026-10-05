@@ -55,6 +55,7 @@ public class ChatService(
         - Get the current date and time in the user's timezone
 
         Guidelines:
+        - Write tools propose changes for approval in the application. Never claim a change was made until an execution result confirms it.
         - Use the read tools to fetch current data before answering questions about tasks or templates.
         - Use get_task_lists to discover lists, get_tasks or get_today_tasks to get task titles and IDs.
         - Use search_tasks to find tasks matching a keyword across all synced lists.
@@ -77,10 +78,24 @@ public class ChatService(
         Always call a read tool first to obtain the correct Id values.
         """;
 
-    public async Task<ChatResponse> SendMessageAsync(
+    public Task<ChatResponse> SendMessageAsync(
         string userMessage,
         IReadOnlyList<ChatMessage> history,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        SendCoreAsync(userMessage, history, null, ct);
+
+    public Task<ChatResponse> SendStreamingMessageAsync(
+        string userMessage,
+        IReadOnlyList<ChatMessage> history,
+        Func<string, Task> onText,
+        CancellationToken ct = default) =>
+        SendCoreAsync(userMessage, history, onText, ct);
+
+    private async Task<ChatResponse> SendCoreAsync(
+        string userMessage,
+        IReadOnlyList<ChatMessage> history,
+        Func<string, Task>? onText,
+        CancellationToken ct)
     {
         var opts = options.Value;
         var tools = BuildTools();
@@ -109,14 +124,14 @@ public class ChatService(
             Microsoft.Extensions.AI.ChatResponse response;
             try
             {
-                response = await chatClient.GetResponseAsync(messages, chatOptions, ct);
+                response = await GetModelResponseAsync(messages, chatOptions, onText, ct);
             }
             catch (ClientResultException ex) when (IsTokenLimitError(ex))
             {
                 if (retried)
                 {
                     logger.LogError(ex, "AI request still exceeds token limit after trimming");
-                    return new ChatResponse("Sorry, the conversation is too long. Please start a new chat.", []);
+                    throw new InvalidOperationException("The conversation is too long. Please start a new chat.", ex);
                 }
 
                 logger.LogWarning("AI request hit token limit (HTTP {Status}), trimming conversation and retrying", ex.Status);
@@ -125,10 +140,14 @@ public class ChatService(
                 i--; // Retry this iteration
                 continue;
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 logger.LogError(ex, "AI chat request failed");
-                return new ChatResponse("Sorry, I encountered an error communicating with the AI service.", []);
+                throw;
             }
 
             // Add all response messages to conversation for potential next iteration
@@ -195,7 +214,10 @@ public class ChatService(
                 // One more call to get the AI's final text response after proposals
                 try
                 {
-                    var finalResponse = await chatClient.GetResponseAsync(messages, chatOptions, ct);
+                    var finalOptions = chatOptions.Clone();
+                    finalOptions.Tools = null;
+                    finalOptions.ToolMode = ChatToolMode.None;
+                    var finalResponse = await GetModelResponseAsync(messages, finalOptions, onText, ct);
                     foreach (var msg in finalResponse.Messages)
                     {
                         foreach (var content in msg.Contents)
@@ -207,13 +229,14 @@ public class ChatService(
                         }
                     }
                 }
-                catch (ClientResultException ex) when (IsTokenLimitError(ex))
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {
-                    logger.LogWarning("Final AI response hit token limit, using collected text");
+                    throw;
                 }
                 catch (Exception ex)
                 {
                     logger.LogWarning(ex, "Failed to get final AI response after proposals");
+                    throw;
                 }
 
                 break;
@@ -226,9 +249,31 @@ public class ChatService(
             ? responseText.ToString()
             : "I've processed your request.";
 
+        if (onText is not null && responseText.Length == 0)
+            await onText(finalText);
+
         var taskListRefs = referencedLists.Count > 0 ? referencedLists : null;
 
         return new ChatResponse(finalText, proposedActions, taskListRefs);
+    }
+
+    private async Task<Microsoft.Extensions.AI.ChatResponse> GetModelResponseAsync(
+        List<Microsoft.Extensions.AI.ChatMessage> messages,
+        ChatOptions chatOptions,
+        Func<string, Task>? onText,
+        CancellationToken ct)
+    {
+        if (onText is null)
+            return await chatClient.GetResponseAsync(messages, chatOptions, ct);
+
+        var updates = new List<ChatResponseUpdate>();
+        await foreach (var update in chatClient.GetStreamingResponseAsync(messages, chatOptions, ct))
+        {
+            updates.Add(update);
+            foreach (var text in update.Contents.OfType<TextContent>())
+                await onText(text.Text);
+        }
+        return updates.ToChatResponse();
     }
 
     public async Task<IReadOnlyList<ActionResult>> ExecuteActionsAsync(
@@ -250,8 +295,13 @@ public class ChatService(
             var action = actions[i];
             try
             {
+                ct.ThrowIfCancellationRequested();
                 await ExecuteAction(action, ct);
                 results.Add(new ActionResult(i, true, $"{action.Type} completed successfully."));
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
             }
             catch (Exception ex)
             {

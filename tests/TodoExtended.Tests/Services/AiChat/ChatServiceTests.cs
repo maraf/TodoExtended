@@ -363,6 +363,68 @@ public class ChatServiceTests
     #region get_current_datetime Tool Tests
 
     [Fact]
+    public async Task SendStreamingMessageAsync_InvokesReadToolsAndStreamsTextFragments()
+    {
+        var (chatService, _, _, chatClient) = CreateRealChatServiceWithClient();
+        List<Microsoft.Extensions.AI.ChatMessage>? captured = null;
+        chatClient.GetStreamingResponseAsync(
+            Arg.Do<IEnumerable<Microsoft.Extensions.AI.ChatMessage>>(messages => captured = messages.ToList()),
+            Arg.Any<Microsoft.Extensions.AI.ChatOptions>(), Arg.Any<CancellationToken>())
+            .Returns(
+                StreamUpdates(new Microsoft.Extensions.AI.ChatResponseUpdate
+                {
+                    Role = Microsoft.Extensions.AI.ChatRole.Assistant,
+                    Contents = [new Microsoft.Extensions.AI.FunctionCallContent("clock", "get_current_datetime")],
+                }),
+                StreamUpdates(
+                    new Microsoft.Extensions.AI.ChatResponseUpdate(Microsoft.Extensions.AI.ChatRole.Assistant, "Hello"),
+                    new Microsoft.Extensions.AI.ChatResponseUpdate(Microsoft.Extensions.AI.ChatRole.Assistant, " world")));
+        var fragments = new List<string>();
+        var response = await chatService.SendStreamingMessageAsync("What time is it?", [], text =>
+        {
+            fragments.Add(text);
+            return Task.CompletedTask;
+        });
+        Assert.Equal(["Hello", " world"], fragments);
+        Assert.Equal("Hello world", response.Text);
+        Assert.Empty(response.ProposedActions);
+        Assert.Contains(captured!.SelectMany(message => message.Contents)
+            .OfType<Microsoft.Extensions.AI.FunctionResultContent>(), result => result.CallId == "clock");
+    }
+
+    [Fact]
+    public async Task SendStreamingMessageAsync_ProposesWritesWithoutExecutingAndDisablesFinalTools()
+    {
+        var (chatService, _, _, chatClient) = CreateRealChatServiceWithClient();
+        Microsoft.Extensions.AI.ChatOptions? finalOptions = null;
+        chatClient.GetStreamingResponseAsync(
+            Arg.Any<IEnumerable<Microsoft.Extensions.AI.ChatMessage>>(),
+            Arg.Do<Microsoft.Extensions.AI.ChatOptions>(options => finalOptions = options),
+            Arg.Any<CancellationToken>())
+            .Returns(
+                StreamUpdates(new Microsoft.Extensions.AI.ChatResponseUpdate
+                {
+                    Role = Microsoft.Extensions.AI.ChatRole.Assistant,
+                    Contents = [new Microsoft.Extensions.AI.FunctionCallContent("delete", "delete_template",
+                        new Dictionary<string, object?> { ["templateId"] = Guid.NewGuid().ToString() })],
+                }),
+                StreamUpdates(new Microsoft.Extensions.AI.ChatResponseUpdate(
+                    Microsoft.Extensions.AI.ChatRole.Assistant, "Please approve the deletion.")));
+        var response = await chatService.SendStreamingMessageAsync("Delete the template", [], _ => Task.CompletedTask);
+        Assert.Equal(TaskActionType.DeleteTemplate, Assert.Single(response.ProposedActions).Type);
+        Assert.Null(finalOptions!.Tools);
+        Assert.Equal(Microsoft.Extensions.AI.ChatToolMode.None, finalOptions.ToolMode);
+    }
+
+    private static async IAsyncEnumerable<Microsoft.Extensions.AI.ChatResponseUpdate> StreamUpdates(
+        params Microsoft.Extensions.AI.ChatResponseUpdate[] updates)
+    {
+        await Task.Yield();
+        foreach (var update in updates)
+            yield return update;
+    }
+
+    [Fact]
     public async Task SendMessageAsync_WhenAiCallsGetCurrentDatetime_ReturnsValidJsonWithOffset()
     {
         // Arrange — use a fixed timezone with a known non-UTC offset to verify DST-aware output

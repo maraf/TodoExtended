@@ -1,0 +1,170 @@
+@using Microsoft.AspNetCore.Components.AI
+@inject IJSRuntime JS
+@inject ILogger<TaskChatWorkspace> Logger
+@implements IDisposable
+
+<div class="sc-ai-root task-chat flex flex-col min-h-[calc(100dvh-10rem)] lg:min-h-[calc(100dvh-7rem)]">
+    <div class="flex justify-end gap-2 mb-3">
+        <button class="btn-ghost btn-sm text-xs" disabled="@(!_ready)" @onclick="NewConversationAsync">New conversation</button>
+        @if (IsBusy)
+        {
+            <button class="btn-ghost btn-sm text-xs" @onclick="CancelAsync">Stop</button>
+        }
+    </div>
+    <div class="flex-1 pb-4" data-chat-scroll aria-live="polite">
+        @if (_ready)
+        {
+            @ChildContent
+        }
+        else
+        {
+            <p role="status" class="text-sm text-slate-500 dark:text-slate-400">Loading conversation...</p>
+        }
+    </div>
+    @if (AgentContext.Status == ConversationStatus.AwaitingInput)
+    {
+        <p role="status" class="text-sm text-slate-500 dark:text-slate-400 py-2">Review the proposed actions to continue.</p>
+    }
+    @if (AgentContext.Status == ConversationStatus.Streaming)
+    {
+        <p role="status" class="text-sm text-slate-500 dark:text-slate-400 py-2">Working on your request...</p>
+    }
+    @if (AgentContext.Status == ConversationStatus.Error)
+    {
+        <ErrorAlert Message="The assistant could not finish this request. Please try again." />
+        <button class="btn-ghost btn-sm my-2" @onclick="() => AgentContext.RetryAsync()">Retry</button>
+    }
+    @if (_storageError is not null)
+    {
+        <ErrorAlert Message="@_storageError" />
+    }
+    <div class="chat-input-sticky sticky bottom-14 lg:bottom-0 bg-slate-50 dark:bg-slate-900 py-3 border-t border-slate-200 dark:border-slate-700">
+        @if (_ready)
+        {
+            <ChatInput @ref="_input" OnSend="SendAsync" IsDisabled="IsBusy" />
+        }
+    </div>
+</div>
+
+@code {
+    private const string StorageKey = "todoextended-agent-chat-history";
+    private const string LegacyStorageKey = "todoextended-chat-history";
+    [Parameter, EditorRequired] public TaskAgentChatClient Client { get; set; } = default!;
+    [Parameter, EditorRequired] public BrowserConversationThread Thread { get; set; } = default!;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback OnReset { get; set; }
+    [CascadingParameter] public AgentContext AgentContext { get; set; } = default!;
+    private IDisposable? _statusSubscription;
+    private string? _storageError;
+    private bool _disposed;
+    private bool _ready;
+    private ChatInput? _input;
+    private bool IsBusy => AgentContext.Status is ConversationStatus.Streaming or ConversationStatus.AwaitingInput;
+
+    protected override void OnInitialized()
+    {
+        Thread.OnTurnCompleted = () => _ = InvokeAsync(SaveAsync);
+        _statusSubscription = AgentContext.RegisterOnStatusChanged(status => _ = InvokeAsync(async () =>
+        {
+            if (_disposed) return;
+            if (status == ConversationStatus.Error)
+                Logger.LogError(AgentContext.Error, "Task chat turn failed");
+            if (status == ConversationStatus.Idle)
+                Client.ClearPending();
+            StateHasChanged();
+            try
+            {
+                await JS.InvokeVoidAsync("scrollToBottom");
+            }
+            catch (JSDisconnectedException)
+            {
+                Logger.LogDebug("Chat scroll skipped because the circuit disconnected");
+            }
+        }));
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            if (json is not null)
+                Thread.Load(json);
+            else if (await JS.InvokeAsync<string?>("localStorage.getItem", LegacyStorageKey) is { } legacy)
+                Thread.LoadLegacy(legacy);
+            await AgentContext.RestoreAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to restore task chat history");
+            _storageError = "Chat history could not be restored. Start a new conversation to clear it.";
+        }
+        finally
+        {
+            _ready = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_disposed) return;
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, Thread.Serialize());
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to save task chat history");
+            _storageError = "Chat history could not be saved on this device.";
+            StateHasChanged();
+        }
+    }
+
+    private async Task CancelAsync()
+    {
+        Client.ClearPending();
+        await AgentContext.CancelAsync();
+    }
+
+    private async Task SendAsync(string text)
+    {
+        await AgentContext.SendMessageAsync(text);
+        if (!_disposed && _input is not null)
+        {
+            try
+            {
+                await _input.FocusAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                Logger.LogDebug("Chat focus skipped because the circuit disconnected");
+            }
+        }
+    }
+
+    private async Task NewConversationAsync()
+    {
+        await CancelAsync();
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.removeItem", StorageKey);
+            await JS.InvokeVoidAsync("localStorage.removeItem", LegacyStorageKey);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to clear task chat history");
+            _storageError = "Saved history could not be cleared. Please try again.";
+            return;
+        }
+        await OnReset.InvokeAsync();
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        Thread.OnTurnCompleted = null;
+        _statusSubscription?.Dispose();
+    }
+}
